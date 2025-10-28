@@ -1,0 +1,16 @@
+{
+    "dirnam_rus" : "Эксперименты Кирилла Лейфера (BOOtak) с GPIB",
+    "dirnam_eng" : "Experiments by Kirill Leyfer (BOOtak) with GPIB",
+    "ignore" : {
+
+    },
+    "descr_eng" : {
+
+    },
+    "descr_rus" : {
+
+    },
+    "recur_access" : true,
+    "show_sysfiles" : false,
+    "show_forbiddirs" : false
+}
