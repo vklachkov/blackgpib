@@ -18,17 +18,11 @@
 #define GRID210X_STATE_WRITING_DATA 2
 #define GRID210X_STATE_WRITING_DATA_WAIT 3
 
-#define SILENT 1
-
-#define LOG(format, args...)
-
-// #define LOG_INFO(format, args...)
-
 #define LOG_INFO(format, args...) { \
 	timespec ts; \
 	clock_gettime(CLOCK_MONOTONIC, &ts); \
 	printf("+%lu.%09lu: " format, ts.tv_sec, ts.tv_nsec, ##args); \
-} \
+}
 
 #define GRID2102_FETCH32(Array, Offset) ((uint32_t)(\
 	(Array[Offset] << 0) |\
@@ -94,6 +88,8 @@ uint8_t G2101H_identify_response[52] = {
 };
 
 enum GPIB_Pin {
+	GPIB_PIN_DC,
+    GPIB_PIN_TE,
     GPIB_PIN_DIO1,
     GPIB_PIN_DIO2,
     GPIB_PIN_DIO3,
@@ -108,7 +104,6 @@ enum GPIB_Pin {
     GPIB_PIN_DAV,
     GPIB_PIN_NRFD,
     GPIB_PIN_NDAC,
-
     GPIB_PIN_SRQ,
 
     GPIB_PIN_MAX
@@ -116,22 +111,23 @@ enum GPIB_Pin {
 
 uint8_t remapGPIBPin(GPIB_Pin pin) {
     switch(pin) {
-        case GPIB_PIN_DIO1: return 4;
-        case GPIB_PIN_DIO2: return 17;
-        case GPIB_PIN_DIO3: return 27;
-        case GPIB_PIN_DIO4: return 22;
-        case GPIB_PIN_DIO5: return 18;
-        case GPIB_PIN_DIO6: return 23;
-        case GPIB_PIN_DIO7: return 24;
-        case GPIB_PIN_DIO8: return 25;
+		case GPIB_PIN_DC:   return 11;
+        case GPIB_PIN_TE:   return 7;
+		case GPIB_PIN_DIO1: return 21;
+		case GPIB_PIN_DIO2: return 22;
+		case GPIB_PIN_DIO3: return 26;
+		case GPIB_PIN_DIO4: return 23;
+		case GPIB_PIN_DIO5: return 24;
+		case GPIB_PIN_DIO6: return 27;
+		case GPIB_PIN_DIO7: return 25;
+		case GPIB_PIN_DIO8: return 28;
 
-        case GPIB_PIN_EOI: return 26;
-        case GPIB_PIN_DAV: return 19;
-        case GPIB_PIN_NRFD: return 5;
-        case GPIB_PIN_NDAC: return 6;
-        case GPIB_PIN_ATN: return 12;
-
-        case GPIB_PIN_SRQ: return 13;
+		case GPIB_PIN_EOI:  return 6;
+		case GPIB_PIN_DAV:  return 12;
+		case GPIB_PIN_NRFD: return 5;
+		case GPIB_PIN_NDAC: return 3;
+		case GPIB_PIN_ATN:  return 13;
+		case GPIB_PIN_SRQ:  return 10;
     }
     return 0xFF;
 }
@@ -141,27 +137,19 @@ int GPIB_host_pin_states[GPIB_PIN_MAX] {};
 
 #define GPIB_WRITE_FUNCTION_DEFINE(pinName) \
     void GPIB_Write_##pinName(int value) { \
-		LOG("Write " #pinName" %d\n", value); \
+		LOG_INFO("Write " #pinName" %d\n", value); \
         GPIB_Pin gpibPin = GPIB_PIN_##pinName; \
         /*if (GPIB_pin_states[gpibPin] == value) return;*/ \
         uint8_t pin = remapGPIBPin(gpibPin); \
         if (value) { \
+			GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 0); \
             GPIO_IF_SetMode(pin, GPIO_IF_INPUT); \
         } else { \
+			GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 1);  \
             GPIO_IF_SetMode(pin, GPIO_IF_OUTPUT); \
 	        GPIO_IF_SetPinState(pin, value); \
         } \
         /*GPIB_pin_states[gpibPin] = value;*/ \
-    }
-
-int GPIB_Read_Pin(GPIB_Pin gpibPin) {
-	// if (GPIB_pin_states[gpibPin] == 0) return 0;
-	return GPIB_host_pin_states[gpibPin];
-}
-
-#define GPIB_READ_FUNCTION_DEFINE(pinName) \
-    int GPIB_Read_##pinName() { \
-        return GPIB_Read_Pin(GPIB_PIN_##pinName); \
     }
 
 GPIB_WRITE_FUNCTION_DEFINE(NDAC)
@@ -170,18 +158,50 @@ GPIB_WRITE_FUNCTION_DEFINE(EOI)
 GPIB_WRITE_FUNCTION_DEFINE(DAV)
 GPIB_WRITE_FUNCTION_DEFINE(NRFD)
 
-// bool GPIO_passive(uint8_t pin) {
-//     gpioSetMode(pin, PI_INPUT);
-//     gpioSetPullUpDown(pin, PI_PUD_UP);
-//     return (bool)gpioRead(pin);
-// }
+int GPIB_Read_Pin(GPIB_Pin gpibPin) {
+	return GPIO_IF_GetPinState(remapGPIBPin(gpibPin));
+}
 
-// void GPIO_active(uint8_t pin) {
-//     gpioSetMode(pin, PI_OUTPUT);
-//     gpioWrite(pin, state);
-// }
+int GPIB_Read_ATN() {
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_DC), 1);
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 0);
+	return GPIB_Read_Pin(GPIB_PIN_ATN);
+}
+
+int GPIB_Read_EOI() {
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_DC), 1);
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 0);
+	return GPIB_Read_Pin(GPIB_PIN_EOI);
+}
+
+int GPIB_Read_DAV() {
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_DC), 1);
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 0);
+	return GPIB_Read_Pin(GPIB_PIN_DAV);
+}
+
+int GPIB_Read_SRQ() {
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_DC), 0);
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 1);
+	return GPIB_Read_Pin(GPIB_PIN_SRQ);
+}
+
+int GPIB_Read_NDAC() {
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_DC), 0);
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 1);
+	return GPIB_Read_Pin(GPIB_PIN_NDAC);
+}
+
+int GPIB_Read_NRFD() {
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_DC), 0);
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 1);
+	return GPIB_Read_Pin(GPIB_PIN_NRFD);
+}
 
 void GPIB_Write_DIO(int byteValue) {
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_DC), 0);
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 1);
+
     for(int i = 0; i < 8; i++) {
         int value = (byteValue >> i) & 1;
 
@@ -192,12 +212,10 @@ void GPIB_Write_DIO(int byteValue) {
     }
 }
 
-GPIB_READ_FUNCTION_DEFINE(ATN)
-GPIB_READ_FUNCTION_DEFINE(EOI)
-GPIB_READ_FUNCTION_DEFINE(NDAC)
-GPIB_READ_FUNCTION_DEFINE(NRFD)
-
 int GPIB_Read_DIO() {
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_DC), 1);
+	GPIO_IF_SetPinState(remapGPIBPin(GPIB_PIN_TE), 0);
+
     int byteValue = 0;
     for(int i = 0; i < 8; i++) {
 		GPIB_Pin gpibPin = (GPIB_Pin) (GPIB_PIN_DIO1 + i);
@@ -207,6 +225,7 @@ int GPIB_Read_DIO() {
         // GPIB_Pin gpibPin = (GPIB_Pin) (GPIB_PIN_DIO1 + i);
         byteValue |= GPIO_IF_GetPinState(pin) << i;
     }
+
     return byteValue;
 }
 
@@ -266,7 +285,7 @@ void G210x_AcceptTransfer() {
 		} else {
 			// TODO: set status
 		}
-		LOG("grid210x_device write sector %d\n", floppy_sector_number);
+		LOG_INFO("grid210x_device write sector %d\n", G210x_floppy_sector_number);
 		// wait
 		G210x_state = GRID210X_STATE_WRITING_DATA_WAIT;
         // usleep(G210x_read_delay);
@@ -290,7 +309,7 @@ void G210x_NDAC_Callback(int state);
 
 void G210x_NRFD_Callback(int state)  {
 	if (state == 0 || state == 1) {
-		LOG("receive NRFD=%d\n", state);
+		LOG_INFO("receive NRFD=%d\n", state);
 	}
 	if (state == 1 && G210x_gpib_state == GRID210X_GPIB_STATE_SEND_DATA_START) {
 		// set dio and assert dav
@@ -303,18 +322,18 @@ void G210x_NRFD_Callback(int state)  {
 		GPIB_Write_DAV(0);
 		GPIB_Write_NDAC(1);
 		G210x_gpib_state = GRID210X_GPIB_STATE_WAIT_NDAC_FALSE;
-		G210x_NDAC_Callback(GPIB_Read_NDAC());
+		G210x_NDAC_Callback(GPIB_host_pin_states[GPIB_PIN_NDAC]);
 	}
-	// LOG("grid210x_device nrfd state set to %d\n", state);
+	// LOG_INFO("grid210x_device nrfd state set to %d\n", state);
 }
 
 void G210x_NDAC_Callback(int state)  {
 	if (state == 0 || state == 1) {
-		LOG("receive NDAC=%d\n", state);
+		LOG_INFO("receive NDAC=%d\n", state);
 	}
 	if (state == 1 && G210x_gpib_state == GRID210X_GPIB_STATE_WAIT_NDAC_FALSE) {
 		// restore initial state
-		// LOG("grid210x_device restore ndac nrfd dav eoi\n");
+		// LOG_INFO("grid210x_device restore ndac nrfd dav eoi\n");
 
 		// GPIO_IF_USleep(5);
 
@@ -330,7 +349,7 @@ void G210x_NDAC_Callback(int state)  {
 			G210x_talking = false;
 			GPIB_Write_NDAC(0);
 		} else {
-			G210x_UpdateNDAC(GPIB_Read_ATN() ^ 1);
+			G210x_UpdateNDAC(GPIB_host_pin_states[GPIB_PIN_ATN] ^ 1);
 		}
 
 		if (!G210x_serial_polling && G210x_talking && !G210x_output_data_buffer.empty()) {
@@ -343,16 +362,16 @@ void G210x_NDAC_Callback(int state)  {
 			GPIB_Write_DIO(0xFF);
 		}
 	}
-	// LOG("grid210x_device ndac state set to %d\n", state);
+	// LOG_INFO("grid210x_device ndac state set to %d\n", state);
 }
 
 void G210x_ATN_Callback(int state) {
 	if (state == 0 || state == 1) {
-		LOG("receive ATN=%d\n", state);
+		LOG_INFO("receive ATN=%d\n", state);
 	}
 	if (state == 1 && G210x_gpib_state == GRID210X_GPIB_STATE_WAIT_ATN_UNASSERT) {
 		G210x_gpib_state = GRID210X_GPIB_STATE_SEND_DATA_START;
-		G210x_NRFD_Callback(GPIB_Read_NRFD());
+		G210x_NRFD_Callback(GPIB_host_pin_states[GPIB_PIN_NRFD]);
 	}
     if (state == 1 || state == 0) {
         G210x_UpdateNDAC(state ^ 1);
@@ -361,14 +380,14 @@ void G210x_ATN_Callback(int state) {
 
 void G210x_DAV_Callback(int state) {
 	if (state == 0 || state == 1) {
-		LOG("receive DAV=%d\n", state);
+		LOG_INFO("receive DAV=%d\n", state);
 	}
     if(state == 0 && G210x_gpib_state == GRID210X_GPIB_STATE_IDLE) {
 		// read data and wait for transfer end
 		GPIB_Write_NRFD(0);
-		int atn = GPIB_Read_ATN() ^ 1;
+		int atn = GPIB_host_pin_states[GPIB_PIN_ATN] ^ 1;
 		uint8_t data = GPIB_Read_DIO() ^ 0xFF;
-		int eoi = GPIB_Read_EOI() ^ 1;
+		int eoi = GPIB_host_pin_states[GPIB_PIN_EOI] ^ 1;
 		LOG_INFO("grid210x_device byte recv %02x atn %d eoi %d\n", data, atn, eoi);
 		G210x_last_recv_byte = data;
 		G210x_last_recv_atn = atn;
@@ -472,23 +491,13 @@ int main(int argc, char **argv) {
         return 3;
     }
 
-    // for (int i = 0; i < GPIB_PIN_MAX; i++) {
-	// 	uint8_t iopin = remapGPIBPin((GPIB_Pin) i);
-	// 	GPIO_IF_SetPullDown(iopin);
-	// }
+	GPIO_IF_SetMode(remapGPIBPin(GPIB_PIN_DC), GPIO_IF_OUTPUT);
+	GPIO_IF_SetMode(remapGPIBPin(GPIB_PIN_TE), GPIO_IF_OUTPUT);
 
-	// usleep(100);
-
-	// for (int i = 0; i < GPIB_PIN_MAX; i++) {
-	// 	uint8_t iopin = remapGPIBPin((GPIB_Pin) i);
-	// 	fprintf(stderr, "%d:%d %d\n", i, iopin, GPIO_IF_GetPinState(iopin));
-	// }
-
-    for (int i = 0; i < GPIB_PIN_MAX; i++) {
+    for (int i = GPIB_PIN_DIO1; i < GPIB_PIN_MAX; i++) {
         uint8_t iopin = remapGPIBPin((GPIB_Pin) i);
         GPIO_IF_SetPullup(iopin);
         GPIO_IF_SetMode(iopin, GPIO_IF_INPUT);
-        // GPIB_pin_states[i] = -1;
         GPIB_host_pin_states[i] = 1;
     }
 
@@ -496,10 +505,11 @@ int main(int argc, char **argv) {
 		int old_host_pin_states[GPIB_PIN_MAX];
 		memcpy(old_host_pin_states, GPIB_host_pin_states, sizeof(GPIB_host_pin_states));
 
-		// check signalling only
-		for (int i = GPIB_PIN_DIO8 + 1; i < GPIB_PIN_MAX; i++) {
-			GPIB_host_pin_states[i] = /* GPIB_pin_states[i] && */ GPIO_IF_GetPinState(remapGPIBPin((GPIB_Pin) i));
-		}
+		GPIB_host_pin_states[GPIB_PIN_ATN]  = GPIB_Read_ATN();
+		GPIB_host_pin_states[GPIB_PIN_EOI]  = GPIB_Read_EOI();
+		GPIB_host_pin_states[GPIB_PIN_DAV]  = GPIB_Read_DAV();
+		GPIB_host_pin_states[GPIB_PIN_NRFD] = GPIB_Read_NRFD();
+		GPIB_host_pin_states[GPIB_PIN_NDAC] = GPIB_Read_NDAC();
 
 		for (int i = GPIB_PIN_DIO8 + 1; i < GPIB_PIN_MAX; i++) {
 			bool changed = false;
@@ -519,8 +529,6 @@ int main(int argc, char **argv) {
 				}
 			}
 		}
-
-		// GPIO_IF_USleep(100);
 	}
 
     GPIO_IF_Finish();
