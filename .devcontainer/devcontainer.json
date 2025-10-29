@@ -1,5 +1,5 @@
 {
-	"name": "C++",
+	"name": "BlackGPiB",
 	"build": {
 		"dockerfile": "Dockerfile"
 	}
