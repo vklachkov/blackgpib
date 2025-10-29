@@ -1,0 +1,11 @@
+FROM mcr.microsoft.com/devcontainers/cpp:1-debian-12
+
+RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+    && apt-get -y install --no-install-recommends python3-distutils
+
+WORKDIR /tmp
+RUN git clone https://github.com/joan2937/pigpio.git
+WORKDIR /tmp/pigpio
+RUN make && sudo make install
+WORKDIR /tmp
+RUN rm -rf pigpio
