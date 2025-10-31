@@ -2,10 +2,12 @@
 pub enum GPIB {
     /// Transfer Enable/Talk Enable (SN7516x).
     TE,
-    /// Direction Control (SN75161).
+    /// Direction Control (SN75161 and 162).
     DC,
-    /// System Control (SN75162).
+    /// System Control (SN75162 only).
     SC,
+    /// System Control (SN75161 and 162).
+    PE,
 
     /// Data Input/Output, bit 1.
     DIO1,
@@ -44,11 +46,12 @@ pub enum GPIB {
 }
 
 impl GPIB {
-    pub const fn all() -> [GPIB; 19] {
+    pub const fn all() -> [GPIB; 20] {
         [
             GPIB::TE,
             GPIB::DC,
             GPIB::SC,
+            GPIB::PE,
             GPIB::DIO1,
             GPIB::DIO2,
             GPIB::DIO3,
@@ -86,6 +89,7 @@ impl GPIB {
             GPIB::TE => 7,
             GPIB::DC => 11,
             GPIB::SC => 17,
+            GPIB::PE => 21,
             GPIB::DIO1 => 5,
             GPIB::DIO2 => 6,
             GPIB::DIO3 => 12,

@@ -12,6 +12,7 @@ fn main() -> Result<()> {
 
     let _dc = gpio::output(GPIB::DC, Level::High)?;
     let _te = gpio::output(GPIB::TE, Level::Low)?;
+    let _pe = gpio::output(GPIB::PE, Level::High)?;
 
     let atn = gpio::input(GPIB::ATN)?;
     let eoi = gpio::input(GPIB::EOI)?; 
