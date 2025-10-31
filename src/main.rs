@@ -1,5 +1,7 @@
 mod gpib;
 mod gpio;
+mod listener;
+mod messages;
 
 use std::{
     thread::sleep,
@@ -8,84 +10,10 @@ use std::{
 
 use rppal::gpio::{Level, Result};
 
-use crate::gpib::GPIB;
+use crate::{gpib::GPIB, listener::ListenerStateMachine};
 
-const ADDRESS: u8 = 5; // 4 for HDD 10MB, 5 is ???, 6 for Floppy 5.25.
-
-struct ListenerStateMachine {
-    current_state: ListenerState,
-    buffer: Vec<u8>,
-}
-
-#[derive(Clone, Copy)]
-enum ListenerState {
-    Idle,
-    Addressed,
-    Active,
-}
-
-impl ListenerStateMachine {
-    fn idle() -> Self {
-        Self {
-            current_state: ListenerState::Idle,
-            buffer: Vec::with_capacity(16),
-        }
-    }
-
-    /// Return bytes on unlisten.
-    fn process(&mut self, byte: u8, is_command: bool) -> Option<Vec<u8>> {
-        match self.current_state {
-            ListenerState::Idle => {
-                if is_command && Self::is_mla(byte) {
-                    println!("Idle -> Addressed");
-                    self.current_state = ListenerState::Addressed;
-                }
-            }
-            ListenerState::Addressed => {
-                if is_command {
-                    if Self::is_unlisten_command(byte) || Self::is_mta_command(byte) {
-                        println!("Addressed -> Idle");
-                        self.current_state = ListenerState::Idle;
-                    }
-                } else {
-                    println!("Addressed -> Active");
-                    self.current_state = ListenerState::Active;
-                    self.buffer.push(byte);
-                }
-            }
-            ListenerState::Active => {
-                if is_command {
-                    if Self::is_unlisten_command(byte) || Self::is_mta_command(byte) {
-                        println!("Active -> Idle");
-                        self.current_state = ListenerState::Idle;
-
-                        let read = self.buffer.clone();
-                        self.buffer.clear();
-
-                        return Some(read);
-                    }
-                } else {
-                    println!("Save byte {byte:#02x}");
-                    self.buffer.push(byte);
-                }
-            }
-        };
-
-        None
-    }
-
-    fn is_mla(byte: u8) -> bool {
-        (byte & 0b0111_1111) == (0b0010_0000 | ADDRESS)
-    }
-
-    fn is_unlisten_command(byte: u8) -> bool {
-        (byte & 0b0111_1111) == 0b0011_1111
-    }
-
-    fn is_mta_command(byte: u8) -> bool {
-        (byte & 0b0111_1111) == (0b0100_0000 | ADDRESS)
-    }
-}
+// 4 for HDD 10MB, 6 for Floppy 5.25.
+const ADDRESS: u8 = 5;
 
 fn main() -> Result<()> {
     let start = Instant::now();
@@ -104,7 +32,7 @@ fn main() -> Result<()> {
     let mut ndac = gpio::output(GPIB::NDAC, Level::Low)?;
     let mut nrfd = gpio::output(GPIB::NRFD, Level::Low)?;
 
-    let mut listener = ListenerStateMachine::idle();
+    let mut listener = ListenerStateMachine::new(ADDRESS);
 
     loop {
         // Ready for data.
