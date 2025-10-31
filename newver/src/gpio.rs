@@ -46,7 +46,7 @@ pub fn read_data() -> Result<u8> {
     for pin in GPIB::data() {
         let pin = input(pin)?;
         let bit_set = pin.is_low();
-        byte = (byte << 1) & (bit_set as u8);
+        byte = (byte << 1) | (bit_set as u8);
     }
 
     Ok(byte)

@@ -29,30 +29,30 @@ fn main() -> Result<()> {
         nrfd.set_high();
 
         // Wait laptop.
-        println!("Wait DAV low");
+        // println!("Wait DAV low");
         while dav.is_high() {
             sleep(Duration::from_micros(100));
         }
-        println!("DAV is low");
+        // println!("DAV is low");
 
         // Not ready for data.
         nrfd.set_low();
 
         // Read all.
-        let is_atn = atn.is_low();
-        let is_eoi = eoi.is_low();
+        let atn = atn.is_low() as u8;
+        let eoi = eoi.is_low() as u8;
         let byte = gpio::read_data()?;
 
-        println!("GPIB -> ATN={is_atn} EOI={is_eoi} BYTE={byte:2x}");
+        println!("GPIB -> ATN={atn} EOI={eoi} BYTE={byte:#02x}");
 
         // Notify that we read byte.
         ndac.set_high();
 
         // Wait laptop.
-        println!("Wait DAV high");
+        // println!("Wait DAV high");
         while dav.is_low() {
             sleep(Duration::from_micros(100));
         }
-        println!("DAV is high");
+        // println!("DAV is high");
     }
 }
