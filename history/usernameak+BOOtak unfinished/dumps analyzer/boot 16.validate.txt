@@ -1,0 +1,664 @@
+DIO[0] change while low DAV at 0.751559000s!
+DIO[4] change while low DAV at 0.755732125s!
+ATN change while low DAV at 4.882046750s!
+ATN change while low DAV at 4.893509750s!
+6.923426313: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 6.952843687s!
+ATN change while low DAV at 7.054632563s!
+ATN change while low DAV at 7.173064875s!
+ATN change while low DAV at 7.275151125s!
+7.364383875: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 7.412919813s!
+7.416207812: dt = 62 < 100 at NRFD!
+7.419468937: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 7.425247125s!
+7.523888688: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 7.554071750s!
+ATN change while low DAV at 7.581283062s!
+7.587062875: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 7.593506563s!
+ATN change while low DAV at 7.856298687s!
+ATN change while low DAV at 7.979138563s!
+8.267142313: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 8.297223375s!
+ATN change while low DAV at 8.421231875s!
+ATN change while low DAV at 8.697375500s!
+ATN change while low DAV at 8.861291062s!
+ATN change while low DAV at 9.215970125s!
+ATN change while low DAV at 9.320451875s!
+ATN change while low DAV at 9.438666625s!
+ATN change while low DAV at 9.556983875s!
+9.626585063: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 9.658962688s!
+EOI change while low DAV at 9.777333188s!
+ATN change while low DAV at 9.879663125s!
+ATN change while low DAV at 9.997970813s!
+10.067557562: dt = 62 < 100 at NRFD!
+10.092066625: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 10.100008750s!
+10.185977625: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 10.218376625s!
+ATN change while low DAV at 10.320432812s!
+10.430982500: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 10.439070437s!
+ATN change while low DAV at 10.557410875s!
+ATN change while low DAV at 10.659492438s!
+10.745413687: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 10.777796688s!
+ATN change while low DAV at 10.879883438s!
+10.966132250: dt = 63 < 100 at NRFD!
+10.990462313: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 10.998545438s!
+ATN change while low DAV at 11.100469625s!
+11.186409438: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 11.218903625s!
+11.312927625: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 11.320877000s!
+11.406895375: dt = 63 < 100 at NRFD!
+11.431330625: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 11.437824750s!
+ATN change while low DAV at 11.718866063s!
+ATN change while low DAV at 11.839821375s!
+ATN change while low DAV at 11.957723250s!
+12.027332188: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 12.060145312s!
+ATN change while low DAV at 12.178153375s!
+ATN change while low DAV at 12.280800875s!
+12.390607562: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 12.399154625s!
+ATN change while low DAV at 12.500775250s!
+ATN change while low DAV at 12.619525000s!
+EOI change while low DAV at 12.721193188s!
+12.831716375: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 12.840241688s!
+12.950012375: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 12.958168125s!
+ATN change while low DAV at 13.060596000s!
+ATN change while low DAV at 13.178599812s!
+13.272687188: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 13.281023313s!
+ATN change while low DAV at 13.399173875s!
+ATN change while low DAV at 13.501565188s!
+13.587195188: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 13.619646750s!
+ATN change while low DAV at 13.722044875s!
+ATN change while low DAV at 13.840038875s!
+13.950481687: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 13.959009000s!
+ATN change while low DAV at 14.060508125s!
+ATN change while low DAV at 14.179304062s!
+14.248473437: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 14.280853063s!
+ATN change while low DAV at 14.399704125s!
+ATN change while low DAV at 14.501464063s!
+14.587446062: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 14.620307813s!
+14.689495562: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 14.721956750s!
+14.832354750: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 14.840681250s!
+ATN change while low DAV at 14.958780250s!
+15.028668938: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 15.061552250s!
+ATN change while low DAV at 15.179406063s!
+15.248920000: dt = 62 < 100 at NRFD!
+EOI change while low DAV at 15.281763375s!
+15.367404750: dt = 62 < 100 at NRFD!
+15.391849188: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 15.399795750s!
+ATN change while low DAV at 15.502204000s!
+15.588100750: dt = 62 < 100 at NRFD!
+15.612416000: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 15.620373562s!
+ATN change while low DAV at 15.722767188s!
+ATN change while low DAV at 15.840819563s!
+ATN change while low DAV at 15.959415875s!
+16.028723250: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 16.061079813s!
+16.147372562: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 16.180036687s!
+16.273508312: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 16.281669250s!
+16.367640188: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 16.400488500s!
+ATN change while low DAV at 16.502122875s!
+16.612584438: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 16.620913125s!
+ATN change while low DAV at 16.722662062s!
+16.832921250: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 16.841450750s!
+16.927121312: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 16.959647875s!
+17.053648813: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 17.061964938s!
+ATN change while low DAV at 17.179993875s!
+17.274175187: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 17.282502875s!
+ATN change while low DAV at 17.400589062s!
+17.470154750: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 17.503037500s!
+17.588604062: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 17.621017812s!
+17.690665312: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 17.723444625s!
+17.833571250: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 17.841524625s!
+ATN change while low DAV at 17.960336687s!
+ATN change while low DAV at 18.061954375s!
+ATN change while low DAV at 18.180669812s!
+ATN change while low DAV at 18.282392937s!
+ATN change while low DAV at 18.401262813s!
+18.494818750: dt = 62 < 100 at DIO3!
+ATN change while low DAV at 18.502962687s!
+ATN change while low DAV at 18.621765750s!
+18.715439688: dt = 63 < 100 at DIO3!
+ATN change while low DAV at 18.723394813s!
+ATN change while low DAV at 18.842183500s!
+EOI change while low DAV at 18.960317062s!
+ATN change while low DAV at 19.062719250s!
+ATN change while low DAV at 19.180805187s!
+ATN change while low DAV at 19.283139375s!
+19.368824750: dt = 63 < 100 at NRFD!
+19.393268187: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 19.401223125s!
+ATN change while low DAV at 19.503711125s!
+ATN change while low DAV at 19.621823062s!
+19.691372750: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 19.724197063s!
+19.809794625: dt = 63 < 100 at NRFD!
+19.834221250: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 19.842172625s!
+ATN change while low DAV at 19.960935438s!
+20.030181563: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 20.062637563s!
+20.148630063: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 20.181483000s!
+ATN change while low DAV at 20.283140688s!
+ATN change while low DAV at 20.401903125s!
+ATN change while low DAV at 20.503575812s!
+ATN change while low DAV at 20.622470813s!
+20.716003375: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 20.724157500s!
+ATN change while low DAV at 20.842945750s!
+20.928574687: dt = 62 < 100 at NRFD!
+20.953008312: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 20.960951250s!
+21.055047750: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 21.063374062s!
+ATN change while low DAV at 21.181524938s!
+21.251097625: dt = 62 < 100 at NRFD!
+21.275395062: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 21.283927125s!
+ATN change while low DAV at 21.402023875s!
+ATN change while low DAV at 21.504379437s!
+21.590074000: dt = 62 < 100 at NRFD!
+21.614511625: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 21.622463187s!
+ATN change while low DAV at 21.724922375s!
+ATN change while low DAV at 21.843019625s!
+ATN change while low DAV at 21.961722500s!
+ATN change while low DAV at 22.063343375s!
+ATN change while low DAV at 22.182124188s!
+22.251400875: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 22.283859625s!
+22.394199562: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 22.402729063s!
+22.471940562: dt = 62 < 100 at NRFD!
+22.496260187: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 22.504420500s!
+ATN change while low DAV at 22.623134938s!
+22.692436625: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 22.724808625s!
+ATN change while low DAV at 22.843690625s!
+22.929353938: dt = 63 < 100 at NRFD!
+22.953676563: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 22.961824875s!
+ATN change while low DAV at 23.064234438s!
+ATN change while low DAV at 23.182252563s!
+ATN change while low DAV at 23.284648750s!
+ATN change while low DAV at 23.402813438s!
+23.496696312: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 23.505216000s!
+23.590864312: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 23.623349063s!
+EOI change while low DAV at 23.725628687s!
+ATN change while low DAV at 23.843702938s!
+ATN change while low DAV at 23.962441750s!
+24.056040875: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 24.064188563s!
+ATN change while low DAV at 24.182983562s!
+24.276631500: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 24.284583438s!
+24.395118938: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 24.403449812s!
+ATN change while low DAV at 24.505110062s!
+24.591217938: dt = 63 < 100 at NRFD!
+24.615530375: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 24.624064250s!
+24.693217750: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 24.725657500s!
+25.150682625: dt = 63 < 100 at NRFD!
+25.174973250: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 25.183503313s!
+ATN change while low DAV at 25.285151375s!
+25.395562063: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 25.403899187s!
+25.497605250: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 25.505558375s!
+ATN change while low DAV at 25.624441375s!
+25.693709250: dt = 62 < 100 at NRFD!
+25.718014875: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 25.726156000s!
+25.812132875: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 29.154237625s!
+EOI change while low DAV at 29.165774813s!
+ATN change while low DAV at 34.531101000s!
+34.533814875: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 34.542306188s!
+36.449531187: dt = 62 < 100 at NRFD!
+36.473761813: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 36.479197187s!
+ATN change while low DAV at 36.505485562s!
+ATN change while low DAV at 36.523427625s!
+ATN change while low DAV at 36.793390313s!
+36.870142562: dt = 62 < 100 at NRFD!
+36.894298375: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 36.921364250s!
+ATN change while low DAV at 37.232024938s!
+37.311180125: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 37.533885062s!
+ATN change while low DAV at 38.011708812s!
+ATN change while low DAV at 38.167309125s!
+38.331963812: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 38.365623000s!
+38.650457250: dt = 62 < 100 at NRFD!
+38.674692063: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 38.687504438s!
+39.074907813: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 39.104295437s!
+ATN change while low DAV at 39.115510000s!
+39.474856375: dt = 62 < 100 at DIO3!
+ATN change while low DAV at 39.480449562s!
+ATN change while low DAV at 39.506632500s!
+39.510420063: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 39.524785750s!
+ATN change while low DAV at 39.794652437s!
+ATN change while low DAV at 39.922388375s!
+40.193963813: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 40.233234563s!
+ATN change while low DAV at 40.365116250s!
+ATN change while low DAV at 40.650308625s!
+40.814971500: dt = 63 < 100 at NRFD!
+40.839114313: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 40.886993313s!
+40.892842875: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 40.898357500s!
+41.051528187: dt = 62 < 100 at NRFD!
+41.075668000: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 41.081258187s!
+ATN change while low DAV at 41.107455750s!
+ATN change while low DAV at 41.125977125s!
+41.353704312: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 41.397312812s!
+41.472334000: dt = 63 < 100 at NRFD!
+41.496484625: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 41.526002187s!
+41.818876563: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 41.835762750s!
+41.913166875: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 41.980102250s!
+ATN change while low DAV at 42.210235000s!
+ATN change while low DAV at 42.425914938s!
+42.510068125: dt = 63 < 100 at DIO4!
+ATN change while low DAV at 42.526891750s!
+ATN change while low DAV at 42.628848813s!
+42.713636562: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 42.747353125s!
+42.815667062: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 42.901431000s!
+ATN change while low DAV at 43.168007188s!
+43.276733937: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 43.286299062s!
+ATN change while low DAV at 43.388489937s!
+ATN change while low DAV at 43.524416375s!
+ATN change while low DAV at 43.608836750s!
+43.693807062: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 43.727539625s!
+43.795804938: dt = 63 < 100 at NRFD!
+43.819960750: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 43.829540313s!
+43.938288063: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 43.965533687s!
+44.240556938: dt = 63 < 100 at DIO3!
+ATN change while low DAV at 44.249974500s!
+ATN change while low DAV at 44.368659375s!
+44.453083750: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 44.486792500s!
+ATN change while low DAV at 44.606635625s!
+ATN change while low DAV at 44.707378062s!
+44.799918375: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 44.809325375s!
+ATN change while low DAV at 44.927999625s!
+45.020401750: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 45.047636750s!
+ATN change while low DAV at 45.148435562s!
+ATN change while low DAV at 45.250396688s!
+ATN change while low DAV at 45.368834937s!
+45.453837250: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 45.505225125s!
+45.579926750: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 45.589514937s!
+45.674275438: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 45.707988563s!
+ATN change while low DAV at 45.809971500s!
+ATN change while low DAV at 45.946087437s!
+46.196893063: dt = 63 < 100 at NRFD!
+46.221040875: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 46.230621625s!
+ATN change while low DAV at 46.349099313s!
+ATN change while low DAV at 46.451085562s!
+ATN change while low DAV at 46.587191750s!
+46.654227187: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 46.688116313s!
+46.780406062: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 46.789993813s!
+46.874758937: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 46.908469500s!
+ATN change while low DAV at 47.028129250s!
+47.095232688: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 47.128891625s!
+ATN change while low DAV at 47.231189687s!
+ATN change while low DAV at 47.349450563s!
+ATN change while low DAV at 47.469176125s!
+ATN change while low DAV at 47.569910312s!
+47.654829625: dt = 63 < 100 at NRFD!
+47.679104813: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 47.688513812s!
+47.757000875: dt = 62 < 100 at NRFD!
+47.781160875: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 47.790747250s!
+47.899492563: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 47.926717000s!
+ATN change while low DAV at 48.211151375s!
+ATN change while low DAV at 48.329592625s!
+ATN change while low DAV at 48.431968688s!
+ATN change while low DAV at 48.567899250s!
+ATN change while low DAV at 48.652251812s!
+ATN change while low DAV at 48.770646937s!
+48.855257438: dt = 63 < 100 at NRFD!
+48.879500625: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 48.888917187s!
+48.957362688: dt = 63 < 100 at NRFD!
+48.981603687: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 49.008776938s!
+49.075836750: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 49.109571500s!
+ATN change while low DAV at 49.211641937s!
+49.296396063: dt = 63 < 100 at NRFD!
+49.320644063: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 49.330053062s!
+ATN change while low DAV at 49.449733750s!
+ATN change while low DAV at 49.550849500s!
+49.643105250: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 49.652680813s!
+49.761612312: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 49.771198250s!
+ATN change while low DAV at 49.907287188s!
+49.957934625: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 49.991626563s!
+50.076380687: dt = 62 < 100 at NRFD!
+50.100632875: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 50.110203250s!
+50.178460937: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 50.212191313s!
+50.321135187: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 50.350640000s!
+50.599165812: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 50.632817938s!
+ATN change while low DAV at 50.751282438s!
+50.819804500: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 50.853554875s!
+50.938084375: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 50.998678625s!
+ATN change while low DAV at 51.090235375s!
+ATN change while low DAV at 51.192205063s!
+ATN change while low DAV at 51.310664500s!
+51.379169563: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 51.433402500s!
+51.497518250: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 51.531228000s!
+ATN change while low DAV at 51.633290438s!
+51.718018937: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 51.751678125s!
+ATN change while low DAV at 51.872420125s!
+ATN change while low DAV at 51.972603937s!
+52.057154875: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 52.090881250s!
+ATN change while low DAV at 52.192922688s!
+ATN change while low DAV at 52.337390500s!
+52.603946750: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 52.619071312s!
+52.722300000: dt = 63 < 100 at DIO3!
+ATN change while low DAV at 52.730586688s!
+ATN change while low DAV at 52.833972563s!
+52.942904687: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 52.952354437s!
+ATN change while low DAV at 53.054474687s!
+53.139335563: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 53.180591312s!
+53.383814875: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 53.392353562s!
+ATN change while low DAV at 53.511913875s!
+ATN change while low DAV at 53.613931313s!
+53.696698000: dt = 63 < 100 at NDAC, NRFD!
+ATN change while low DAV at 53.732585125s!
+53.824852812: dt = 62 < 100 at DIO3!
+ATN change while low DAV at 53.863800375s!
+ATN change while low DAV at 53.952952625s!
+ATN change while low DAV at 54.054972437s!
+ATN change while low DAV at 54.173421312s!
+54.282540563: dt = 63 < 100 at DIO3!
+ATN change while low DAV at 54.310330125s!
+54.560385563: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 54.594163313s!
+ATN change while low DAV at 54.712620937s!
+ATN change while low DAV at 54.814634562s!
+ATN change while low DAV at 54.951536438s!
+ATN change while low DAV at 55.235413562s!
+55.318206688: dt = 63 < 100 at NDAC!
+55.344421250: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 55.353866188s!
+55.422159500: dt = 63 < 100 at NRFD!
+55.446411688: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 55.455867625s!
+55.564950313: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 55.601848500s!
+ATN change while low DAV at 55.892781062s!
+ATN change while low DAV at 55.994822312s!
+ATN change while low DAV at 56.113258313s!
+ATN change while low DAV at 56.236609812s!
+56.300096438: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 56.333876375s!
+56.402158875: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 56.435924625s!
+ATN change while low DAV at 56.554366250s!
+ATN change while low DAV at 56.735656437s!
+ATN change while low DAV at 56.747019937s!
+ATN change while low DAV at 57.089386125s!
+ATN change while low DAV at 57.115614625s!
+57.119419750: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 57.135023875s!
+ATN change while low DAV at 57.401345562s!
+57.480408062: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 57.527004375s!
+ATN change while low DAV at 57.840919250s!
+58.003074437: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 58.044556125s!
+58.121497062: dt = 62 < 100 at NRFD!
+58.145753062: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 58.787409000s!
+59.187039437: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 59.384489688s!
+59.390535000: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 59.395931187s!
+59.661106938: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 59.690883687s!
+ATN change while low DAV at 59.717122000s!
+59.721122125: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 59.736455687s!
+ATN change while low DAV at 60.006912875s!
+60.082010813: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 60.137264812s!
+ATN change while low DAV at 60.445134688s!
+ATN change while low DAV at 60.611292500s!
+60.963977000: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 61.000349437s!
+61.188511250: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 61.216470188s!
+61.282795062: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 61.316692563s!
+61.408800687: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 61.418409813s!
+61.503041125: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 61.536824625s!
+61.605038125: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 61.703660812s!
+ATN change while low DAV at 61.957621188s!
+ATN change while low DAV at 62.108099313s!
+ATN change while low DAV at 62.119413438s!
+62.486967000: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 62.492467625s!
+62.518835500: dt = 62 < 100 at DIO1!
+ATN change while low DAV at 62.518851125s!
+ATN change while low DAV at 62.538324375s!
+62.765238875: dt = 62 < 100 at NRFD!
+62.789398875: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 62.806974563s!
+62.883485125: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 62.938525938s!
+ATN change while low DAV at 63.245497125s!
+63.348870375: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 63.547751062s!
+ATN change while low DAV at 64.045679125s!
+ATN change while low DAV at 64.057176625s!
+ATN change while low DAV at 64.493679000s!
+ATN change while low DAV at 64.519957312s!
+64.523815250: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 64.539385000s!
+64.766247875: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 64.808060938s!
+64.884589312: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 64.939737875s!
+65.207178750: dt = 62 < 100 at NRFD!
+65.231328937: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 65.246563438s!
+65.325835125: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 65.549042188s!
+65.966884312: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 66.080425937s!
+ATN change while low DAV at 66.091872063s!
+66.465187688: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 66.494882875s!
+ATN change while low DAV at 66.521223000s!
+ATN change while low DAV at 66.540408688s!
+ATN change while low DAV at 66.810853625s!
+ATN change while low DAV at 66.941061750s!
+67.232677563: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 67.249396312s!
+ATN change while low DAV at 67.476319875s!
+ATN change while low DAV at 67.702464437s!
+67.866297625: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 67.918587125s!
+ATN change while low DAV at 68.202088812s!
+68.311003875: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 68.320466063s!
+68.388882688: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 68.422595813s!
+ATN change while low DAV at 68.577522813s!
+68.809514937: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 68.843324063s!
+ATN change while low DAV at 68.961666250s!
+69.030057125: dt = 62 < 100 at NRFD!
+69.040706375: dt = 62 < 100 at DIO4!
+69.054318500: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 69.063773438s!
+69.148775875: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 69.200242687s!
+ATN change while low DAV at 69.300665625s!
+ATN change while low DAV at 69.524879250s!
+69.530923187: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 69.536317813s!
+69.891382625: dt = 63 < 100 at DIO7!
+ATN change while low DAV at 69.896846000s!
+ATN change while low DAV at 69.923176125s!
+69.928116375: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 69.943808875s!
+ATN change while low DAV at 70.208917625s!
+ATN change while low DAV at 70.336055187s!
+70.634712000: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 70.648909437s!
+ATN change while low DAV at 70.852360187s!
+70.929091063: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 71.066593438s!
+71.370360000: dt = 63 < 100 at NRFD!
+71.394519187: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 71.500066000s!
+ATN change while low DAV at 71.511922500s!
+ATN change while low DAV at 71.898160625s!
+ATN change while low DAV at 71.924386125s!
+ATN change while low DAV at 71.944935500s!
+72.170637875: dt = 62 < 100 at NRFD!
+72.194896250: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 72.210134375s!
+ATN change while low DAV at 72.337250563s!
+72.611705563: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 72.650044562s!
+72.811830062: dt = 62 < 100 at NRFD!
+72.836073438: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 72.853390750s!
+72.954598750: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 73.117726437s!
+73.120465500: dt = 62 < 100 at NRFD!
+73.123614812: dt = 62 < 100 at DIO7!
+ATN change while low DAV at 73.129011437s!
+73.269280063: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 73.299095250s!
+ATN change while low DAV at 73.325325937s!
+ATN change while low DAV at 73.345284750s!
+ATN change while low DAV at 73.615095125s!
+73.690138375: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 73.747611875s!
+ATN change while low DAV at 74.053712062s!
+ATN change while low DAV at 74.330782375s!
+74.735467250: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 74.748627813s!
+ATN change while low DAV at 74.957669938s!
+ATN change while low DAV at 75.047148437s!
+75.129846250: dt = 63 < 100 at NDAC!
+ATN change while low DAV at 75.165531125s!
+75.233934937: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 75.267645250s!
+ATN change while low DAV at 75.527027937s!
+75.694971000: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 75.704582125s!
+ATN change while low DAV at 75.806725438s!
+75.891330250: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 75.925050563s!
+75.993601563: dt = 63 < 100 at NRFD!
+ATN change while low DAV at 76.084049875s!
+ATN change while low DAV at 76.838154562s!
+76.844134125: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 76.849724500s!
+ATN change while low DAV at 77.101549500s!
+ATN change while low DAV at 77.127823812s!
+77.132949875: dt = 62 < 100 at DIO3, DIO7!
+ATN change while low DAV at 77.148258000s!
+77.373996437: dt = 62 < 100 at NRFD!
+ATN change while low DAV at 77.413466938s!
+ATN change while low DAV at 77.612934125s!
+77.774288687: dt = 62 < 100 at NRFD!
+77.798453063: dt = 63 < 100 at DIO3, DIO7!
+ATN change while low DAV at 77.831997000s!
+ATN change while low DAV at 78.472687000s!
+78.693456563: dt = 63 < 100 at NRFD!
+78.717666937: dt = 62 < 100 at DIO7!

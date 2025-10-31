@@ -1,0 +1,150 @@
++4019.488122298: grid210x_device byte recv ff atn 1 eoi 1
++4020.607487378: grid210x_device byte recv 14 atn 1 eoi 0
++4023.077666307: grid210x_device byte recv 25 atn 1 eoi 0
++4023.077924312: grid210x_device now listening
++4023.078958334: grid210x_device byte recv 01 atn 0 eoi 0
++4023.079441343: grid210x_device byte recv 00 atn 0 eoi 0
++4023.080185359: grid210x_device byte recv 00 atn 0 eoi 0
++4023.080765371: grid210x_device byte recv 00 atn 0 eoi 0
++4023.081213380: grid210x_device byte recv 00 atn 0 eoi 0
++4023.081719390: grid210x_device byte recv 00 atn 0 eoi 0
++4023.082162400: grid210x_device byte recv 00 atn 0 eoi 0
++4023.082596409: grid210x_device byte recv 34 atn 0 eoi 0
++4023.083081419: grid210x_device byte recv 00 atn 0 eoi 0
++4023.084064439: grid210x_device byte recv 00 atn 0 eoi 1
++4023.084523448: grid210x_device byte recv 3f atn 1 eoi 0
++4023.084749453: grid210x_device now not listening
++4023.084762453: grid210x_device command 1, data size 52, sector no 0
++4023.086377486: grid210x_device byte recv 45 atn 1 eoi 0
++4023.086618491: grid210x_device now talking
++4023.087659513: grid210x_device byte send 00 eoi 0
++4023.088081522: grid210x_device byte send 02 eoi 0
++4023.088357527: grid210x_device byte send f8 eoi 0
++4023.088623533: grid210x_device byte send 01 eoi 0
++4023.088886538: grid210x_device byte send d0 eoi 0
++4023.089277546: grid210x_device byte send 02 eoi 0
++4023.089556552: grid210x_device byte send 01 eoi 0
++4023.089823558: grid210x_device byte send 20 eoi 0
++4023.090193565: grid210x_device byte send 01 eoi 0
++4023.090472571: grid210x_device byte send 21 eoi 0
++4023.090736576: grid210x_device byte send 01 eoi 0
++4023.090997582: grid210x_device byte send 01 eoi 0
++4023.091377590: grid210x_device byte send 00 eoi 0
++4023.091652595: grid210x_device byte send 00 eoi 0
++4023.091916601: grid210x_device byte send 34 eoi 0
++4023.092295608: grid210x_device byte send 38 eoi 0
++4023.092576614: grid210x_device byte send 20 eoi 0
++4023.092840620: grid210x_device byte send 54 eoi 0
++4023.093103625: grid210x_device byte send 50 eoi 0
++4023.093470633: grid210x_device byte send 49 eoi 0
++4023.093745638: grid210x_device byte send 20 eoi 0
++4023.094011644: grid210x_device byte send 44 eoi 0
++4023.094423652: grid210x_device byte send 53 eoi 0
++4023.094709658: grid210x_device byte send 20 eoi 0
++4023.094974664: grid210x_device byte send 44 eoi 0
++4023.095236669: grid210x_device byte send 44 eoi 0
++4023.095596677: grid210x_device byte send 20 eoi 0
++4023.095870682: grid210x_device byte send 46 eoi 0
++4023.096134688: grid210x_device byte send 4c eoi 0
++4023.096517696: grid210x_device byte send 4f eoi 0
++4023.096793701: grid210x_device byte send 50 eoi 0
++4023.097060707: grid210x_device byte send 50 eoi 0
++4023.097325712: grid210x_device byte send 59 eoi 0
++4023.097695720: grid210x_device byte send 20 eoi 0
++4023.097967725: grid210x_device byte send 20 eoi 0
++4023.098230731: grid210x_device byte send 20 eoi 0
++4023.098611739: grid210x_device byte send 20 eoi 0
++4023.098888744: grid210x_device byte send 33 eoi 0
++4023.099153750: grid210x_device byte send 30 eoi 0
++4023.099417755: grid210x_device byte send 30 eoi 0
++4023.099803763: grid210x_device byte send 32 eoi 0
++4023.100170771: grid210x_device byte send 33 eoi 0
++4023.100452777: grid210x_device byte send 37 eoi 0
++4023.100845785: grid210x_device byte send 2d eoi 0
++4023.101118790: grid210x_device byte send 30 eoi 0
++4023.101380796: grid210x_device byte send 30 eoi 0
++4023.101763804: grid210x_device byte send 00 eoi 0
++4023.102044809: grid210x_device byte send 02 eoi 0
++4023.102369816: grid210x_device byte send 09 eoi 0
++4023.102639822: grid210x_device byte send 00 eoi 0
++4023.102972829: grid210x_device byte send 02 eoi 0
++4023.103247834: grid210x_device byte send 00 eoi 1
++4023.103884847: grid210x_device byte recv 5f atn 1 eoi 0
++4023.104119852: grid210x_device now not talking
++4023.106600903: grid210x_device byte recv 25 atn 1 eoi 0
++4023.106846908: grid210x_device now listening
++4023.109093955: grid210x_device byte recv 14 atn 1 eoi 0
++4023.652136150: grid210x_device byte recv 26 atn 1 eoi 0
++4023.653134171: grid210x_device byte recv 01 atn 0 eoi 0
++4023.653708183: grid210x_device byte recv 00 atn 0 eoi 0
++4023.654158192: grid210x_device byte recv 00 atn 0 eoi 0
++4023.654656202: grid210x_device byte recv 00 atn 0 eoi 0
++4023.655105212: grid210x_device byte recv 00 atn 0 eoi 0
++4023.655538220: grid210x_device byte recv 00 atn 0 eoi 0
++4023.656039231: grid210x_device byte recv 00 atn 0 eoi 0
++4023.656484240: grid210x_device byte recv 34 atn 0 eoi 0
++4023.656984250: grid210x_device byte recv 00 atn 0 eoi 0
++4023.658027272: grid210x_device byte recv 3f atn 1 eoi 0
++4023.658260277: grid210x_device now not listening
++4023.660220317: grid210x_device byte recv 46 atn 1 eoi 0
++4023.660465322: grid210x_device now not talking
++4028.775026754: grid210x_device byte recv 5f atn 1 eoi 0
++4028.775280759: grid210x_device now not talking
++4031.204643831: grid210x_device byte recv 14 atn 1 eoi 0
++4032.841977576: grid210x_device byte recv 25 atn 1 eoi 0
++4032.842300583: grid210x_device now listening
++4032.843156601: grid210x_device byte recv 01 atn 0 eoi 0
++4032.843668611: grid210x_device byte recv 00 atn 0 eoi 0
++4032.844113620: grid210x_device byte recv 00 atn 0 eoi 0
++4032.844613631: grid210x_device byte recv 00 atn 0 eoi 0
++4032.845057640: grid210x_device byte recv 00 atn 0 eoi 0
++4032.845553650: grid210x_device byte recv 00 atn 0 eoi 0
++4032.846000659: grid210x_device byte recv 00 atn 0 eoi 0
++4032.846566671: grid210x_device byte recv 34 atn 0 eoi 0
++4032.847019680: grid210x_device byte recv 00 atn 0 eoi 0
++4032.847821697: grid210x_device byte recv 3f atn 1 eoi 0
++4032.848054702: grid210x_device now not listening
++4032.849795737: grid210x_device byte recv 45 atn 1 eoi 0
++4032.850068743: grid210x_device now talking
++4037.976276379: grid210x_device byte recv 5f atn 1 eoi 0
++4037.976532385: grid210x_device now not talking
++4038.335898789: grid210x_device byte recv 26 atn 1 eoi 0
++4038.337976832: grid210x_device byte recv 14 atn 1 eoi 0
++4040.946089569: grid210x_device byte recv 14 atn 1 eoi 0
++4041.675117589: grid210x_device byte recv 25 atn 1 eoi 0
++4041.675371595: grid210x_device now listening
++4041.676385616: grid210x_device byte recv 01 atn 0 eoi 0
++4041.676837625: grid210x_device byte recv 00 atn 0 eoi 0
++4041.677334635: grid210x_device byte recv 00 atn 0 eoi 0
++4041.677777644: grid210x_device byte recv 00 atn 0 eoi 0
++4041.678284655: grid210x_device byte recv 00 atn 0 eoi 0
++4041.678759664: grid210x_device byte recv 00 atn 0 eoi 0
++4041.679335676: grid210x_device byte recv 00 atn 0 eoi 0
++4041.679779685: grid210x_device byte recv 34 atn 0 eoi 0
++4041.680890708: grid210x_device byte recv 00 atn 0 eoi 0
++4041.681742726: grid210x_device byte recv 3f atn 1 eoi 0
++4041.681976731: grid210x_device now not listening
++4041.683933771: grid210x_device byte recv 45 atn 1 eoi 0
++4041.684168776: grid210x_device now talking
++4046.813636445: grid210x_device byte recv 5f atn 1 eoi 0
++4046.813889451: grid210x_device now not talking
++4046.815004474: grid210x_device byte recv 14 atn 1 eoi 0
++4047.346602424: grid210x_device byte recv 25 atn 0 eoi 0
++4047.896336747: grid210x_device byte recv 14 atn 1 eoi 0
++4050.506557509: grid210x_device byte recv 14 atn 1 eoi 0
++4051.235402520: grid210x_device byte recv 25 atn 1 eoi 0
++4051.235655526: grid210x_device now listening
++4051.236768548: grid210x_device byte recv 01 atn 0 eoi 0
++4051.237295559: grid210x_device byte recv 00 atn 0 eoi 0
++4051.237740568: grid210x_device byte recv 00 atn 0 eoi 0
++4051.238277580: grid210x_device byte recv 00 atn 0 eoi 0
++4051.238771590: grid210x_device byte recv 00 atn 0 eoi 0
++4051.239333601: grid210x_device byte recv 00 atn 0 eoi 0
++4051.239785611: grid210x_device byte recv 00 atn 0 eoi 0
++4051.240382623: grid210x_device byte recv 34 atn 0 eoi 0
++4051.240830632: grid210x_device byte recv 00 atn 0 eoi 0
++4051.241951655: grid210x_device byte recv 3f atn 1 eoi 0
++4051.242187660: grid210x_device now not listening
++4051.244147700: grid210x_device byte recv 45 atn 1 eoi 0
++4051.244390705: grid210x_device now talking
++4056.022993114: grid210x_device byte recv 00 atn 0 eoi 1
