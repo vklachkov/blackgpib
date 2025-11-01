@@ -42,11 +42,7 @@ fn main() -> Result<()> {
         nrfd.set_high();
 
         // Wait laptop.
-        // println!("Wait DAV low");
-        while dav.is_high() {
-            sleep(Duration::from_micros(100));
-        }
-        // println!("DAV is low");
+        while dav.read() != Level::Low {}
 
         // Not ready for data.
         nrfd.set_low();
@@ -56,6 +52,10 @@ fn main() -> Result<()> {
         let eoi = eoi.is_low() as u8;
         let byte = gpio::read_data(&data)?;
 
+        // Notify that we read byte.
+        ndac.set_high();
+
+        // Process.
         println!(
             "{}ms GPIB: ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})",
             (Instant::now() - start).as_millis()
@@ -66,14 +66,7 @@ fn main() -> Result<()> {
             println!("Listener completed: {received:02x?}");
         }
 
-        // Notify that we read byte.
-        ndac.set_high();
-
         // Wait laptop.
-        // println!("Wait DAV high");
-        while dav.is_low() {
-            sleep(Duration::from_micros(100));
-        }
-        // println!("DAV is high");
+        while dav.read() != Level::High {}
     }
 }
