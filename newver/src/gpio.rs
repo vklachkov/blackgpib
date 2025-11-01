@@ -9,7 +9,7 @@ static GPIO: LazyLock<Gpio> =
 
 #[inline(always)]
 pub fn input(gpib: GPIB) -> Result<InputPin> {
-    let mut pin = GPIO.get(gpib.pin_number())?.into_input_pullup();
+    let mut pin = GPIO.get(gpib.pin_number())?.into_input();
 
     pin.set_reset_on_drop(false);
 
