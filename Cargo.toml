@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 rppal = "0.22.1"
+thiserror = "2.0.17"
 
 [profile.release]
 lto = "thin"
