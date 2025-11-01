@@ -40,11 +40,10 @@ pub fn reset_all() -> Result<()> {
     Ok(())
 }
 
-pub fn read_data() -> Result<u8> {
+pub fn read_data(pins: &[InputPin; 8]) -> Result<u8> {
     let mut byte = 0u8;
 
-    for pin in GPIB::data() {
-        let pin = input(pin)?;
+    for pin in pins {
         let bit_set = pin.is_low();
         byte = (byte << 1) | (bit_set as u8);
     }

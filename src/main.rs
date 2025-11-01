@@ -28,9 +28,11 @@ fn main() -> Result<()> {
     let eoi = gpio::input(GPIB::EOI)?;
 
     let dav = gpio::input(GPIB::DAV)?;
-    let mut srq = gpio::output(GPIB::SRQ, Level::High)?;
+    let mut _srq = gpio::output(GPIB::SRQ, Level::High)?;
     let mut ndac = gpio::output(GPIB::NDAC, Level::Low)?;
     let mut nrfd = gpio::output(GPIB::NRFD, Level::Low)?;
+
+    let data = GPIB::data().map(|gpib| gpio::input(gpib).unwrap());
 
     let mut listener = ListenerStateMachine::new(ADDRESS);
 
@@ -52,7 +54,7 @@ fn main() -> Result<()> {
         // Read all.
         let atn = atn.is_low() as u8;
         let eoi = eoi.is_low() as u8;
-        let byte = gpio::read_data()?;
+        let byte = gpio::read_data(&data)?;
 
         println!(
             "{}ms GPIB: ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})",
