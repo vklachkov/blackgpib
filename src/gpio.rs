@@ -8,26 +8,29 @@ static GPIO: LazyLock<Gpio> =
     LazyLock::new(|| Gpio::new().expect("should be successful on Raspberry  Pi"));
 
 #[inline(always)]
-pub fn input(gpib: GPIB) -> Result<InputPin> {
-    let mut pin = GPIO.get(gpib.pin_number())?.into_input();
+pub fn input(gpib: GPIB) -> InputPin {
+    let mut pin = GPIO
+        .get(gpib.pin_number())
+        .expect("pin should be used once")
+        .into_input_pullup();
 
     pin.set_reset_on_drop(false);
 
-    Ok(pin)
+    pin
 }
 
 #[inline(always)]
-pub fn output(gpib: GPIB, level: Level) -> Result<OutputPin> {
-    let mut pin = GPIO.get(gpib.pin_number())?.into_output();
+pub fn output(gpib: GPIB, level: Level) -> OutputPin {
+    let mut pin = GPIO
+        .get(gpib.pin_number())
+        .expect("pin should be used once")
+        .into_output();
+
+    pin.write(level);
 
     pin.set_reset_on_drop(false);
 
-    match level {
-        Level::Low => pin.set_low(),
-        Level::High => pin.set_high(),
-    }
-
-    Ok(pin)
+    pin
 }
 
 pub fn reset_all() -> Result<()> {

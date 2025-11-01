@@ -3,10 +3,7 @@ mod gpio;
 mod listener;
 mod messages;
 
-use std::{
-    thread::sleep,
-    time::{Duration, Instant},
-};
+use std::time::Instant;
 
 use rppal::gpio::{Level, Result};
 
@@ -20,19 +17,19 @@ fn main() -> Result<()> {
 
     gpio::reset_all()?;
 
-    let _dc = gpio::output(GPIB::DC, Level::High)?;
-    let _te = gpio::output(GPIB::TE, Level::Low)?;
-    let _pe = gpio::output(GPIB::PE, Level::Low)?;
+    let _dc = gpio::output(GPIB::DC, Level::High);
+    let _te = gpio::output(GPIB::TE, Level::Low);
+    let _pe = gpio::output(GPIB::PE, Level::Low);
 
-    let atn = gpio::input(GPIB::ATN)?;
-    let eoi = gpio::input(GPIB::EOI)?;
+    let atn = gpio::input(GPIB::ATN);
+    let eoi = gpio::input(GPIB::EOI);
 
-    let dav = gpio::input(GPIB::DAV)?;
-    let mut _srq = gpio::output(GPIB::SRQ, Level::High)?;
-    let mut ndac = gpio::output(GPIB::NDAC, Level::Low)?;
-    let mut nrfd = gpio::output(GPIB::NRFD, Level::Low)?;
+    let dav = gpio::input(GPIB::DAV);
+    let mut _srq = gpio::output(GPIB::SRQ, Level::High);
+    let mut ndac = gpio::output(GPIB::NDAC, Level::Low);
+    let mut nrfd = gpio::output(GPIB::NRFD, Level::Low);
 
-    let data = GPIB::data().map(|gpib| gpio::input(gpib).unwrap());
+    let data = GPIB::data().map(|gpib| gpio::input(gpib));
 
     let mut listener = ListenerStateMachine::new(ADDRESS);
 
