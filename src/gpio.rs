@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use crate::gpib::GPIB;
 
-use rppal::gpio::{Gpio, InputPin, Level, OutputPin, Result};
+use rppal::gpio::{Gpio, InputPin, Level, OutputPin};
 
 static GPIO: LazyLock<Gpio> =
     LazyLock::new(|| Gpio::new().expect("should be successful on Raspberry  Pi"));
@@ -33,17 +33,15 @@ pub fn output(gpib: GPIB, level: Level) -> OutputPin {
     pin
 }
 
-pub fn reset_all() -> Result<()> {
+pub fn reset_all() {
     // Set all pins to Z-state.
     for gpib in GPIB::all() {
-        let mut pin = GPIO.get(gpib.pin_number())?.into_input();
+        let mut pin = GPIO.get(gpib.pin_number()).unwrap().into_input();
         pin.set_reset_on_drop(false);
     }
-
-    Ok(())
 }
 
-pub fn read_data(pins: &[InputPin; 8]) -> Result<u8> {
+pub fn read_data(pins: &[InputPin; 8]) -> u8 {
     let mut byte = 0u8;
 
     for pin in pins {
@@ -51,5 +49,5 @@ pub fn read_data(pins: &[InputPin; 8]) -> Result<u8> {
         byte = (byte << 1) | (bit_set as u8);
     }
 
-    Ok(byte)
+    byte
 }
