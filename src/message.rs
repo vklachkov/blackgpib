@@ -16,7 +16,19 @@ pub const fn is_mta(byte: u8, address: u8) -> bool {
     (byte & 0b0111_1111) == (0b0100_0000 | address)
 }
 
+pub const fn is_spe(byte: u8) -> bool {
+    (byte & 0b0111_1111) == (0b0001_1000)
+}
+
+pub const fn is_spd(byte: u8) -> bool {
+    (byte & 0b0111_1111) == (0b0001_1001)
+}
+
 /// Checks if the byte is an Device CLear command.
 pub const fn is_dcl(byte: u8) -> bool {
     (byte & 0b0111_1111) == (0b0001_0100)
+}
+
+pub const fn is_unt(byte: u8) -> bool {
+    (byte & 0b0111_1111) == (0b0101_1111)
 }

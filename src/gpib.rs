@@ -42,7 +42,7 @@ pub enum GPIB {
     /// Remote Enable.
     REN,
     /// End Or Identify.
-    EOI
+    EOI,
 }
 
 impl GPIB {

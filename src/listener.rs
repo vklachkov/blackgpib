@@ -1,3 +1,5 @@
+use std::time::{Duration, Instant};
+
 use rppal::gpio::{InputPin, Level, OutputPin};
 
 use crate::{gpib::GPIB, gpio, message};
@@ -43,8 +45,8 @@ impl Listener {
             state_machine: StateMachine::new(address),
 
             dc: gpio::output(GPIB::DC, Level::High),
-            te: gpio::output(GPIB::DC, Level::Low),
-            pe: gpio::output(GPIB::DC, Level::High),
+            te: gpio::output(GPIB::TE, Level::Low),
+            pe: gpio::output(GPIB::PE, Level::High),
 
             atn: gpio::input(GPIB::ATN),
             srq: gpio::output(GPIB::SRQ, Level::High),
@@ -61,13 +63,13 @@ impl Listener {
 
     pub fn reset(&mut self) {
         self.state_machine.reset();
-    } 
+    }
 
     /// Implements a full handshake cycle as described in the standard
     /// in section "Annex B Handshake Process Timing Sequence".
-    /// 
+    ///
     /// This function should be called as frequently as possible to avoid missing the last byte.
-    /// 
+    ///
     /// Although GPiB is not timing-sensitive, the GRiD Compass has an annoying bug:
     /// when sending the last byte (byte with EOI), the laptop doesn't wait for us
     /// to read the byte (and set NDAC=false) and after about ten microseconds sets ATN,
@@ -96,11 +98,29 @@ impl Listener {
         // Wait until the laptop resets the DAta Valid flag.
         while self.dav.read() != Level::High {}
 
+        // TEST TEST TEST.
+        // self.ndac.set_low();
+
+        // Self::busy_wait(Duration::from_micros(40));
+
         // All good, now we can process the received byte without rushing.
         // The laptop will wait until we say we're ready for new data.
         println!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
 
         self.state_machine.process(byte, atn == 1)
+    }
+
+    fn busy_wait(duration: Duration) {
+        let start = Instant::now();
+        while Instant::now() - start < duration {}
+    }
+
+    pub fn srq_low(&mut self) {
+        self.srq.set_low();
+    }
+
+    pub fn srq_high(&mut self) {
+        self.srq.set_high();
     }
 }
 
@@ -143,6 +163,8 @@ impl StateMachine {
     fn process_active_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
         if is_command {
             if message::is_unl(byte) {
+                println!("UNL received");
+
                 self.is_active = false;
 
                 let bytes = self.buffer.clone();
@@ -153,7 +175,7 @@ impl StateMachine {
                 ListeningResult::Unhandled { byte, is_command }
             }
         } else {
-            println!("Add `{byte:#04x}` to buffer");
+            println!("...add `{byte:#04x}` to buffer");
             self.buffer.push(byte);
 
             ListeningResult::Continue

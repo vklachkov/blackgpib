@@ -10,7 +10,7 @@ pub struct Request {
     pub code: RequestCode,
     pub connection: u16,
     pub sector_number: u32,
-    pub block_size: u16,
+    pub data_size: u16,
     pub mode: u8,
 }
 
@@ -39,7 +39,7 @@ impl TryFrom<&[u8]> for Request {
             code: command,
             connection: u16::from_le_bytes([value[1], value[2]]),
             sector_number: u32::from_le_bytes([value[3], value[4], value[5], value[6]]),
-            block_size: u16::from_le_bytes([value[7], value[8]]),
+            data_size: u16::from_le_bytes([value[7], value[8]]),
             mode: value[9],
         })
     }
