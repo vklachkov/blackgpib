@@ -59,6 +59,10 @@ impl Listener {
         }
     }
 
+    pub fn reset(&mut self) {
+        self.state_machine.reset();
+    } 
+
     /// Implements a full handshake cycle as described in the standard
     /// in section "Annex B Handshake Process Timing Sequence".
     /// 
@@ -121,6 +125,11 @@ impl StateMachine {
             is_active: false,
             buffer: Vec::with_capacity(10),
         }
+    }
+
+    fn reset(&mut self) {
+        self.is_active = false;
+        self.buffer.clear();
     }
 
     fn process(&mut self, byte: u8, is_command: bool) -> ListeningResult {

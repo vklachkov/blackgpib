@@ -51,3 +51,16 @@ pub fn read_data(pins: &[InputPin; 8]) -> u8 {
 
     byte
 }
+
+pub fn write_data(pins: &mut [OutputPin; 8], data: &[u8]) {
+    for byte in data {
+        pins[0].write(Level::from((byte >> 7) & 1));
+        pins[1].write(Level::from((byte >> 6) & 1));
+        pins[2].write(Level::from((byte >> 5) & 1));
+        pins[3].write(Level::from((byte >> 4) & 1));
+        pins[4].write(Level::from((byte >> 3) & 1));
+        pins[5].write(Level::from((byte >> 2) & 1));
+        pins[6].write(Level::from((byte >> 1) & 1));
+        pins[7].write(Level::from((byte >> 0) & 1));
+    }
+}
