@@ -59,29 +59,41 @@ impl Listener {
         }
     }
 
+    /// Implements a full handshake cycle as described in the standard
+    /// in section "Annex B Handshake Process Timing Sequence".
+    /// 
+    /// This function should be called as frequently as possible to avoid missing the last byte.
+    /// 
+    /// Although GPiB is not timing-sensitive, the GRiD Compass has an annoying bug:
+    /// when sending the last byte (byte with EOI), the laptop doesn't wait for us
+    /// to read the byte (and set NDAC=false) and after about ten microseconds sets ATN,
+    /// resets DAV and EOI, and starts transmitting another command.
+    /// No fix found. Neither NRFD delay nor anything else helped.
+    /// The only solution is to read bytes as quickly as possible.
     pub fn listen(&mut self) -> ListeningResult {
-        // Ready for data.
+        // Ready for a new byte.
         self.ndac.set_low();
         self.nrfd.set_high();
 
-        // Wait laptop.
+        // Wait until Compass sets the data on the bus and raise the DAta Valid flag.
         while self.dav.read() != Level::Low {}
 
-        // Not ready for data.
+        // Not ready to receive a new byte, reading in progress.
         self.nrfd.set_low();
 
-        // Read all.
+        // Read byte and flags.
         let atn = self.atn.is_low() as u8;
         let eoi = self.eoi.is_low() as u8;
         let byte = gpio::read_data(&self.data);
 
-        // Notify that we read byte.
+        // Signal that we've read the byte.
         self.ndac.set_high();
 
-        // Wait laptop.
+        // Wait until the laptop resets the DAta Valid flag.
         while self.dav.read() != Level::High {}
 
-        // Process.
+        // All good, now we can process the received byte without rushing.
+        // The laptop will wait until we say we're ready for new data.
         println!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
 
         self.state_machine.process(byte, atn == 1)
