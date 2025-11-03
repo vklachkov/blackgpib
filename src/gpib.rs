@@ -1,3 +1,17 @@
+/// All supported GPiB addresses that are known from sources and documentation.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum SupportedDeviceAddress {
+    /// 10MB HDD inside 2101 Disk System.
+    HardDisk = 4,
+
+    /// Floppy inside 2101 Disk System.
+    FloppyDrive = 5,
+
+    /// Portable floppy also known as 2102 or 2107 Floppy Disk Drive.
+    ExternalFloppy = 6,
+}
+
 #[derive(Clone, Copy)]
 pub enum GPIB {
     /// Transfer Enable/Talk Enable (SN7516x).

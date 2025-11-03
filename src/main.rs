@@ -13,6 +13,7 @@ use std::{
 };
 
 use crate::{
+    gpib::SupportedDeviceAddress,
     disk_request::{Request, RequestCode},
     listener::{Listener, ListeningResult},
     talker::Talker,
@@ -20,8 +21,7 @@ use crate::{
 
 static START: LazyLock<Instant> = LazyLock::new(|| Instant::now());
 
-// 4 for HDD 10MB, 5/6 for Floppy 5.25.
-const ADDRESS: u8 = 4;
+const ADDRESS: SupportedDeviceAddress = SupportedDeviceAddress::ExternalFloppy;
 
 // TODO: Represent as struct not bytes.
 // Description here http://deltacxx.insomnia247.nl/projects/gridcompass/disk_info.txt.
@@ -90,7 +90,7 @@ fn main() {
 }
 
 fn listen() -> Option<(Vec<u8>, bool)> {
-    let mut listener = Listener::new(ADDRESS);
+    let mut listener = Listener::new(ADDRESS as u8);
     let mut request = None;
     let mut serial_poll = false;
 
@@ -105,7 +105,7 @@ fn listen() -> Option<(Vec<u8>, bool)> {
                 request = Some(bytes);
             }
             ListeningResult::Unhandled { byte, is_command } if is_command => {
-                if message::is_mta(byte, ADDRESS) {
+                if message::is_mta(byte, ADDRESS as u8) {
                     println!(
                         "{}ms MTA received, drop listener",
                         (Instant::now() - *START).as_millis()
