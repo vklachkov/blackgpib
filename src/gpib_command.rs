@@ -54,9 +54,9 @@ impl From<u8> for GPIBCommand {
         } else if (value & 0b0111_1111) == 0b0001_1000 {
             Self::SPE
         } else if (value & 0b0111_1111) == 0b0011_1111 {
-            Self::UNT
-        } else if (value & 0b0111_1111) == 0b0101_1111 {
             Self::UNL
+        } else if (value & 0b0111_1111) == 0b0101_1111 {
+            Self::UNT
         } else if (value & 0b0110_0000) == 0b0010_0000 {
             Self::MLA(value & 0b0001_1111)
         } else if (value & 0b0110_0000) == 0b0100_0000 {

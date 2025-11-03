@@ -4,9 +4,14 @@ use rppal::gpio::{InputPin, Level, OutputPin};
 
 use crate::{gpib::GPIB, gpio, gpib_command::GPIBCommand};
 
+#[derive(Debug,PartialEq)]
 pub enum ListeningResult {
     /// Byte successfully received and processed.
     Continue,
+
+
+    // Received listen for another target
+    AnotherTarget,
 
     /// Data reading finished; the device returned to the MLA waiting state.
     Done { bytes: Vec<u8> },
@@ -37,9 +42,13 @@ pub struct Listener {
     nrfd: OutputPin,
 
     data: [InputPin; 8],
+
+    // is set when controller asks to listen not on our address
+    set_error: bool,
 }
 
 impl Listener {
+
     pub fn new(address: u8) -> Self {
         Self {
             state_machine: StateMachine::new(address),
@@ -58,6 +67,8 @@ impl Listener {
             nrfd: gpio::output(GPIB::NRFD, Level::Low),
 
             data: GPIB::data().map(gpio::input),
+
+            set_error: false,
         }
     }
 
@@ -78,11 +89,32 @@ impl Listener {
     /// The only solution is to read bytes as quickly as possible.
     pub fn listen(&mut self) -> ListeningResult {
         // Ready for a new byte.
-        self.ndac.set_low();
+        if !self.set_error{
+            self.ndac.set_low();
+        }
         self.nrfd.set_high();
+
+
+        if self.set_error{
+            log::debug!("Set Error state");
+            Self::busy_wait(Duration::from_micros(15));
+            self.set_error = false;
+            self.ndac.set_low();
+
+            log::debug!("Wait ATN High");
+            while self.atn.read() != Level::High {}
+            self.ndac.set_high();
+            log::debug!("Wait ATN Low");
+            while self.atn.read() != Level::Low {}
+            self.ndac.set_low();
+            log::debug!("Data skipped");
+
+
+        }
 
         // Wait until Compass sets the data on the bus and raise the DAta Valid flag.
         while self.dav.read() != Level::Low {}
+
 
         // Not ready to receive a new byte, reading in progress.
         self.nrfd.set_low();
@@ -91,6 +123,17 @@ impl Listener {
         let atn = self.atn.is_low() as u8;
         let eoi = self.eoi.is_low() as u8;
         let byte = gpio::read_data(&self.data);
+
+
+        // All good, now we can process the received byte without rushing.
+        // The laptop will wait until we say we're ready for new data.
+        // log::debug!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
+
+        let ret = self.state_machine.process(byte, atn == 1);
+        if (ret == ListeningResult::AnotherTarget){
+            log::debug!("state = {ret:?}");
+            self.set_error = true;
+        }
 
         // Signal that we've read the byte.
         self.ndac.set_high();
@@ -101,13 +144,8 @@ impl Listener {
         // TEST TEST TEST.
         // self.ndac.set_low();
 
-        // Self::busy_wait(Duration::from_micros(40));
-
-        // All good, now we can process the received byte without rushing.
-        // The laptop will wait until we say we're ready for new data.
-        log::debug!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
-
-        self.state_machine.process(byte, atn == 1)
+        Self::busy_wait(Duration::from_micros(10));
+        return ret;
     }
 
     fn busy_wait(duration: Duration) {
@@ -134,6 +172,7 @@ struct StateMachine {
     /// in terms of the standard.
     is_active: bool,
 
+
     /// Buffer for all bytes after MLA for our device.
     buffer: Vec<u8>,
 }
@@ -143,7 +182,7 @@ impl StateMachine {
         Self {
             dev_address,
             is_active: false,
-            buffer: Vec::with_capacity(10),
+            buffer: Vec::with_capacity(1024),
         }
     }
 
@@ -164,7 +203,7 @@ impl StateMachine {
         if is_command {
             let cmd = GPIBCommand::from(byte);
             if cmd == GPIBCommand::UNL {
-                log::debug!("UNL received");
+                // log::debug!("UNL received");
 
                 self.is_active = false;
 
@@ -172,11 +211,18 @@ impl StateMachine {
                 self.buffer.clear();
 
                 ListeningResult::Done { bytes }
-            } else {
+            } else if cmd == GPIBCommand::DCL {
+                // log::debug!("DCL received");
+
+                self.is_active = false;
+                self.buffer.clear();
+                ListeningResult::Continue
+
+            }else {
                 ListeningResult::UnhandledCommand { cmd }
             }
         } else {
-            log::debug!("...add `{byte:#04x}` to buffer");
+            // log::debug!("...add `{byte:#04x}` to buffer");
             self.buffer.push(byte);
 
             ListeningResult::Continue
@@ -188,12 +234,18 @@ impl StateMachine {
             return ListeningResult::Continue;
         }
 
-        let cmd = GPIBCommand::from(byte);
-        if cmd == GPIBCommand::MLA(self.dev_address) {
-            self.is_active = true;
-            ListeningResult::Continue
-        } else {
-            ListeningResult::UnhandledCommand { cmd }
+
+        match GPIBCommand::from(byte) {
+            GPIBCommand::MLA(address) if address == self.dev_address => {
+                self.is_active = true;
+                ListeningResult::Continue
+            },
+            GPIBCommand::MLA(address) => {
+                ListeningResult::AnotherTarget
+            },
+            cmd => {
+                ListeningResult::UnhandledCommand { cmd }
+            }
         }
     }
 }

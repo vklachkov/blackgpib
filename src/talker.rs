@@ -48,14 +48,13 @@ impl Talker {
 
     pub fn send_bytes(&mut self, bytes: &[u8]) {
         for i in 0..bytes.len() {
-            log::debug!("Start sending byte {i} ({:#04x})", bytes[i]);
+            // log::debug!("Start sending byte {i} ({:#04x})", bytes[i]);
 
             self.dav.set_high();
-
             if self.ndac.is_high() && self.nrfd.is_high() {
-                unimplemented!("NDAC=high NRFD=high");
+                log::info!("NDAC=high NRFD=high when sending byte {i}");
+                while self.ndac.is_high() || self.nrfd.is_high() {}
             }
-
             gpio::write_data(&mut self.data, bytes[i]);
 
             if i == bytes.len() - 1 {
