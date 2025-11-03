@@ -5,7 +5,7 @@ use crate::gpib::GPIB;
 use rppal::gpio::{Gpio, InputPin, Level, OutputPin};
 
 static GPIO: LazyLock<Gpio> =
-    LazyLock::new(|| Gpio::new().expect("should be successful on Raspberry  Pi"));
+    LazyLock::new(|| Gpio::new().expect("failed to initialize Raspberry Pi GPIO"));
 
 #[inline(always)]
 pub fn input(gpib: GPIB) -> InputPin {

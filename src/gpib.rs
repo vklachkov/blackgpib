@@ -1,6 +1,7 @@
 /// All supported GPiB addresses that are known from sources and documentation.
 #[derive(Clone, Copy)]
 #[repr(u8)]
+#[allow(unused)]
 pub enum SupportedDeviceAddress {
     /// 10MB HDD inside 2101 Disk System.
     HardDisk = 4,

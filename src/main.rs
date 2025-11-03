@@ -2,24 +2,16 @@ mod disk_request;
 mod gpib;
 mod gpio;
 mod listener;
+mod logger;
 mod message;
 mod talker;
 
-use std::{
-    fs,
-    sync::LazyLock,
-    thread::sleep,
-    time::{Duration, Instant},
-};
-
 use crate::{
-    gpib::SupportedDeviceAddress,
     disk_request::{Request, RequestCode},
+    gpib::SupportedDeviceAddress,
     listener::{Listener, ListeningResult},
     talker::Talker,
 };
-
-static START: LazyLock<Instant> = LazyLock::new(|| Instant::now());
 
 const ADDRESS: SupportedDeviceAddress = SupportedDeviceAddress::ExternalFloppy;
 
@@ -33,36 +25,34 @@ const IDENTITY: [u8; 52] = [
 ];
 
 fn main() {
+    logger::configure();
+
+    log::info!("BlackGPiB started");
+
+    log::debug!("Reset all pins...");
     gpio::reset_all();
 
-    let image = fs::read("GRIDOS.img").unwrap();
+    let image = std::fs::read("GRIDOS.img").unwrap();
 
     let mut sector = 0;
     let mut size = 0;
 
-    let start = *START;
-
     loop {
+        log::debug!("Start listening bus");
         let result = listen();
 
-        println!("{}ms Init talker...", (Instant::now() - *START).as_millis());
-
+        log::debug!("Start talking to bus");
         let mut talker = Talker::new();
-
-        println!(
-            "{}ms ATN must be high...",
-            (Instant::now() - *START).as_millis()
-        );
 
         let Some((request, serial_poll)) = result.and_then(|(r, s)| Some((parse_request(r)?, s)))
         else {
-            println!("Sending part of data");
+            log::debug!("Sending part of image");
             talker.send_bytes(&image[(sector * 512)..(sector * 512 + size)]);
-            println!("Success");
+            log::debug!("Success");
             continue;
         };
 
-        println!("Request from Compass: {request:?}");
+        log::debug!("Request from Compass: {request:?}");
 
         let response: &[u8] = match request.code {
             RequestCode::GetStatus => &IDENTITY,
@@ -71,21 +61,21 @@ fn main() {
                 // Return sector
                 sector = request.sector_number as usize;
                 size = request.data_size as usize;
-                println!("Yeeeeeeeee, we must read {} bytes", request.data_size);
+                log::debug!("Yeeeeeeeee, we must read {} bytes", request.data_size);
                 &[0x4f]
             }
             RequestCode::Write => {
                 // Patch image
-                unimplemented!()
+                unimplemented!("Emulator is read only now")
             }
             _ => {
                 unimplemented!("Unsupported command");
             }
         };
 
+        log::debug!("Sending response {response:02x?}");
         talker.send_bytes(response);
-
-        println!("Bytes sent!");
+        log::debug!("Response sent successfull");
     }
 }
 
@@ -97,7 +87,7 @@ fn listen() -> Option<(Vec<u8>, bool)> {
     loop {
         match listener.listen() {
             ListeningResult::Done { bytes } => {
-                println!("Bytes {bytes:02x?}! But we must continue to listen");
+                log::debug!("Bytes {bytes:02x?}! But we must continue to listen");
                 // Hack!
                 if bytes.get(0) == Some(&4) {
                     listener.srq_low();
@@ -106,26 +96,23 @@ fn listen() -> Option<(Vec<u8>, bool)> {
             }
             ListeningResult::Unhandled { byte, is_command } if is_command => {
                 if message::is_mta(byte, ADDRESS as u8) {
-                    println!(
-                        "{}ms MTA received, drop listener",
-                        (Instant::now() - *START).as_millis()
-                    );
+                    log::debug!("MTA received, drop listener");
                     listener.srq_high();
                     let a = request.map(|r| (r, serial_poll));
                     return a;
                 } else if message::is_spe(byte) {
-                    println!("Serial Poll Enable");
+                    log::debug!("Serial Poll Enable");
                     serial_poll = true;
                 } else if message::is_spd(byte) {
-                    println!("Serial Poll Disable");
+                    log::debug!("Serial Poll Disable");
                     serial_poll = false;
                 } else if message::is_dcl(byte) {
-                    println!("Device CLear received");
+                    log::debug!("Device CLear received");
                     // listener.reset();
                 } else if message::is_unt(byte) {
-                    println!("Untalk received")
+                    log::debug!("Untalk received")
                 } else {
-                    println!("Unrecognized command {byte:#010b}");
+                    log::debug!("Unrecognized command {byte:#010b}");
                 }
             }
             _ => {
@@ -138,11 +125,11 @@ fn listen() -> Option<(Vec<u8>, bool)> {
 fn parse_request(raw: Vec<u8>) -> Option<Request> {
     match Request::try_from(raw.as_slice()) {
         Ok(value) => {
-            println!("Successfully parse {value:?}");
+            log::debug!("Successfully parse {value:?}");
             Some(value)
         }
         Err(err) => {
-            println!("Failed to parse request {raw:02x?}: {err}");
+            log::debug!("Failed to parse request {raw:02x?}: {err}");
             None
         }
     }

@@ -105,7 +105,7 @@ impl Listener {
 
         // All good, now we can process the received byte without rushing.
         // The laptop will wait until we say we're ready for new data.
-        println!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
+        log::debug!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
 
         self.state_machine.process(byte, atn == 1)
     }
@@ -163,7 +163,7 @@ impl StateMachine {
     fn process_active_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
         if is_command {
             if message::is_unl(byte) {
-                println!("UNL received");
+                log::debug!("UNL received");
 
                 self.is_active = false;
 
@@ -175,7 +175,7 @@ impl StateMachine {
                 ListeningResult::Unhandled { byte, is_command }
             }
         } else {
-            println!("...add `{byte:#04x}` to buffer");
+            log::debug!("...add `{byte:#04x}` to buffer");
             self.buffer.push(byte);
 
             ListeningResult::Continue

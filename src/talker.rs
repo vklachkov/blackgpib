@@ -48,7 +48,7 @@ impl Talker {
 
     pub fn send_bytes(&mut self, bytes: &[u8]) {
         for i in 0..bytes.len() {
-            println!("Start sending byte {i} ({:#04x})", bytes[i]);
+            log::debug!("Start sending byte {i} ({:#04x})", bytes[i]);
 
             self.dav.set_high();
 
@@ -59,7 +59,7 @@ impl Talker {
             gpio::write_data(&mut self.data, bytes[i]);
 
             if i == bytes.len() - 1 {
-                println!("EOI low");
+                log::debug!("EOI low");
                 self.eoi.set_low();
             } else {
                 self.eoi.set_high();
