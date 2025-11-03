@@ -3,13 +3,14 @@ mod gpib;
 mod gpio;
 mod listener;
 mod logger;
-mod message;
+mod gpib_command;
 mod talker;
 
 use crate::{
     disk_request::{Request, RequestCode},
     gpib::SupportedDeviceAddress,
     listener::{Listener, ListeningResult},
+    gpib_command::GPIBCommand,
     talker::Talker,
 };
 
@@ -29,7 +30,7 @@ fn main() {
 
     log::info!("BlackGPiB started");
 
-    log::debug!("Reset all pins...");
+    log::debug!("Reset all pins to Z-State...");
     gpio::reset_all();
 
     let image = std::fs::read("GRIDOS.img").unwrap();
@@ -94,25 +95,15 @@ fn listen() -> Option<(Vec<u8>, bool)> {
                 }
                 request = Some(bytes);
             }
-            ListeningResult::Unhandled { byte, is_command } if is_command => {
-                if message::is_mta(byte, ADDRESS as u8) {
-                    log::debug!("MTA received, drop listener");
-                    listener.srq_high();
-                    let a = request.map(|r| (r, serial_poll));
-                    return a;
-                } else if message::is_spe(byte) {
-                    log::debug!("Serial Poll Enable");
+            ListeningResult::UnhandledCommand { cmd } => {
+                log::info!("Listener catch command {cmd:?}");
+
+                if cmd == GPIBCommand::MTA(ADDRESS as u8) {
+                    return request.map(|r| (r, serial_poll));
+                } else if cmd == GPIBCommand::SPE {
                     serial_poll = true;
-                } else if message::is_spd(byte) {
-                    log::debug!("Serial Poll Disable");
+                } else if cmd == GPIBCommand::SPD {
                     serial_poll = false;
-                } else if message::is_dcl(byte) {
-                    log::debug!("Device CLear received");
-                    // listener.reset();
-                } else if message::is_unt(byte) {
-                    log::debug!("Untalk received")
-                } else {
-                    log::debug!("Unrecognized command {byte:#010b}");
                 }
             }
             _ => {

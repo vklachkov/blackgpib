@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
-use crate::{gpib::GPIB, gpio, message};
+use crate::{gpib::GPIB, gpio, gpib_command::GPIBCommand};
 
 pub enum ListeningResult {
     /// Byte successfully received and processed.
@@ -13,7 +13,7 @@ pub enum ListeningResult {
 
     /// A byte was read that cannot be interpreted in the listener's current state.
     /// This could be a command (for example, DSL) or a byte meant for another device.
-    Unhandled { byte: u8, is_command: bool },
+    UnhandledCommand { cmd: GPIBCommand },
 }
 
 /// Listener represents device in Listen state.
@@ -162,7 +162,8 @@ impl StateMachine {
 
     fn process_active_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
         if is_command {
-            if message::is_unl(byte) {
+            let cmd = GPIBCommand::from(byte);
+            if cmd == GPIBCommand::UNL {
                 log::debug!("UNL received");
 
                 self.is_active = false;
@@ -172,7 +173,7 @@ impl StateMachine {
 
                 ListeningResult::Done { bytes }
             } else {
-                ListeningResult::Unhandled { byte, is_command }
+                ListeningResult::UnhandledCommand { cmd }
             }
         } else {
             log::debug!("...add `{byte:#04x}` to buffer");
@@ -183,11 +184,16 @@ impl StateMachine {
     }
 
     fn process_idle_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
-        if is_command && message::is_mla(byte, self.dev_address) {
+        if !is_command {
+            return ListeningResult::Continue;
+        }
+
+        let cmd = GPIBCommand::from(byte);
+        if cmd == GPIBCommand::MLA(self.dev_address) {
             self.is_active = true;
             ListeningResult::Continue
         } else {
-            ListeningResult::Unhandled { is_command, byte }
+            ListeningResult::UnhandledCommand { cmd }
         }
     }
 }
