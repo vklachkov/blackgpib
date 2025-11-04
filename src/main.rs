@@ -1,32 +1,42 @@
 mod disk_request;
+mod disk_identity;
 mod gpib;
+mod gpib_command;
 mod gpio;
 mod listener;
 mod logger;
-mod gpib_command;
 mod talker;
 
 use crate::{
     disk_request::{Request, RequestCode},
+    disk_identity::DiskIdentity,
     gpib::SupportedDeviceAddress,
-    listener::{Listener, ListeningResult},
     gpib_command::GPIBCommand,
+    listener::{Listener, ListeningResult},
     talker::Talker,
 };
 
 const ADDRESS: SupportedDeviceAddress = SupportedDeviceAddress::ExternalFloppy;
 
-// TODO: Represent as struct not bytes.
-// Description here http://deltacxx.insomnia247.nl/projects/gridcompass/disk_info.txt.
-const IDENTITY: [u8; 52] = [
-    // 0x00, 0x02, 0xf8, 0x01, 0xd0, 0x02, 0x01, 0x20, 0x01, 0x21, 0x01, 0x01, 0x00, 0x00, 0x34, 0x38,
-    // 0x20, 0x54, 0x50, 0x49, 0x20, 0x44, 0x53, 0x20, 0x44, 0x44, 0x20, 0x46, 0x4c, 0x4f, 0x50, 0x50,
-    // 0x59, 0x20, 0x20, 0x20, 0x20, 0x33, 0x30, 0x30, 0x32, 0x33, 0x37, 0x2d, 0x30, 0x30, 0x00, 0x02,
-    0x00, 0x02, 0xf8, 0x01, 0xD0, 0x02, 0x01, 0x20, 0x01, 0x21, 0x01, 0x01, 0x00, 0x00,
-    0x34, 0x38, 0x20, 0x54, 0x50, 0x49, 0x20, 0x44, 0x53, 0x20, 0x44, 0x44, 0x20, 0x46,
-    0x4c, 0x4f, 0x50, 0x50, 0x59, 0x20, 0x20, 0x20, 0x20, 0x33, 0x30, 0x32, 0x33, 0x37,
-    0x2d, 0x30, 0x30, 0x00, 0x02, 0x09, 0x00, 0x09, 0x00, 0x02
-];
+const IDENTITY: DiskIdentity = DiskIdentity {
+    sector_size: 512,
+    log_sector_size: 504,
+    sector_count: 720,
+    drive_ready: true,
+    bit_map: 0b100100000,
+    dir_fid: 289,
+    min_dir_pages: 1,
+    flush: 0,
+    dev_name: *b"48 TPI DS DD FLOPPY    30237-00\0",
+    // Extracted from real floppy. Weird values, but works.
+    bytes_per_sector: 2306,
+    sectors_per_track: 2304,
+    tracks_per_cylinder: 512,
+    // Unused by floppy.
+    unknown: [0; 4],
+};
+
+const IDENTITY_BYTES: [u8; 56] = IDENTITY.into_bytes();
 
 fn main() {
     logger::configure();
@@ -65,7 +75,7 @@ fn main() {
         log::debug!("Request from Compass: {request:?}");
 
         let response: &[u8] = match request.code {
-            RequestCode::GetStatus => &IDENTITY,
+            RequestCode::GetStatus => &IDENTITY_BYTES[..request.data_size as usize],
             RequestCode::Read => {
                 // TODO: Check sector
                 // Return sector
@@ -121,7 +131,6 @@ fn listen() -> (Option<Vec<u8>>, bool) {
         }
     }
 }
-
 
 fn parse_request(raw: Vec<u8>) -> Option<Request> {
     match Request::try_from(raw.as_slice()) {
