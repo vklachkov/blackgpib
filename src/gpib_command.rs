@@ -1,6 +1,6 @@
 /// GPIB commands (messages with ATN) that a GRiD laptop can send
 /// to a hard drive or floppy drive.
-/// 
+///
 /// Commands are taken from the standard, section 2.13.7.1 Interface Messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GPIBCommand {
@@ -56,6 +56,7 @@ impl From<u8> for GPIBCommand {
     }
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
