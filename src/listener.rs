@@ -9,19 +9,14 @@ pub enum ListeningResult {
     /// Byte successfully received and processed.
     Continue,
 
-    // Received listen for another target
-    AnotherTarget,
+    /// Received command other than MLA or UNL.
+    Command(GPIBCommand),
 
-    /// Data reading finished; the device returned to the MLA waiting state.
-    Done {
-        bytes: Vec<u8>,
-    },
+    /// Received listen for another target.
+    AnotherDeviceListen(u8),
 
-    /// A byte was read that cannot be interpreted in the listener's current state.
-    /// This could be a command (for example, DSL) or a byte meant for another device.
-    UnhandledCommand {
-        cmd: GPIBCommand,
-    },
+    /// Finished reading data from the controller.
+    Done(Vec<u8>),
 }
 
 /// Listener represents device in Listen state.
@@ -127,7 +122,7 @@ impl Listener {
         // log::debug!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
 
         let ret = self.state_machine.process(byte, atn == 1);
-        if ret == ListeningResult::AnotherTarget {
+        if matches!(ret, ListeningResult::AnotherDeviceListen(_)) {
             log::debug!("state = {ret:?}");
             self.set_error = true;
         }
@@ -167,7 +162,7 @@ impl StateMachine {
         Self {
             dev_address,
             is_active: false,
-            buffer: Vec::with_capacity(1024),
+            buffer: Vec::with_capacity(512),
         }
     }
 
@@ -188,43 +183,31 @@ impl StateMachine {
         if is_command {
             let cmd = GPIBCommand::from(byte);
             if cmd == GPIBCommand::UNL {
-                // log::debug!("UNL received");
-
                 self.is_active = false;
-
-                let bytes = self.buffer.clone();
-                self.buffer.clear();
-
-                ListeningResult::Done { bytes }
-            } else if cmd == GPIBCommand::DCL {
-                // log::debug!("DCL received");
-
-                self.is_active = false;
-                self.buffer.clear();
-                ListeningResult::Continue
+                ListeningResult::Done(self.buffer.clone())
             } else {
-                ListeningResult::UnhandledCommand { cmd }
+                ListeningResult::Command(cmd)
             }
         } else {
-            // log::debug!("...add `{byte:#04x}` to buffer");
             self.buffer.push(byte);
-
             ListeningResult::Continue
         }
     }
 
+    #[rustfmt::skip]
     fn process_idle_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
-        if !is_command {
-            return ListeningResult::Continue;
-        }
+        assert!(is_command, "Read byte of data without being in an active state");
 
         match GPIBCommand::from(byte) {
-            GPIBCommand::MLA(address) if address == self.dev_address => {
+            GPIBCommand::MLA(address) => if address == self.dev_address {
                 self.is_active = true;
                 ListeningResult::Continue
-            }
-            GPIBCommand::MLA(_) => ListeningResult::AnotherTarget,
-            cmd => ListeningResult::UnhandledCommand { cmd },
+            } else {
+                ListeningResult::AnotherDeviceListen(address)
+            },
+            cmd => {
+                ListeningResult::Command(cmd)
+            },
         }
     }
 }

@@ -102,32 +102,50 @@ fn main() {
 
 fn listen() -> (Option<Vec<u8>>, bool) {
     let mut listener = Listener::new(ADDRESS as u8);
-    let mut request = None;
     let mut serial_poll = false;
+    let mut buffer = Vec::new();
 
     loop {
-        match listener.listen() {
-            ListeningResult::Done { bytes } => {
+        let result = listener.listen();
+        match result {
+            ListeningResult::Continue => {
+                continue;
+            }
+            ListeningResult::Command(cmd) => {
+                log::info!("Listener catch command {cmd:?}");
+                match cmd {
+                    GPIBCommand::DCL | GPIBCommand::SDC => {
+                        listener.reset();
+                    }
+                    GPIBCommand::SPE => {
+                        serial_poll = true;
+                    }
+                    GPIBCommand::SPD => {
+                        serial_poll = false;
+                    }
+                    GPIBCommand::MTA(address) => {
+                        if address == ADDRESS as u8 {
+                            let buffer = if buffer.is_empty() { None } else { Some(buffer) };
+                            return (buffer, serial_poll);
+                        } else {
+                            // unused for now
+                            // listener.wait_next_command();
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            ListeningResult::AnotherDeviceListen(_) => {
+                // unused for now
+                // listener.wait_next_command();
+            }
+            ListeningResult::Done(bytes) => {
                 log::debug!("Save {} bytes for future parsing", bytes.len());
                 // Hack!
                 if bytes.get(0) == Some(&4) {
                     listener.srq_low();
                 }
-                request = Some(bytes);
-            }
-            ListeningResult::UnhandledCommand { cmd } => {
-                log::info!("Listener catch command {cmd:?}");
-
-                if cmd == GPIBCommand::MTA(ADDRESS as u8) {
-                    return (request, serial_poll);
-                } else if cmd == GPIBCommand::SPE {
-                    serial_poll = true;
-                } else if cmd == GPIBCommand::SPD {
-                    serial_poll = false;
-                }
-            }
-            _ => {
-                continue;
+                buffer = bytes;
             }
         }
     }
