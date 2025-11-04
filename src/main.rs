@@ -1,15 +1,16 @@
-mod disk_request;
 mod disk_identity;
+mod disk_request;
 mod gpib;
 mod gpib_command;
 mod gpio;
 mod listener;
 mod logger;
 mod talker;
+mod utils;
 
 use crate::{
-    disk_request::{Request, RequestCode},
     disk_identity::DiskIdentity,
+    disk_request::{Request, RequestCode},
     gpib::SupportedDeviceAddress,
     gpib_command::GPIBCommand,
     listener::{Listener, ListeningResult},
@@ -61,12 +62,12 @@ fn main() {
         let Some(request) = request.and_then(parse_request) else {
             if serial_poll {
                 log::debug!("Oooooooooo???");
-                talker.send_bytes(&[0x4f]);
+                talker.send_bytes(&[0x4f], false);
                 log::debug!("Ooooo");
             } else {
                 let part = &image[(sector * 512)..(sector * 512 + size)];
                 log::debug!("Sending part of image {sector} {size}: {part:02x?}");
-                talker.send_bytes(part);
+                talker.send_bytes(part, true);
                 log::debug!("Success");
             }
             continue;
@@ -94,7 +95,7 @@ fn main() {
         };
 
         log::debug!("Sending response {response:02x?}");
-        talker.send_bytes(response);
+        talker.send_bytes(response, true);
         log::debug!("Response sent successfull");
     }
 }
