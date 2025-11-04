@@ -40,9 +40,6 @@ pub struct Listener {
     nrfd: OutputPin,
 
     data: [InputPin; 8],
-
-    // is set when controller asks to listen not on our address
-    set_error: bool,
 }
 
 impl Listener {
@@ -64,8 +61,6 @@ impl Listener {
             nrfd: gpio::output(GPIB::NRFD, Level::Low),
 
             data: GPIB::data().map(gpio::input),
-
-            set_error: false,
         }
     }
 
@@ -86,25 +81,8 @@ impl Listener {
     /// The only solution is to read bytes as quickly as possible.
     pub fn listen(&mut self) -> ListeningResult {
         // Ready for a new byte.
-        if !self.set_error {
-            self.ndac.set_low();
-        }
+        self.ndac.set_low();
         self.nrfd.set_high();
-
-        if self.set_error {
-            log::debug!("Set Error state");
-            busy_wait(Duration::from_micros(15));
-            self.set_error = false;
-            self.ndac.set_low();
-
-            log::debug!("Wait ATN High");
-            while self.atn.read() != Level::High {}
-            self.ndac.set_high();
-            log::debug!("Wait ATN Low");
-            while self.atn.read() != Level::Low {}
-            self.ndac.set_low();
-            log::debug!("Data skipped");
-        }
 
         // Wait until Compass sets the data on the bus and raise the DAta Valid flag.
         while self.dav.read() != Level::Low {}
@@ -117,28 +95,37 @@ impl Listener {
         // let eoi = self.eoi.is_low() as u8;
         let byte = gpio::read_data(&self.data);
 
-        // All good, now we can process the received byte without rushing.
-        // The laptop will wait until we say we're ready for new data.
-        // log::debug!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
-
-        let ret = self.state_machine.process(byte, atn == 1);
-        if matches!(ret, ListeningResult::AnotherDeviceListen(_)) {
-            log::debug!("state = {ret:?}");
-            self.set_error = true;
-        }
-
         // Signal that we've read the byte.
         self.ndac.set_high();
 
         // Wait until the laptop resets the DAta Valid flag.
         while self.dav.read() != Level::High {}
 
-        busy_wait(Duration::from_micros(10));
+        // All good, now we can process the received byte without rushing.
+        // The laptop will wait until we say we're ready for new data.
+        // log::debug!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
 
-        return ret;
+        self.state_machine.process(byte, atn == 1)
     }
 
-    pub fn srq_low(&mut self) {
+    /// Waits for the next command the same way a real disk does.
+    pub fn wait_next_command(&mut self) {
+        self.nrfd.set_high();
+
+        busy_wait(Duration::from_micros(15));
+    
+        self.ndac.set_low();
+
+        while self.atn.read() != Level::High {}
+
+        self.ndac.set_high();
+
+        while self.atn.read() != Level::Low {}
+
+        self.ndac.set_low();
+    } 
+
+    pub fn srq_feedback(&mut self) {
         self.srq.set_low();
     }
 }

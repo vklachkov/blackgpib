@@ -8,6 +8,8 @@ mod logger;
 mod talker;
 mod utils;
 
+use std::time::Duration;
+
 use crate::{
     disk_identity::DiskIdentity,
     disk_request::{Request, RequestCode},
@@ -15,6 +17,7 @@ use crate::{
     gpib_command::GPIBCommand,
     listener::{Listener, ListeningResult},
     talker::Talker,
+    utils::busy_wait,
 };
 
 const ADDRESS: SupportedDeviceAddress = SupportedDeviceAddress::ExternalFloppy;
@@ -107,10 +110,9 @@ fn listen() -> (Option<Vec<u8>>, bool) {
 
     loop {
         let result = listener.listen();
+
         match result {
-            ListeningResult::Continue => {
-                continue;
-            }
+            ListeningResult::Continue => {}
             ListeningResult::Command(cmd) => {
                 log::info!("Listener catch command {cmd:?}");
                 match cmd {
@@ -128,26 +130,26 @@ fn listen() -> (Option<Vec<u8>>, bool) {
                             let buffer = if buffer.is_empty() { None } else { Some(buffer) };
                             return (buffer, serial_poll);
                         } else {
-                            // unused for now
-                            // listener.wait_next_command();
+                            listener.wait_next_command();
                         }
                     }
                     _ => {}
                 }
             }
             ListeningResult::AnotherDeviceListen(_) => {
-                // unused for now
-                // listener.wait_next_command();
+                listener.wait_next_command();
             }
             ListeningResult::Done(bytes) => {
                 log::debug!("Save {} bytes for future parsing", bytes.len());
-                // Hack!
-                if bytes.get(0) == Some(&4) {
-                    listener.srq_low();
+                // HACK: Set SRQ for read and write commands.
+                if bytes.get(0) == Some(&4) || bytes.get(0) == Some(&5) {
+                    listener.srq_feedback();
                 }
                 buffer = bytes;
             }
         }
+
+        busy_wait(Duration::from_micros(10));
     }
 }
 
