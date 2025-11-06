@@ -49,7 +49,7 @@ impl Listener {
 
             dc: gpio::output(GPIB::DC, Level::High),
             te: gpio::output(GPIB::TE, Level::Low),
-            pe: gpio::output(GPIB::PE, Level::High),
+            pe: gpio::output(GPIB::PE, Level::Low),
 
             atn: gpio::input(GPIB::ATN),
             srq: gpio::output(GPIB::SRQ, Level::High),
@@ -92,7 +92,7 @@ impl Listener {
 
         // Read byte and flags.
         let atn = self.atn.is_low() as u8;
-        // let eoi = self.eoi.is_low() as u8;
+        let eoi = self.eoi.is_low() as u8;
         let byte = gpio::read_data(&self.data);
 
         // Signal that we've read the byte.
@@ -103,7 +103,7 @@ impl Listener {
 
         // All good, now we can process the received byte without rushing.
         // The laptop will wait until we say we're ready for new data.
-        // log::debug!("ATN={atn} EOI={eoi} BYTE={byte:#02x} ({byte:#08b})");
+        // log::debug!("ATN={atn} EOI={eoi} BYTE={byte:#04x} ({byte:#010b})");
 
         self.state_machine.process(byte, atn == 1)
     }
@@ -169,9 +169,14 @@ impl StateMachine {
     fn process_active_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
         if is_command {
             let cmd = GPIBCommand::from(byte);
-            if cmd == GPIBCommand::UNL {
+            if cmd == GPIBCommand::DCL || cmd == GPIBCommand::SDC {
+                self.reset();
+                ListeningResult::Continue
+            } else if cmd == GPIBCommand::UNL {
                 self.is_active = false;
-                ListeningResult::Done(self.buffer.clone())
+                let done = self.buffer.clone();
+                self.buffer.clear();
+                ListeningResult::Done(done)
             } else {
                 ListeningResult::Command(cmd)
             }
@@ -183,9 +188,13 @@ impl StateMachine {
 
     #[rustfmt::skip]
     fn process_idle_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
-        assert!(is_command, "Read byte of data without being in an active state");
+        assert!(is_command, "Read byte {byte:#04x} of data without being in an active state");
 
         match GPIBCommand::from(byte) {
+            GPIBCommand::DCL | GPIBCommand::SDC => {
+                self.reset();
+                ListeningResult::Continue
+            }
             GPIBCommand::MLA(address) => if address == self.dev_address {
                 self.is_active = true;
                 ListeningResult::Continue

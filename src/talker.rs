@@ -30,7 +30,7 @@ impl Talker {
         Self {
             dc: gpio::output(GPIB::DC, Level::Low),
             te: gpio::output(GPIB::TE, Level::High),
-            pe: gpio::output(GPIB::PE, Level::High),
+            pe: gpio::output(GPIB::PE, Level::Low),
 
             atn: gpio::output(GPIB::ATN, Level::High),
             srq: gpio::input(GPIB::SRQ),
@@ -47,6 +47,7 @@ impl Talker {
     }
 
     pub fn send_bytes(&mut self, bytes: &[u8], send_eoi: bool) {
+        log::info!("Send bytes (with eoi? {send_eoi}) {}", bytes.len());
         for i in 0..bytes.len() {
             let is_last_byte = i == bytes.len() - 1;
 

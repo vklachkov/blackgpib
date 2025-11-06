@@ -12,7 +12,7 @@ pub fn input(gpib: GPIB) -> InputPin {
     let mut pin = GPIO
         .get(gpib.pin_number())
         .expect("pin should be used once")
-        .into_input();
+        .into_input_pullup();
 
     pin.set_reset_on_drop(false);
 
