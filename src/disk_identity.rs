@@ -3,16 +3,16 @@
 pub struct DiskIdentity {
     // also known as pageSize.
     pub sector_size: u16,
-    // also known as logpageSize.
-    pub log_sector_size: u16,
+    pub logical_sector_size: u16,
     // also known as numPages.
     pub sector_count: u16,
     pub drive_ready: bool,
-    pub bit_map: u16,
-    pub dir_fid: u16,
+    pub bitmap_block_id: u16,
+    // address of superblock
+    pub superblock_id: u16,
     pub min_dir_pages: u16,
     pub flush: u8,
-    pub dev_name: [u8; 32],
+    pub device_name: [u8; 32],
     pub bytes_per_sector: u16,
     pub sectors_per_track: u16,
     pub tracks_per_cylinder: u16,
@@ -27,17 +27,17 @@ impl DiskIdentity {
         let mut status = unsafe { core::mem::zeroed::<DiskIdentity>() };
 
         status.sector_size = u16::from_le_bytes([data[0], data[1]]);
-        status.log_sector_size = u16::from_le_bytes([data[2], data[3]]);
+        status.logical_sector_size = u16::from_le_bytes([data[2], data[3]]);
         status.sector_count = u16::from_le_bytes([data[4], data[5]]);
         status.drive_ready = data[6] == 1;
-        status.bit_map = u16::from_le_bytes([data[7], data[8]]);
-        status.dir_fid = u16::from_le_bytes([data[9], data[10]]);
+        status.bitmap_block_id = u16::from_le_bytes([data[7], data[8]]);
+        status.superblock_id = u16::from_le_bytes([data[9], data[10]]);
         status.min_dir_pages = u16::from_le_bytes([data[11], data[12]]);
         status.flush = data[13];
 
         let mut i = 0;
         while i != 32 {
-            status.dev_name[i] = data[14 + i];
+            status.device_name[i] = data[14 + i];
             i += 1;
         }
 
@@ -63,7 +63,7 @@ impl DiskIdentity {
         output[0] = bytes[0];
         output[1] = bytes[1];
 
-        let bytes = self.log_sector_size.to_le_bytes();
+        let bytes = self.logical_sector_size.to_le_bytes();
         output[2] = bytes[0];
         output[3] = bytes[1];
 
@@ -73,11 +73,11 @@ impl DiskIdentity {
 
         output[6] = self.drive_ready as u8;
 
-        let bytes = self.bit_map.to_le_bytes();
+        let bytes = self.bitmap_block_id.to_le_bytes();
         output[7] = bytes[0];
         output[8] = bytes[1];
 
-        let bytes = self.dir_fid.to_le_bytes();
+        let bytes = self.superblock_id.to_le_bytes();
         output[9] = bytes[0];
         output[10] = bytes[1];
 
@@ -89,7 +89,7 @@ impl DiskIdentity {
 
         let mut i = 0;
         while i < 32 {
-            output[14 + i] = self.dev_name[i];
+            output[14 + i] = self.device_name[i];
             i += 1;
         }
 
@@ -118,14 +118,14 @@ impl std::fmt::Debug for DiskIdentity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ParameterStatus")
             .field("sector_size", &self.sector_size)
-            .field("log_sector_size", &self.log_sector_size)
+            .field("log_sector_size", &self.logical_sector_size)
             .field("sector_count", &self.sector_count)
             .field("drive_ready", &self.drive_ready)
-            .field("bit_map", &self.bit_map)
-            .field("dir_fid", &self.dir_fid)
+            .field("bit_map", &self.bitmap_block_id)
+            .field("dir_fid", &self.superblock_id)
             .field("min_dir_pages", &self.min_dir_pages)
             .field("flush", &self.flush)
-            .field("dev_name", &String::from_utf8_lossy(&self.dev_name))
+            .field("dev_name", &String::from_utf8_lossy(&self.device_name))
             .field("bytes_per_sector", &self.bytes_per_sector)
             .field("sectors_per_track", &self.sectors_per_track)
             .field("tracks_per_cylinder", &self.tracks_per_cylinder)
@@ -150,14 +150,14 @@ mod tests {
         dbg!(status);
 
         assert_eq!(status.sector_size, 512);
-        assert_eq!(status.log_sector_size, 504);
+        assert_eq!(status.logical_sector_size, 504);
         assert_eq!(status.sector_count, 20876);
         assert_eq!(status.drive_ready, true);
-        assert_eq!(status.bit_map, 0b00000000);
-        assert_eq!(status.dir_fid, 0);
+        assert_eq!(status.bitmap_block_id, 0b00000000);
+        assert_eq!(status.superblock_id, 0);
         assert_eq!(status.min_dir_pages, 1);
         assert_eq!(status.flush, 0);
-        assert_eq!(status.dev_name, *b"MAME HARDDISK DRIVE     GRID2101");
+        assert_eq!(status.device_name, *b"MAME HARDDISK DRIVE     GRID2101");
         assert_eq!(status.bytes_per_sector, 512);
         assert_eq!(status.sectors_per_track, 17);
         assert_eq!(status.tracks_per_cylinder, 307);
@@ -180,14 +180,14 @@ mod tests {
         dbg!(status);
 
         assert_eq!(status.sector_size, 512);
-        assert_eq!(status.log_sector_size, 504);
+        assert_eq!(status.logical_sector_size, 504);
         assert_eq!(status.sector_count, 720);
         assert_eq!(status.drive_ready, true);
-        assert_eq!(status.bit_map, 0b100100000);
-        assert_eq!(status.dir_fid, 289);
+        assert_eq!(status.bitmap_block_id, 0b100100000);
+        assert_eq!(status.superblock_id, 289);
         assert_eq!(status.min_dir_pages, 1);
         assert_eq!(status.flush, 0);
-        assert_eq!(status.dev_name, *b"48 TPI DS DD FLOPPY    30237-00\0");
+        assert_eq!(status.device_name, *b"48 TPI DS DD FLOPPY    30237-00\0");
         assert_eq!(status.bytes_per_sector, 2306);
         assert_eq!(status.sectors_per_track, 2304);
         assert_eq!(status.tracks_per_cylinder, 512);
