@@ -1,6 +1,6 @@
 use crate::{disk_identity::DiskIdentity, gpib::SupportedDeviceAddress};
 
-pub const ADDRESS: SupportedDeviceAddress = SupportedDeviceAddress::HardDisk;
+pub const ADDRESS: SupportedDeviceAddress = SupportedDeviceAddress::ExternalFloppy;
 
 pub const IDENTITY: [u8; 56] = DiskIdentity {
     // Disk parameters.
@@ -16,12 +16,13 @@ pub const IDENTITY: [u8; 56] = DiskIdentity {
     min_dir_pages: 1,
     flush: 0,
     //
-    device_name: *b"48 TPI DS DD FLOPPY    30237-00\0",
-    // Unknown. Extracted from real floppy. Weird values, but works.
-    bytes_per_sector: 2306,
-    sectors_per_track: 2304,
-    tracks_per_cylinder: 512,
+    device_name: *b"48 TPI DS DD FLOPPY    300237-00",
+    bytes_per_sector: 512,
+    sectors_per_track: 9,
+    tracks_per_cylinder: 2,
     // Unused by floppy.
-    unknown: [0; 4],
+    interleave_factor: 0,
+    second_side_count: 0,
+    num_cylinders: 0,
 }
 .into_bytes();

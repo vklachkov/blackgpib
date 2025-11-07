@@ -1,5 +1,5 @@
 /// Describes a block device connected to a GRiD computer.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct DiskIdentity {
     // also known as pageSize.
     pub sector_size: u16,
@@ -16,7 +16,9 @@ pub struct DiskIdentity {
     pub bytes_per_sector: u16,
     pub sectors_per_track: u16,
     pub tracks_per_cylinder: u16,
-    pub unknown: [u8; 4],
+    pub interleave_factor: u8,
+    pub second_side_count: u8,
+    pub num_cylinders: u16,
 }
 
 impl DiskIdentity {
@@ -46,11 +48,13 @@ impl DiskIdentity {
         status.tracks_per_cylinder = u16::from_le_bytes([data[50], data[51]]);
 
         if N == 56 {
-            let mut i = 0;
-            while i != 4 {
-                status.unknown[i] = data[52 + i];
-                i += 1;
-            }
+            status.interleave_factor = data[52];
+            status.second_side_count = data[53];
+            status.num_cylinders = u16::from_le_bytes([data[54], data[55]]);
+        } else {
+            status.interleave_factor = 0;
+            status.second_side_count = 0;
+            status.num_cylinders = 0;
         }
 
         status
@@ -105,10 +109,12 @@ impl DiskIdentity {
         output[50] = bytes[0];
         output[51] = bytes[1];
 
-        output[52] = self.unknown[0];
-        output[53] = self.unknown[1];
-        output[54] = self.unknown[2];
-        output[55] = self.unknown[3];
+        output[52] = self.interleave_factor;
+        output[53] = self.second_side_count;
+
+        let bytes = self.num_cylinders.to_le_bytes();
+        output[54] = bytes[0];
+        output[55] = bytes[1];
 
         output
     }
@@ -116,19 +122,22 @@ impl DiskIdentity {
 
 impl std::fmt::Debug for DiskIdentity {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ParameterStatus")
+        f.debug_struct("DiskIdentity")
             .field("sector_size", &self.sector_size)
-            .field("log_sector_size", &self.logical_sector_size)
+            .field("logical_sector_size", &self.logical_sector_size)
             .field("sector_count", &self.sector_count)
             .field("drive_ready", &self.drive_ready)
-            .field("bit_map", &self.bitmap_block_id)
-            .field("dir_fid", &self.superblock_id)
+            .field("bitmap_block_id", &self.bitmap_block_id)
+            .field("superblock_id", &self.superblock_id)
             .field("min_dir_pages", &self.min_dir_pages)
             .field("flush", &self.flush)
-            .field("dev_name", &String::from_utf8_lossy(&self.device_name))
+            .field("device_name", &String::from_utf8_lossy(&self.device_name))
             .field("bytes_per_sector", &self.bytes_per_sector)
             .field("sectors_per_track", &self.sectors_per_track)
             .field("tracks_per_cylinder", &self.tracks_per_cylinder)
+            .field("interleave_factor", &self.interleave_factor)
+            .field("second_side_count", &self.second_side_count)
+            .field("num_cylinders", &self.num_cylinders)
             .finish()
     }
 }
@@ -140,10 +149,10 @@ mod tests {
     #[test]
     fn test_round_trip_hdd_identity() {
         let bytes = [
-            0x00, 0x02, 0xF8, 0x01, 0x8C, 0x51, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00,
-            0x4D, 0x41, 0x4D, 0x45, 0x20, 0x48, 0x41, 0x52, 0x44, 0x44, 0x49, 0x53, 0x4B, 0x20,
-            0x44, 0x52, 0x49, 0x56, 0x45, 0x20, 0x20, 0x20, 0x20, 0x20, 0x47, 0x52, 0x49, 0x44,
-            0x32, 0x31, 0x30, 0x31, 0x00, 0x02, 0x11, 0x00, 0x33, 0x01, 0x00, 0x00, 0x04, 0x00,
+            0x00, 0x02, 0xF8, 0x01, 0x8C, 0x51, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x4D, 0x41, 0x4D, 0x45,
+            0x20, 0x48, 0x41, 0x52, 0x44, 0x44, 0x49, 0x53, 0x4B, 0x20, 0x44, 0x52, 0x49, 0x56, 0x45, 0x20, 0x20, 0x20,
+            0x20, 0x20, 0x47, 0x52, 0x49, 0x44, 0x32, 0x31, 0x30, 0x31, 0x00, 0x02, 0x11, 0x00, 0x33, 0x01, 0x00, 0x00,
+            0x04, 0x00,
         ];
 
         let status = DiskIdentity::from_bytes(&bytes);
@@ -161,7 +170,9 @@ mod tests {
         assert_eq!(status.bytes_per_sector, 512);
         assert_eq!(status.sectors_per_track, 17);
         assert_eq!(status.tracks_per_cylinder, 307);
-        assert_eq!(status.unknown, [0x00, 0x00, 0x04, 0x00]);
+        assert_eq!(status.interleave_factor, 0);
+        assert_eq!(status.second_side_count, 0);
+        assert_eq!(status.num_cylinders, 4);
 
         let serialized = status.into_bytes();
         assert_eq!(serialized, bytes);
@@ -170,10 +181,9 @@ mod tests {
     #[test]
     fn test_round_trip_floppy_identity() {
         let bytes = [
-            0x00, 0x02, 0xf8, 0x01, 0xD0, 0x02, 0x01, 0x20, 0x01, 0x21, 0x01, 0x01, 0x00, 0x00,
-            0x34, 0x38, 0x20, 0x54, 0x50, 0x49, 0x20, 0x44, 0x53, 0x20, 0x44, 0x44, 0x20, 0x46,
-            0x4c, 0x4f, 0x50, 0x50, 0x59, 0x20, 0x20, 0x20, 0x20, 0x33, 0x30, 0x32, 0x33, 0x37,
-            0x2d, 0x30, 0x30, 0x00, 0x02, 0x09, 0x00, 0x09, 0x00, 0x02,
+            0x00, 0x02, 0xf8, 0x01, 0xD0, 0x02, 0x01, 0x20, 0x01, 0x21, 0x01, 0x01, 0x00, 0x00, 0x34, 0x38, 0x20, 0x54,
+            0x50, 0x49, 0x20, 0x44, 0x53, 0x20, 0x44, 0x44, 0x20, 0x46, 0x4c, 0x4f, 0x50, 0x50, 0x59, 0x20, 0x20, 0x20,
+            0x20, 0x33, 0x30, 0x32, 0x33, 0x37, 0x2d, 0x30, 0x30, 0x00, 0x02, 0x09, 0x00, 0x09, 0x00, 0x02,
         ];
 
         let status = DiskIdentity::from_bytes(&bytes);
@@ -191,6 +201,9 @@ mod tests {
         assert_eq!(status.bytes_per_sector, 2306);
         assert_eq!(status.sectors_per_track, 2304);
         assert_eq!(status.tracks_per_cylinder, 512);
+        assert_eq!(status.interleave_factor, 0);
+        assert_eq!(status.second_side_count, 0);
+        assert_eq!(status.num_cylinders, 0);
 
         let serialized = status.into_bytes();
         assert_eq!(serialized[..52], bytes);

@@ -21,14 +21,14 @@ impl Log for Logger {
     }
 
     fn log(&self, record: &Record) {
-        let now = Instant::now() - self.start_time;
-        let ms = now.as_millis();
-        let us = now.as_micros() % 1000;
+        // let now = Instant::now() - self.start_time;
+        // let ms = now.as_millis();
+        // let us = now.as_micros() % 1000;
 
-        let file = record.file().unwrap_or("???");
-        let line = record.line().unwrap_or(0);
+        // let file = record.file().unwrap_or("???");
+        // let line = record.line().unwrap_or(0);
 
-        println!("[{ms}ms {us:03}us] {file}:{line} > {}", record.args());
+        // println!("[{ms}ms {us:03}us] {file}:{line} > {}", record.args());
     }
 
     fn flush(&self) {}

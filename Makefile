@@ -7,3 +7,6 @@ build:
 
 deploy:
 	rsync -avzP -e ssh target/aarch64-unknown-linux-gnu/release/blackgpib blackgpib@blackgpib.local:/home/blackgpib/blackgpib
+
+test:
+	cargo test

@@ -1,11 +1,11 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
 use crate::{gpib::GPIB, gpib_command::GPIBCommand, gpio, utils::busy_wait};
 
 #[derive(Debug, PartialEq)]
-pub enum ListeningResult {
+pub enum ListeningResult<'b> {
     /// Byte successfully received and processed.
     Continue,
 
@@ -16,14 +16,14 @@ pub enum ListeningResult {
     AnotherDeviceListen(u8),
 
     /// Finished reading data from the controller.
-    Done(Vec<u8>),
+    Done { buffer: &'b Vec<u8> },
 }
 
 /// Listener represents device in Listen state.
 /// Allow just read bytes and nothing more.
 #[allow(unused)]
-pub struct Listener {
-    state_machine: StateMachine,
+pub struct Listener<'buffer> {
+    state_machine: StateMachine<'buffer>,
 
     dc: OutputPin,
     te: OutputPin,
@@ -42,14 +42,17 @@ pub struct Listener {
     data: [InputPin; 8],
 }
 
-impl Listener {
-    pub fn new(address: u8) -> Self {
+impl<'b> Listener<'b> {
+    pub fn new(address: u8, buffer: &'b mut Vec<u8>) -> Self {
         Self {
-            state_machine: StateMachine::new(address),
+            state_machine: StateMachine::new(address, buffer),
+
+            ndac: gpio::output(GPIB::NDAC, Level::Low),
+            nrfd: gpio::output(GPIB::NRFD, Level::Low),
 
             dc: gpio::output(GPIB::DC, Level::High),
             te: gpio::output(GPIB::TE, Level::Low),
-            pe: gpio::output(GPIB::PE, Level::Low),
+            pe: gpio::output(GPIB::PE, Level::High),
 
             atn: gpio::input(GPIB::ATN),
             srq: gpio::output(GPIB::SRQ, Level::High),
@@ -57,8 +60,6 @@ impl Listener {
             ifc: gpio::input(GPIB::IFC),
             eoi: gpio::input(GPIB::EOI),
             dav: gpio::input(GPIB::DAV),
-            ndac: gpio::output(GPIB::NDAC, Level::Low),
-            nrfd: gpio::output(GPIB::NRFD, Level::Low),
 
             data: GPIB::data().map(gpio::input),
         }
@@ -98,12 +99,16 @@ impl Listener {
         // Signal that we've read the byte.
         self.ndac.set_high();
 
+        // println!("Time: {:?}", Instant::now() - start);
+
         // Wait until the laptop resets the DAta Valid flag.
         while self.dav.read() != Level::High {}
 
+        // println!("After DAV: {:?}", Instant::now() - start);
+
         // All good, now we can process the received byte without rushing.
         // The laptop will wait until we say we're ready for new data.
-        // log::debug!("ATN={atn} EOI={eoi} BYTE={byte:#04x} ({byte:#010b})");
+        // println!("ATN={atn} EOI={eoi} BYTE={byte:#04x} ({byte:#010b})");
 
         self.state_machine.process(byte, atn == 1)
     }
@@ -132,7 +137,7 @@ impl Listener {
 
 /// Listener state machine, implements
 /// 2.6.2 L Function State Diagram.
-struct StateMachine {
+struct StateMachine<'b> {
     /// Device address for correct parsing of MLA command.
     dev_address: u8,
 
@@ -141,15 +146,15 @@ struct StateMachine {
     is_active: bool,
 
     /// Buffer for all bytes after MLA for our device.
-    buffer: Vec<u8>,
+    buffer: &'b mut Vec<u8>,
 }
 
-impl StateMachine {
-    fn new(dev_address: u8) -> Self {
+impl<'b> StateMachine<'b> {
+    fn new(dev_address: u8, buffer: &'b mut Vec<u8>) -> Self {
         Self {
             dev_address,
             is_active: false,
-            buffer: Vec::with_capacity(512),
+            buffer,
         }
     }
 
@@ -174,9 +179,7 @@ impl StateMachine {
                 ListeningResult::Continue
             } else if cmd == GPIBCommand::UNL {
                 self.is_active = false;
-                let done = self.buffer.clone();
-                self.buffer.clear();
-                ListeningResult::Done(done)
+                ListeningResult::Done { buffer: &self.buffer }
             } else {
                 ListeningResult::Command(cmd)
             }
@@ -188,7 +191,7 @@ impl StateMachine {
 
     #[rustfmt::skip]
     fn process_idle_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
-        assert!(is_command, "Read byte {byte:#04x} of data without being in an active state");
+        // assert!(is_command, "Read byte {byte:#04x} of data without being in an active state");
 
         match GPIBCommand::from(byte) {
             GPIBCommand::DCL | GPIBCommand::SDC => {

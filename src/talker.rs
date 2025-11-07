@@ -30,7 +30,7 @@ impl Talker {
         Self {
             dc: gpio::output(GPIB::DC, Level::Low),
             te: gpio::output(GPIB::TE, Level::High),
-            pe: gpio::output(GPIB::PE, Level::Low),
+            pe: gpio::output(GPIB::PE, Level::High),
 
             atn: gpio::output(GPIB::ATN, Level::High),
             srq: gpio::input(GPIB::SRQ),
@@ -47,9 +47,11 @@ impl Talker {
     }
 
     pub fn send_bytes(&mut self, bytes: &[u8], send_eoi: bool) {
-        log::info!("Send bytes (with eoi? {send_eoi}) {}", bytes.len());
+        // log::info!("Send bytes (with eoi? {send_eoi}) {}", bytes.len());
         for i in 0..bytes.len() {
             let is_last_byte = i == bytes.len() - 1;
+
+            // println!("byte={:#04x} last={}", bytes[i], is_last_byte);
 
             // Notify that data on the bus is no longer valid.
             self.dav.set_high();
@@ -58,18 +60,16 @@ impl Talker {
             // How does the real floppy drive behave when it sees such
             // a situation on the bus after Talk command?
             if self.ndac.is_high() && self.nrfd.is_high() {
-                log::debug!("NDAC=high NRFD=high when sending byte {i}");
+                // log::debug!("NDAC=high NRFD=high when sending byte {i}");
                 while self.ndac.is_high() && self.nrfd.is_high() {}
+            }
+
+            if send_eoi && is_last_byte {
+                self.eoi.set_low();
             }
 
             // Write data to the bus and set the last byte flag.
             gpio::write_data(&mut self.data, bytes[i]);
-
-            if send_eoi && is_last_byte {
-                self.eoi.set_low();
-            } else {
-                self.eoi.set_high();
-            }
 
             // FIXME: What is the delay of the real floppy drive?
             // Delay for lines to settle.
@@ -90,7 +90,7 @@ impl Talker {
             // Make sure to wait before sending the next byte so the laptop
             // has time to process what it read.
             // FIXME: What is the delay of the real floppy drive?
-            busy_wait(Duration::from_micros(20));
+            busy_wait(Duration::from_micros(15));
         }
     }
 }
