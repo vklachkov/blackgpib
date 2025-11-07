@@ -56,7 +56,16 @@ fn main() {
     log::debug!("Reset all pins to Z-State...");
     gpio::reset_all();
 
-    let image = std::fs::read("GRIDOS.img").unwrap();
+    let Some(image_name) = std::env::args().nth(1) else {
+        println!("Usage: blackgpib IMAGE");
+        return;
+    };
+
+    let image = std::fs::read(&image_name).unwrap();
+    if image.len() != 360 * 1024 {
+        panic!("Unsupported image size: {} byte", image.len());
+    }
+
     let mut device_state = DeviceState::Idle;
 
     loop {
