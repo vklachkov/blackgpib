@@ -83,7 +83,11 @@ fn main() {
         match result {
             DeviceResponse::Nothing => panic!("Nothing?????????????"),
             DeviceResponse::Identity { size } => {
-                talker.send_bytes(&IDENTITY[..size], true);
+                // Yes, it's weird, but the original floppy also returns 52 bytes
+                // when requesting 54 bytes of status.
+                // If we return 54 bytes to the laptop, the GPIB state will break.
+                let size = if size == 54 { 52 } else { size };
+                talker.send_bytes(&IDENTITY[..], true);
             }
             DeviceResponse::SerialPoll { has_data } => {
                 let srq_response = if has_data { 0x4f } else { 0x0f };
