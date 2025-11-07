@@ -39,12 +39,12 @@ enum DeviceWriteState {
     DataReceived { sector_number: u32, bytes: Vec<u8> },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 enum DeviceResponse {
     Nothing,
     Identity { size: usize },
     SerialPoll { has_data: bool },
-    WriteResponse {/* Always send 7 zeros for now */},
+    WriteResponse { sector_number: u32, bytes: Vec<u8> },
     ImagePart { sector_number: u32, data_size: u16 },
 }
 
@@ -61,7 +61,7 @@ fn main() {
         return;
     };
 
-    let image = std::fs::read(&image_name).unwrap();
+    let mut image = std::fs::read(&image_name).unwrap();
     if image.len() != 360 * 1024 {
         panic!("Unsupported image size: {} byte", image.len());
     }
@@ -84,7 +84,10 @@ fn main() {
                 let srq_response = if has_data { 0x4f } else { 0x0f };
                 talker.send_bytes(&[srq_response], false);
             }
-            DeviceResponse::WriteResponse { .. } => {
+            DeviceResponse::WriteResponse { sector_number, bytes: data } => {
+                let sector_start = sector_number as usize * 512;
+                let sector_end = sector_start + data.len();
+                image[sector_start..sector_end].copy_from_slice(&data);
                 talker.send_bytes(&[0, 0, 0, 0, 0, 0, 0], true);
             }
             DeviceResponse::ImagePart {
@@ -151,7 +154,7 @@ fn listen_until_talk(state: &mut DeviceState) -> DeviceResponse {
                                         }
                                         DeviceWriteState::DataReceived { sector_number, bytes } => {
                                             println!("Yeee, received data!");
-                                            return DeviceResponse::WriteResponse {};
+                                            return DeviceResponse::WriteResponse { sector_number, bytes };
                                         }
                                     },
                                 }
