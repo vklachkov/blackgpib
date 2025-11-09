@@ -1,32 +1,89 @@
 /// Describes a block device connected to a GRiD computer.
 #[derive(Clone, Copy, Default)]
 pub struct DiskIdentity {
-    // also known as pageSize.
+    /// Actual sector size.
+    ///
+    /// For external disks always 512 bytes.
+    ///
+    /// In theory Compass supports 256 and 512 bytes per sector.
+    /// But in reality, 512 bytes is hardcoded in the ROM and maybe in other places,
+    /// and the GPiB state breaks after reading zero sector.
     pub sector_size: u16,
+
+    /// Logical sector size.
+    ///
+    /// For 512 bytes per sector, it is 504 bytes; for 256, it is 252 bytes.
+    ///
+    /// Does not include 4 bytes for the ccos_block_header_t structure
+    /// at the start of the sector.
+    /// For 512 it also does not include 4 more bytes at the end of the sector,
+    /// which in CCOS-disk-utils are called `block_end`.
+    ///
+    /// In source code it is called `logPageSize`.
     pub logical_sector_size: u16,
-    // also known as numPages.
+
+    /// Number of sectors.
+    ///
+    /// Calculated as disk size divided by [`Self::sector_size`].
+    ///
+    /// Must match real value, because CCOS checks
+    /// disk boundaries when working with it. If files point to blocks
+    /// outside the boundaries, the disk just will not be seen in the system.
+    ///
+    /// However, this is not important for MS-DOS 2.0 for Compass 110X.
+    /// Because MS-DOS can easily try to read or write to a sector that
+    /// is above the specified value.
+    ///
+    /// In source code it is called `numPages`.
     pub sector_count: u16,
+
+    /// Unknown purpose. On real devices always true and
+    /// the laptop does not react to changes for this field.
     pub drive_ready: bool,
+
+    /// Bitmap block number. Usually 0x120 (one less than the superblock),
+    /// but sometimes there are exceptions. Used only in CCOS.
     pub bitmap_block_id: u16,
-    // address of superblock
+
+    /// Superblock number. Usually 0x121, but sometimes there are exceptions.
+    /// Used only in CCOS.
     pub superblock_id: u16,
+
+    /// Unknown purpose. On real devices always 1.
     pub min_dir_pages: u16,
+
+    /// Unknown purpose. On real devices always 0.
     pub flush: u8,
+
+    /// Device name. Not shown in the CCOS interface, can be anything.
     pub device_name: [u8; 32],
+
+    /// Same as [`Self::sector_size`].
     pub bytes_per_sector: u16,
+
+    /// Unknown purpose.
     pub sectors_per_track: u16,
+
+    /// Unknown purpose.
     pub tracks_per_cylinder: u16,
+
+    /// Unknown purpose.
     pub interleave_factor: u8,
+
+    /// Unknown purpose.
     pub second_side_count: u8,
+
+    /// Unknown purpose.
     pub num_cylinders: u16,
 }
 
 impl DiskIdentity {
-    #[cfg(test)]
-    pub const fn from_bytes<const N: usize>(data: &[u8; N]) -> Self {
+    /// Parses bytes into a struct. Supports parsing both the full 56-byte
+    /// identifier and the shorter 52-byte identifier.
+    pub fn from_bytes<const N: usize>(data: &[u8; N]) -> Self {
         const { assert!(N == 52 || N == 56, "invalid size") };
 
-        let mut status = unsafe { core::mem::zeroed::<DiskIdentity>() };
+        let mut status = DiskIdentity::default();
 
         status.sector_size = u16::from_le_bytes([data[0], data[1]]);
         status.logical_sector_size = u16::from_le_bytes([data[2], data[3]]);
@@ -37,11 +94,7 @@ impl DiskIdentity {
         status.min_dir_pages = u16::from_le_bytes([data[11], data[12]]);
         status.flush = data[13];
 
-        let mut i = 0;
-        while i != 32 {
-            status.device_name[i] = data[14 + i];
-            i += 1;
-        }
+        status.device_name.copy_from_slice(&data[14..46]);
 
         status.bytes_per_sector = u16::from_le_bytes([data[46], data[47]]);
         status.sectors_per_track = u16::from_le_bytes([data[48], data[49]]);
@@ -60,61 +113,25 @@ impl DiskIdentity {
         status
     }
 
-    pub const fn into_bytes(self) -> [u8; 56] {
-        let mut output = [0; 56];
+    /// Serializes the struct into a byte array.
+    pub fn into_bytes(self) -> [u8; 56] {
+        let mut output = [0u8; 56];
 
-        let bytes = self.sector_size.to_le_bytes();
-        output[0] = bytes[0];
-        output[1] = bytes[1];
-
-        let bytes = self.logical_sector_size.to_le_bytes();
-        output[2] = bytes[0];
-        output[3] = bytes[1];
-
-        let bytes = self.sector_count.to_le_bytes();
-        output[4] = bytes[0];
-        output[5] = bytes[1];
-
+        output[0..2].copy_from_slice(&self.sector_size.to_le_bytes());
+        output[2..4].copy_from_slice(&self.logical_sector_size.to_le_bytes());
+        output[4..6].copy_from_slice(&self.sector_count.to_le_bytes());
         output[6] = self.drive_ready as u8;
-
-        let bytes = self.bitmap_block_id.to_le_bytes();
-        output[7] = bytes[0];
-        output[8] = bytes[1];
-
-        let bytes = self.superblock_id.to_le_bytes();
-        output[9] = bytes[0];
-        output[10] = bytes[1];
-
-        let bytes = self.min_dir_pages.to_le_bytes();
-        output[11] = bytes[0];
-        output[12] = bytes[1];
-
+        output[7..9].copy_from_slice(&self.bitmap_block_id.to_le_bytes());
+        output[9..11].copy_from_slice(&self.superblock_id.to_le_bytes());
+        output[11..13].copy_from_slice(&self.min_dir_pages.to_le_bytes());
         output[13] = self.flush;
-
-        let mut i = 0;
-        while i < 32 {
-            output[14 + i] = self.device_name[i];
-            i += 1;
-        }
-
-        let bytes = self.bytes_per_sector.to_le_bytes();
-        output[46] = bytes[0];
-        output[47] = bytes[1];
-
-        let bytes = self.sectors_per_track.to_le_bytes();
-        output[48] = bytes[0];
-        output[49] = bytes[1];
-
-        let bytes = self.tracks_per_cylinder.to_le_bytes();
-        output[50] = bytes[0];
-        output[51] = bytes[1];
-
+        output[14..46].copy_from_slice(&self.device_name);
+        output[46..48].copy_from_slice(&self.bytes_per_sector.to_le_bytes());
+        output[48..50].copy_from_slice(&self.sectors_per_track.to_le_bytes());
+        output[50..52].copy_from_slice(&self.tracks_per_cylinder.to_le_bytes());
         output[52] = self.interleave_factor;
         output[53] = self.second_side_count;
-
-        let bytes = self.num_cylinders.to_le_bytes();
-        output[54] = bytes[0];
-        output[55] = bytes[1];
+        output[54..56].copy_from_slice(&self.num_cylinders.to_le_bytes());
 
         output
     }
