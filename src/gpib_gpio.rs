@@ -1,16 +1,15 @@
 use std::sync::LazyLock;
 
-use crate::gpib::GPIB;
+use crate::gpib_pinout::GPIBPin;
 
 use rppal::gpio::{Gpio, InputPin, Level, OutputPin};
 
-static GPIO: LazyLock<Gpio> =
-    LazyLock::new(|| Gpio::new().expect("failed to initialize Raspberry Pi GPIO"));
+static GPIO: LazyLock<Gpio> = LazyLock::new(|| Gpio::new().expect("failed to initialize Raspberry Pi GPIO"));
 
 #[inline(always)]
-pub fn input(gpib: GPIB) -> InputPin {
+pub fn input(pin: GPIBPin) -> InputPin {
     let mut pin = GPIO
-        .get(gpib.pin_number())
+        .get(pin.pin_number())
         .expect("pin should be used once")
         .into_input_pullup();
 
@@ -20,9 +19,9 @@ pub fn input(gpib: GPIB) -> InputPin {
 }
 
 #[inline(always)]
-pub fn output(gpib: GPIB, level: Level) -> OutputPin {
+pub fn output(pin: GPIBPin, level: Level) -> OutputPin {
     let mut pin = GPIO
-        .get(gpib.pin_number())
+        .get(pin.pin_number())
         .expect("pin should be used once")
         .into_output();
 
@@ -35,7 +34,7 @@ pub fn output(gpib: GPIB, level: Level) -> OutputPin {
 
 pub fn reset_all() {
     // Set all pins to Z-state.
-    for gpib in GPIB::all() {
+    for gpib in GPIBPin::all() {
         let mut pin = GPIO.get(gpib.pin_number()).unwrap().into_input();
         pin.set_reset_on_drop(false);
     }

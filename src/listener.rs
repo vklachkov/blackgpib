@@ -1,30 +1,11 @@
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
-use crate::{gpib::GPIB, gpib_command::GPIBCommand, gpio, utils::busy_wait};
+use crate::{gpib_gpio, gpib_pinout::GPIBPin, utils::busy_wait};
 
-#[derive(Debug, PartialEq)]
-pub enum ListeningResult<'b> {
-    /// Byte successfully received and processed.
-    Continue,
-
-    /// Received command other than MLA or UNL.
-    Command(GPIBCommand),
-
-    /// Received listen for another target.
-    AnotherDeviceListen(u8),
-
-    /// Finished reading data from the controller.
-    Done { buffer: &'b Vec<u8> },
-}
-
-/// Listener represents device in Listen state.
-/// Allow just read bytes and nothing more.
 #[allow(unused)]
-pub struct Listener<'buffer> {
-    state_machine: StateMachine<'buffer>,
-
+pub struct Listener {
     dc: OutputPin,
     te: OutputPin,
     pe: OutputPin,
@@ -42,34 +23,34 @@ pub struct Listener<'buffer> {
     data: [InputPin; 8],
 }
 
-impl<'b> Listener<'b> {
-    pub fn new(address: u8, buffer: &'b mut Vec<u8>) -> Self {
+pub struct Byte {
+    pub value: u8,
+    pub atn: bool,
+    pub eoi: bool,
+}
+
+impl Listener {
+    pub fn new() -> Self {
         Self {
-            state_machine: StateMachine::new(address, buffer),
+            ndac: gpib_gpio::output(GPIBPin::NDAC, Level::Low),
+            nrfd: gpib_gpio::output(GPIBPin::NRFD, Level::Low),
 
-            ndac: gpio::output(GPIB::NDAC, Level::Low),
-            nrfd: gpio::output(GPIB::NRFD, Level::Low),
+            dc: gpib_gpio::output(GPIBPin::DC, Level::High),
+            te: gpib_gpio::output(GPIBPin::TE, Level::Low),
+            pe: gpib_gpio::output(GPIBPin::PE, Level::High),
 
-            dc: gpio::output(GPIB::DC, Level::High),
-            te: gpio::output(GPIB::TE, Level::Low),
-            pe: gpio::output(GPIB::PE, Level::High),
+            atn: gpib_gpio::input(GPIBPin::ATN),
+            srq: gpib_gpio::output(GPIBPin::SRQ, Level::High),
+            ren: gpib_gpio::input(GPIBPin::REN),
+            ifc: gpib_gpio::input(GPIBPin::IFC),
+            eoi: gpib_gpio::input(GPIBPin::EOI),
+            dav: gpib_gpio::input(GPIBPin::DAV),
 
-            atn: gpio::input(GPIB::ATN),
-            srq: gpio::output(GPIB::SRQ, Level::High),
-            ren: gpio::input(GPIB::REN),
-            ifc: gpio::input(GPIB::IFC),
-            eoi: gpio::input(GPIB::EOI),
-            dav: gpio::input(GPIB::DAV),
-
-            data: GPIB::data().map(gpio::input),
+            data: GPIBPin::data().map(gpib_gpio::input),
         }
     }
 
-    pub fn reset(&mut self) {
-        self.state_machine.reset();
-    }
-
-    /// Implements a full handshake cycle as described in the standard
+    /// Reads byte from bus with a full handshake cycle as described in the standard
     /// in section "Annex B Handshake Process Timing Sequence".
     ///
     /// This function should be called as frequently as possible to avoid missing the last byte.
@@ -80,7 +61,7 @@ impl<'b> Listener<'b> {
     /// resets DAV and EOI, and starts transmitting another command.
     /// No fix found. Neither NRFD delay nor anything else helped.
     /// The only solution is to read bytes as quickly as possible.
-    pub fn listen(&mut self) -> ListeningResult {
+    pub fn handshake_byte(&mut self) -> Byte {
         // Ready for a new byte.
         self.ndac.set_low();
         self.nrfd.set_high();
@@ -92,25 +73,17 @@ impl<'b> Listener<'b> {
         self.nrfd.set_low();
 
         // Read byte and flags.
-        let atn = self.atn.is_low() as u8;
-        let eoi = self.eoi.is_low() as u8;
-        let byte = gpio::read_data(&self.data);
+        let atn = self.atn.is_low();
+        let eoi = self.eoi.is_low();
+        let value = gpib_gpio::read_data(&self.data);
 
         // Signal that we've read the byte.
         self.ndac.set_high();
 
-        // println!("Time: {:?}", Instant::now() - start);
-
         // Wait until the laptop resets the DAta Valid flag.
         while self.dav.read() != Level::High {}
 
-        // println!("After DAV: {:?}", Instant::now() - start);
-
-        // All good, now we can process the received byte without rushing.
-        // The laptop will wait until we say we're ready for new data.
-        // println!("ATN={atn} EOI={eoi} BYTE={byte:#04x} ({byte:#010b})");
-
-        self.state_machine.process(byte, atn == 1)
+        return Byte { atn, eoi, value };
     }
 
     /// Waits for the next command the same way a real disk does.
@@ -118,7 +91,7 @@ impl<'b> Listener<'b> {
         self.nrfd.set_high();
 
         busy_wait(Duration::from_micros(15));
-    
+
         self.ndac.set_low();
 
         while self.atn.read() != Level::High {}
@@ -128,85 +101,5 @@ impl<'b> Listener<'b> {
         while self.atn.read() != Level::Low {}
 
         self.ndac.set_low();
-    } 
-
-    pub fn srq_feedback(&mut self) {
-        self.srq.set_low();
-    }
-}
-
-/// Listener state machine, implements
-/// 2.6.2 L Function State Diagram.
-struct StateMachine<'b> {
-    /// Device address for correct parsing of MLA command.
-    dev_address: u8,
-
-    /// Represents `LIDS` (if false) and `LACS` (if true) state
-    /// in terms of the standard.
-    is_active: bool,
-
-    /// Buffer for all bytes after MLA for our device.
-    buffer: &'b mut Vec<u8>,
-}
-
-impl<'b> StateMachine<'b> {
-    fn new(dev_address: u8, buffer: &'b mut Vec<u8>) -> Self {
-        Self {
-            dev_address,
-            is_active: false,
-            buffer,
-        }
-    }
-
-    fn reset(&mut self) {
-        self.is_active = false;
-        self.buffer.clear();
-    }
-
-    fn process(&mut self, byte: u8, is_command: bool) -> ListeningResult {
-        if self.is_active {
-            self.process_active_byte(byte, is_command)
-        } else {
-            self.process_idle_byte(byte, is_command)
-        }
-    }
-
-    fn process_active_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
-        if is_command {
-            let cmd = GPIBCommand::from(byte);
-            if cmd == GPIBCommand::DCL || cmd == GPIBCommand::SDC {
-                self.reset();
-                ListeningResult::Continue
-            } else if cmd == GPIBCommand::UNL {
-                self.is_active = false;
-                ListeningResult::Done { buffer: &self.buffer }
-            } else {
-                ListeningResult::Command(cmd)
-            }
-        } else {
-            self.buffer.push(byte);
-            ListeningResult::Continue
-        }
-    }
-
-    #[rustfmt::skip]
-    fn process_idle_byte(&mut self, byte: u8, is_command: bool) -> ListeningResult {
-        // assert!(is_command, "Read byte {byte:#04x} of data without being in an active state");
-
-        match GPIBCommand::from(byte) {
-            GPIBCommand::DCL | GPIBCommand::SDC => {
-                self.reset();
-                ListeningResult::Continue
-            }
-            GPIBCommand::MLA(address) => if address == self.dev_address {
-                self.is_active = true;
-                ListeningResult::Continue
-            } else {
-                ListeningResult::AnotherDeviceListen(address)
-            },
-            cmd => {
-                ListeningResult::Command(cmd)
-            },
-        }
     }
 }

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
-use crate::{gpib::GPIB, gpio, utils::busy_wait};
+use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin, utils::busy_wait};
 
 #[allow(unused)]
 pub struct Talker {
@@ -28,21 +28,21 @@ impl Talker {
 
     pub fn new() -> Self {
         Self {
-            dc: gpio::output(GPIB::DC, Level::Low),
-            te: gpio::output(GPIB::TE, Level::High),
-            pe: gpio::output(GPIB::PE, Level::High),
+            dc: gpib_gpio::output(GPIBPin::DC, Level::Low),
+            te: gpib_gpio::output(GPIBPin::TE, Level::High),
+            pe: gpib_gpio::output(GPIBPin::PE, Level::High),
 
-            atn: gpio::output(GPIB::ATN, Level::High),
-            srq: gpio::input(GPIB::SRQ),
-            ren: gpio::output(GPIB::REN, Level::High),
-            ifc: gpio::output(GPIB::IFC, Level::High),
-            eoi: gpio::output(GPIB::EOI, Level::High),
-            dav: gpio::output(GPIB::DAV, Level::High),
+            atn: gpib_gpio::output(GPIBPin::ATN, Level::High),
+            srq: gpib_gpio::input(GPIBPin::SRQ),
+            ren: gpib_gpio::output(GPIBPin::REN, Level::High),
+            ifc: gpib_gpio::output(GPIBPin::IFC, Level::High),
+            eoi: gpib_gpio::output(GPIBPin::EOI, Level::High),
+            dav: gpib_gpio::output(GPIBPin::DAV, Level::High),
 
-            ndac: gpio::input(GPIB::NDAC),
-            nrfd: gpio::input(GPIB::NRFD),
+            ndac: gpib_gpio::input(GPIBPin::NDAC),
+            nrfd: gpib_gpio::input(GPIBPin::NRFD),
 
-            data: GPIB::data().map(|pin| gpio::output(pin, Level::High)),
+            data: GPIBPin::data().map(|pin| gpib_gpio::output(pin, Level::High)),
         }
     }
 
