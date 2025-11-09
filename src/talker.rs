@@ -4,8 +4,6 @@ use rppal::gpio::{InputPin, Level, OutputPin};
 
 use crate::{gpib::GPIB, gpio, utils::busy_wait};
 
-/// Talker represents device in Talk state.
-/// Allow just send bytes and nothing more.
 #[allow(unused)]
 pub struct Talker {
     dc: OutputPin,
@@ -26,6 +24,8 @@ pub struct Talker {
 }
 
 impl Talker {
+    pub const INTERBYTE_DELAY: Duration = Duration::from_micros(10);
+
     pub fn new() -> Self {
         Self {
             dc: gpio::output(GPIB::DC, Level::Low),
@@ -46,51 +46,57 @@ impl Talker {
         }
     }
 
+    /// Sends a byte to the bus with atn flag and
+    /// [`Self::INTERBYTE_DELAY`] delay after sending.
+    pub fn send_command(&mut self, cmd: GPIBCommand) {
+        self.send_byte(cmd.into(), true, false);
+
+        busy_wait(Self::INTERBYTE_DELAY);
+    }
+
+    /// Sends all `bytes` to the bus with a delay [`Self::INTERBYTE_DELAY`] between bytes.
+    /// For the last byte, the eoi flag will be set if the `send_eoi` flag is true.
     pub fn send_bytes(&mut self, bytes: &[u8], send_eoi: bool) {
-        // log::info!("Send bytes (with eoi? {send_eoi}) {}", bytes.len());
         for i in 0..bytes.len() {
             let is_last_byte = i == bytes.len() - 1;
 
-            // println!("byte={:#04x} last={}", bytes[i], is_last_byte);
+            self.send_byte(bytes[i], false, is_last_byte && send_eoi);
 
-            // Notify that data on the bus is no longer valid.
-            self.dav.set_high();
-
-            // FIXME:
-            // How does the real floppy drive behave when it sees such
-            // a situation on the bus after Talk command?
-            if self.ndac.is_high() && self.nrfd.is_high() {
-                // log::debug!("NDAC=high NRFD=high when sending byte {i}");
-                while self.ndac.is_high() && self.nrfd.is_high() {}
-            }
-
-            if send_eoi && is_last_byte {
-                self.eoi.set_low();
-            }
-
-            // Write data to the bus and set the last byte flag.
-            gpio::write_data(&mut self.data, bytes[i]);
-
-            // FIXME: What is the delay of the real floppy drive?
-            // Delay for lines to settle.
-            busy_wait(Duration::from_micros(10));
-
-            // Wait until the laptop signals it's ready for data.
-            while self.nrfd.read() != Level::High {}
-
-            // Now we can signal that data is valid.
-            self.dav.set_low();
-
-            // Wait until the laptop signals successful data read.
-            while self.ndac.read() != Level::High {}
-
-            // Signal that data is no longer valid.
-            self.dav.set_high();
-
-            // Make sure to wait before sending the next byte so the laptop
-            // has time to process what it read.
-            // FIXME: What is the delay of the real floppy drive?
-            busy_wait(Duration::from_micros(15));
+            busy_wait(Self::INTERBYTE_DELAY);
         }
+    }
+
+    /// Send byte in bus with a full handshake cycle as described in the standard
+    /// in section "Annex B Handshake Process Timing Sequence".
+    pub fn send_byte(&mut self, byte: u8, atn: bool, eoi: bool) {
+        // Notify whether the next byte on the bus will be a command or not.
+        self.atn.write(if atn { Level::Low } else { Level::High });
+
+        // Notify that data on the bus is no longer valid.
+        self.dav.set_high();
+
+        // Wait laptop readiness.
+        if self.ndac.is_high() && self.nrfd.is_high() {
+            while self.ndac.is_high() && self.nrfd.is_high() {}
+        }
+
+        // Write data to the bus and set the last byte flag.
+        self.eoi.write(if eoi { Level::Low } else { Level::High });
+        gpib_gpio::write_data(&mut self.data, byte);
+
+        // Delay for lines to settle.
+        busy_wait(Duration::from_micros(10));
+
+        // Wait until the laptop signals it's ready for data.
+        while self.nrfd.read() != Level::High {}
+
+        // Now we can signal that data is valid.
+        self.dav.set_low();
+
+        // Wait until the laptop signals successful data read.
+        while self.ndac.read() != Level::High {}
+
+        // Signal that data is no longer valid.
+        self.dav.set_high();
     }
 }
