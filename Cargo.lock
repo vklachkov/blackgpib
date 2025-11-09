@@ -6,6 +6,7 @@ version = 4
 name = "blackgpib"
 version = "2.0.0"
 dependencies = [
+ "libc",
  "rppal",
 ]
 
