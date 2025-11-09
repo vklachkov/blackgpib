@@ -10,29 +10,20 @@ pub struct Request {
     /// Operation code. Determines what magic the emulator will do next.
     pub code: RequestCode,
 
-    /// Device number on address. Not supported by emulator, unknown how it works.
-    /// Valid values are 0 or 1, other values cause failures according to usernameak.
+    /// Unknown.
     pub connection: u16,
 
-    /// Sector number. Only relevant for Read and Write operations.
+    /// Sector number. Only relevant for Initialize, Read, Write and Format operations.
     pub sector_number: u32,
 
     /// Request data size.
     /// For `GetStatus` and `Read`, this is the number of bytes the laptop expects in response.
     /// For `Write`, this is the size of data the laptop will send after this request.
+    /// For other requests is unknown.
     pub data_size: u16,
 
-    /// Unknown, unused.
+    /// Unknown.
     pub mode: u8,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum BadRequest {
-    #[error("Invalid request length: got {len}, expected {REQUEST_SIZE}")]
-    InvalidLength { len: usize },
-
-    #[error("Unsupported request code {code}")]
-    UnsupportedRequest { code: u8 },
 }
 
 impl TryFrom<&[u8]> for Request {
@@ -119,6 +110,28 @@ impl TryFrom<u8> for RequestCode {
         }
     }
 }
+
+/// Errors when parsing [`Request`] from a byte array.
+#[derive(Debug)]
+pub enum BadRequest {
+    InvalidLength { len: usize },
+    UnsupportedRequest { code: u8 },
+}
+
+impl std::fmt::Display for BadRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BadRequest::InvalidLength { len } => {
+                write!(f, "Invalid request length: got {}, expected {}", len, REQUEST_SIZE)
+            }
+            BadRequest::UnsupportedRequest { code } => {
+                write!(f, "Unsupported request code {}", code)
+            }
+        }
+    }
+}
+
+impl std::error::Error for BadRequest {}
 
 #[cfg(test)]
 mod tests {
