@@ -57,7 +57,7 @@ impl Talker {
     /// Sends all `bytes` to the bus with a delay [`Self::INTERBYTE_DELAY`] between bytes.
     /// For the last byte, the eoi flag will be set if the `send_eoi` flag is true.
     pub fn send_bytes(&mut self, bytes: &[u8], send_eoi: bool) {
-        // trace!("Send bytes {bytes:02x?} to bus (with eoi? {send_eoi})");
+        trace!("Send {} bytes to bus", bytes.len());
 
         for i in 0..bytes.len() {
             let is_last_byte = i == bytes.len() - 1;

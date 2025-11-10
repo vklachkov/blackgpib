@@ -160,6 +160,11 @@ impl Disk {
         req.code == RequestCode::Read
     }
 
+    fn talk(&mut self, mut talker: Talker) {
+        talker.send_bytes(self.response(), true);
+        self.reset();
+    }
+
     fn response(&mut self) -> &[u8] {
         match self.state {
             State::Idle => {
@@ -205,7 +210,7 @@ impl Device for Disk {
         self.process_byte(byte, eoi)
     }
 
-    fn talk(&mut self, mut talker: Talker) {
-        talker.send_bytes(self.response(), true);
+    fn talk(&mut self, talker: Talker) {
+        self.talk(talker)
     }
 }

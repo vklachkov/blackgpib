@@ -28,15 +28,17 @@ impl KnownDevice {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SerialPollState {
-    Disabled,
+    Init,
     Requested(KnownDevice),
     Enabled(KnownDevice),
+    Disabled(KnownDevice),
 }
 
 impl SerialPollState {
     fn to_enabled(self) -> Self {
         match self {
             Self::Requested(d) => Self::Enabled(d),
+            Self::Disabled(d) => Self::Enabled(d),
             _ => self,
         }
     }
@@ -45,6 +47,13 @@ impl SerialPollState {
         match self {
             Self::Enabled(_) => true,
             _ => false,
+        }
+    }
+
+    fn to_disabled(self) -> Self {
+        match self {
+            Self::Enabled(d) => Self::Disabled(d),
+            _ => self,
         }
     }
 }
@@ -73,7 +82,7 @@ impl DeviceManager {
             ],
             printer: GenericPrinter::new(),
             active_listener: None,
-            serial_poll_state: SerialPollState::Disabled,
+            serial_poll_state: SerialPollState::Init,
         }
     }
 
@@ -87,7 +96,10 @@ impl DeviceManager {
 
             let talk_mode = 'l: loop {
                 let byte = listener.handshake_byte();
-                trace!("Accept byte {:#010b} ({:#04x}) ATN={} EOI={}", byte.value, byte.value, byte.atn as u8, byte.eoi as u8);
+                trace!(
+                    "Accept byte {:#010b} ({:#04x}) ATN={} EOI={}",
+                    byte.value, byte.value, byte.atn as u8, byte.eoi as u8
+                );
 
                 if !byte.atn {
                     self.process_byte(&mut listener, byte.value, byte.eoi);
@@ -108,7 +120,7 @@ impl DeviceManager {
                         self.serial_poll_state = self.serial_poll_state.to_enabled();
                     }
                     GPIBCommand::SPD => {
-                        self.serial_poll_state = SerialPollState::Disabled;
+                        self.serial_poll_state = self.serial_poll_state.to_disabled();
                     }
                     GPIBCommand::MLA(address) => {
                         let Some(device) = KnownDevice::from_address(address) else {
@@ -188,7 +200,7 @@ impl DeviceManager {
 
     fn reset_all(&mut self) {
         self.active_listener = None;
-        self.serial_poll_state = SerialPollState::Disabled;
+        self.serial_poll_state = SerialPollState::Init;
 
         for disk in &mut self.disks {
             disk.reset();

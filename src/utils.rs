@@ -4,7 +4,7 @@ use std::{
 };
 
 /// Increases process priority and pins it to the last CPU core.
-pub fn configure_scheduller() {
+pub fn configure_scheduler() {
     let available_cores = thread::available_parallelism().unwrap().get();
     let core = available_cores - 1;
 
