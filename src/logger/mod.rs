@@ -50,8 +50,6 @@ pub fn setup() {
 
 /// Adds a message to the queue. If the queue is full, the message will be lost.
 pub fn log(instant: Instant, file: &'static str, line: u32, level: LogLevel, message: Arguments<'_>) {
-    let start = Instant::now();
-
     let mut log_producer = LOG_PRODUCER
         .get()
         .expect("logger was not initialized")
@@ -75,8 +73,4 @@ pub fn log(instant: Instant, file: &'static str, line: u32, level: LogLevel, mes
     entry.message[entry.message.len() - 1] = 0;
 
     _ = log_producer.try_push(entry);
-
-    let end = Instant::now() - start;
-
-    println!("End: {end:?}");
 }

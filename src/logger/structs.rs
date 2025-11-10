@@ -2,6 +2,7 @@ use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
+#[allow(unused)]
 pub enum LogLevel {
     Trace = 0,
     Debug = 1,
