@@ -1,5 +1,5 @@
 /// GPIB commands (messages with ATN) that a GRiD laptop can send to a device.
-/// 
+///
 /// Commands are taken from the standard, section 2.13.7.1 Interface Messages.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum GPIBCommand {

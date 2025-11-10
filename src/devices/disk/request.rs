@@ -14,7 +14,7 @@ pub struct Request {
     pub connection: u16,
 
     /// Sector number. Only relevant for Initialize, Read, Write and Format operations.
-    pub sector_number: u32,
+    pub sector: u32,
 
     /// Request data size.
     /// For `GetStatus` and `Read`, this is the number of bytes the laptop expects in response.
@@ -41,7 +41,7 @@ impl TryFrom<&[u8]> for Request {
         Ok(Request {
             code: command,
             connection: u16::from_le_bytes([value[1], value[2]]),
-            sector_number: u32::from_le_bytes([value[3], value[4], value[5], value[6]]),
+            sector: u32::from_le_bytes([value[3], value[4], value[5], value[6]]),
             data_size: u16::from_le_bytes([value[7], value[8]]),
             mode: value[9],
         })
@@ -144,7 +144,7 @@ mod tests {
 
         assert_eq!(request.code, RequestCode::GetStatus);
         assert_eq!(request.connection, 0);
-        assert_eq!(request.sector_number, 0);
+        assert_eq!(request.sector, 0);
         assert_eq!(request.data_size, 52);
         assert_eq!(request.mode, 0);
     }
@@ -156,7 +156,7 @@ mod tests {
 
         assert_eq!(request.code, RequestCode::Read);
         assert_eq!(request.connection, 0);
-        assert_eq!(request.sector_number, 0);
+        assert_eq!(request.sector, 0);
         assert_eq!(request.data_size, 512);
         assert_eq!(request.mode, 0);
     }
@@ -168,7 +168,7 @@ mod tests {
 
         assert_eq!(request.code, RequestCode::Write);
         assert_eq!(request.connection, 0);
-        assert_eq!(request.sector_number, 0xffffffff);
+        assert_eq!(request.sector, 0xffffffff);
         assert_eq!(request.data_size, 512);
         assert_eq!(request.mode, 1);
     }

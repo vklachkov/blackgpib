@@ -1,4 +1,4 @@
-use crate::devices::Device;
+use crate::{devices::Device, talker::Talker};
 
 pub struct GenericPrinter {}
 
@@ -10,14 +10,15 @@ impl GenericPrinter {
 
 impl Device for GenericPrinter {
     fn reset(&mut self) {
-        todo!()
+        // todo!()
     }
 
     fn process_byte(&mut self, byte: u8, eoi: bool) -> bool {
-        todo!()
+        // todo!()
+        false
     }
-    
-    fn talk(&mut self, talker: crate::talker::Talker) {
-        todo!()
+
+    fn talk(&mut self, talker: Talker) {
+        // todo!()
     }
 }

@@ -11,7 +11,7 @@ pub trait Device {
     fn reset(&mut self);
 
     /// Processes a byte from the bus.
-    /// 
+    ///
     /// Returns a flag indicating if a service request is needed.
     fn process_byte(&mut self, byte: u8, eoi: bool) -> bool;
 

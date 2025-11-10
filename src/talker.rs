@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
-use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin, utils::busy_wait};
+use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin, trace, utils::busy_wait};
 
 #[allow(unused)]
 pub struct Talker {
@@ -57,6 +57,8 @@ impl Talker {
     /// Sends all `bytes` to the bus with a delay [`Self::INTERBYTE_DELAY`] between bytes.
     /// For the last byte, the eoi flag will be set if the `send_eoi` flag is true.
     pub fn send_bytes(&mut self, bytes: &[u8], send_eoi: bool) {
+        // trace!("Send bytes {bytes:02x?} to bus (with eoi? {send_eoi})");
+
         for i in 0..bytes.len() {
             let is_last_byte = i == bytes.len() - 1;
 

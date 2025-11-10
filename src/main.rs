@@ -7,6 +7,8 @@ mod logger;
 mod talker;
 mod utils;
 
+use std::fs;
+
 use crate::{devices::DeviceManager, utils::configure_scheduller};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -21,9 +23,10 @@ fn main() {
     debug!("Reset all pins to Z-State...");
     gpib_gpio::reset_all();
 
-    let devman = DeviceManager::new();
+    let mut devman = DeviceManager::new();
 
-    // TODO: Configure device manager
+    devman.insert_image(0, fs::read("2101_6ext_fixed").unwrap(), 0x121, 0x120);
+    devman.insert_image(1, fs::read("disk1").unwrap(), 0x121, 0x120);
 
     devman.start();
 }

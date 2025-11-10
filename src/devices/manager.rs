@@ -77,13 +77,17 @@ impl DeviceManager {
         }
     }
 
+    pub fn insert_image(&mut self, disk: u8, image: Vec<u8>, superblock_id: u16, bitmap_block_id: u16) {
+        self.disks[disk as usize].use_image(image, superblock_id, bitmap_block_id);
+    }
+
     pub fn start(mut self) {
         loop {
             let mut listener = Listener::new();
 
             let talk_mode = 'l: loop {
                 let byte = listener.handshake_byte();
-                trace!("Accept byte {:#010b} ATN={} EOI={}", byte.value, byte.atn as u8, byte.eoi as u8);
+                trace!("Accept byte {:#010b} ({:#04x}) ATN={} EOI={}", byte.value, byte.value, byte.atn as u8, byte.eoi as u8);
 
                 if !byte.atn {
                     self.process_byte(&mut listener, byte.value, byte.eoi);

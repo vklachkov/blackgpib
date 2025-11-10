@@ -46,7 +46,7 @@ fn format_duration(ts: Duration) -> String {
     let millis = subsec_nanos / 1_000_000;
     let micros = (subsec_nanos % 1_000_000) / 1_000;
     let nanos = subsec_nanos % 1_000;
-    format!("{secs}sec {millis}ms {micros}.{nanos:03}us")
+    format!("{secs}sec {millis:03}ms {micros:03}.{nanos:03}us")
 }
 
 fn extract_filename(entry: &LogEntry) -> &str {
