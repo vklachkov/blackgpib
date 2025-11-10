@@ -12,12 +12,12 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 fn main() {
     //
 
-    logger::configure();
+    logger::setup();
 
-    log::info!("BlackGPiB v{VERSION} started");
+    info!("BlackGPiB v{VERSION} started");
 
-    log::debug!("Reset all pins to Z-State...");
-    gpib_gpio::reset_all();
+    debug!("Reset all pins to Z-State...");
+    // gpib_gpio::reset_all();
 
     //
 }
