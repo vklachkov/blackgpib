@@ -7,7 +7,7 @@ mod logger;
 mod talker;
 mod utils;
 
-use crate::utils::configure_scheduller;
+use crate::{devices::DeviceManager, utils::configure_scheduller};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -21,5 +21,9 @@ fn main() {
     debug!("Reset all pins to Z-State...");
     gpib_gpio::reset_all();
 
-    //
+    let devman = DeviceManager::new();
+
+    // TODO: Configure device manager
+
+    devman.start();
 }

@@ -102,4 +102,9 @@ impl Listener {
 
         self.ndac.set_low();
     }
+
+    /// Raise SRQ pin.
+    pub fn service_request(&mut self) {
+        self.srq.set_low();
+    }
 }

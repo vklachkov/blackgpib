@@ -2,7 +2,7 @@ use std::{cell::UnsafeCell, ffi::CStr, io, ptr};
 
 use ringbuf::{StaticRb, traits::SplitRef, wrap::caching::Caching};
 
-const BUFFER_SIZE: usize = 1024;
+const BUFFER_SIZE: usize = 10240;
 
 pub type RingBuffer<T> = StaticRb<T, BUFFER_SIZE>;
 pub type BufferProducer<'a, T> = Caching<&'a RingBuffer<T>, true, false>;
