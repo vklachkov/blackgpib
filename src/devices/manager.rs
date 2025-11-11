@@ -74,8 +74,8 @@ impl DeviceManager {
                 Disk::new("Disk 0x0C"),
                 Disk::new("Disk 0x0D"),
             ],
-            printer: DataToSocketDevice::new("/tmp/blackgpib-printer.sock"),
-            plotter: DataToSocketDevice::new("/tmp/blackgpib-plotter.sock"),
+            printer: DataToSocketDevice::new(49275),
+            plotter: DataToSocketDevice::new(49276),
             active_listener: None,
             serial_poll_state: SerialPollState::Init,
         }

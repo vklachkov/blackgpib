@@ -1,4 +1,4 @@
-use std::{io::Write, os::unix::net::UnixStream};
+use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 
 use crate::talker::Talker;
 
@@ -6,14 +6,20 @@ use super::device::{Device, ServiceRequest};
 
 pub struct DataToSocketDevice {
     buffer: Vec<u8>,
-    socket: UnixStream,
+    socket: UdpSocket,
+    port: u16,
 }
 
 impl DataToSocketDevice {
-    pub fn new(path: &str) -> Self {
+    pub fn new(port: u16) -> Self {
+        let addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
+        let socket = UdpSocket::bind(addr).expect("failed to bind to socket");
+        socket.set_broadcast(true).expect("failed to set_broadcast for socket");
+
         Self {
             buffer: Vec::with_capacity(1024),
-            socket: UnixStream::connect(path).expect("failed to connect to socket"),
+            socket,
+            port,
         }
     }
 
@@ -22,7 +28,10 @@ impl DataToSocketDevice {
     }
 
     fn process_complete(&mut self) {
-        self.socket.write_all(&self.buffer).expect("failed to write to socket");
+        self.socket
+            .send_to(&self.buffer, (IpAddr::V4(Ipv4Addr::BROADCAST), self.port))
+            .expect("failed to write to socket");
+
         self.buffer.clear();
     }
 }
