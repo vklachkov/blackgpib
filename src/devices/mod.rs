@@ -1,20 +1,30 @@
+mod device;
 mod disk;
 mod manager;
 mod printer;
 
 pub use manager::DeviceManager;
 
-use crate::talker::Talker;
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KnownDevice {
+    HardDisk,
+    FloppyDrive,
+    PortableFloppy,
+    HardDisk2,
+    FloppyDrive2,
+    Printer,
+}
 
-pub trait Device {
-    /// Resets the device to default state.
-    fn reset(&mut self);
-
-    /// Processes a byte from the bus.
-    ///
-    /// Returns a flag indicating if a service request is needed.
-    fn process_byte(&mut self, byte: u8, eoi: bool) -> bool;
-
-    /// Someone on the bus addressed you and told you "talk".
-    fn talk(&mut self, talker: Talker);
+impl KnownDevice {
+    pub(crate) fn from_address(address: u8) -> Option<Self> {
+        match address {
+            4 => Some(Self::HardDisk),
+            5 => Some(Self::FloppyDrive),
+            6 => Some(Self::PortableFloppy),
+            12 => Some(Self::HardDisk2),
+            13 => Some(Self::FloppyDrive2),
+            25 => Some(Self::Printer),
+            _ => None,
+        }
+    }
 }

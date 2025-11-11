@@ -55,9 +55,9 @@ impl From<u8> for GPIBCommand {
     }
 }
 
-impl Into<u8> for GPIBCommand {
-    fn into(self) -> u8 {
-        match self {
+impl From<GPIBCommand> for u8 {
+    fn from(cmd: GPIBCommand) -> u8 {
+        match cmd {
             GPIBCommand::DCL => 0b0001_0100,
             GPIBCommand::SDC => 0b0000_0100,
             GPIBCommand::SPE => 0b0001_1000,

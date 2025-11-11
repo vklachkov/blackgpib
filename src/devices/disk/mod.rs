@@ -1,16 +1,31 @@
 mod identity;
 mod request;
 
-use crate::{debug, devices::Device, error, info, talker::Talker, trace};
+use crate::{debug, error, talker::Talker, trace};
+
+use super::device::{Device, ServiceRequest};
 
 use identity::DiskIdentity;
 use request::{Request, RequestCode};
 
+/// Actual sector size. This size is used by both the hard disk and floppy drive.
+///
+/// The laptop does not support a different sector size for disks connected
+/// via GPIB.сThe sector size is hardcoded in the laptop bootloader, so this
+/// parameter is specified as a constant.
 const SECTOR_SIZE: usize = 512;
+
+/// The number of bytes in a sector that can be used.
+///
+/// Does not include the first 4 bytes or the last 4 bytes of the sector.
+/// For more details about the CCOS file system structure, see the repository
+/// by @BOOtak: https://github.com/BOOtak/CCOS-disk-utils/.
 const LOGICAL_SECTOR_SIZE: usize = 504;
 
-const OUT_OF_BOUNDS_RESPONSE: [u8; 7] = [0x6b, 0, 0, 0, 0, 0, 0];
-const WRITE_SUCCESSFUL_RESPONSE: [u8; 7] = [0; 7];
+// These responses were obtained through reverse engineering.
+// The exact purpose of the bytes is unknown.
+const OUT_OF_BOUNDS_RESPONSE: [u8; 7] = [0x6b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+const WRITE_SUCCESSFUL_RESPONSE: [u8; 7] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 
 #[derive(Clone, Debug, Default)]
 enum State {
@@ -86,7 +101,7 @@ impl Disk {
         let sector_remainder = image.len() % SECTOR_SIZE;
         if sector_remainder != 0 {
             let padding = SECTOR_SIZE - sector_remainder;
-            image.extend(std::iter::repeat(0u8).take(padding));
+            image.extend(std::iter::repeat_n(0u8, padding));
         }
 
         self.image = image;
@@ -100,18 +115,18 @@ impl Disk {
         self.state = State::Idle;
     }
 
-    fn process_byte(&mut self, byte: u8, eoi: bool) -> bool {
+    fn process_byte(&mut self, byte: u8, eoi: bool) -> ServiceRequest {
         self.buffer.push(byte);
 
         if eoi {
             self.process_buffer()
         } else {
             // Data is being received, service request is not needed.
-            false
+            ServiceRequest::NotRequired
         }
     }
 
-    fn process_buffer(&mut self) -> bool {
+    fn process_buffer(&mut self) -> ServiceRequest {
         match self.state {
             State::Idle => {
                 return self.process_new_request();
@@ -132,7 +147,7 @@ impl Disk {
         }
     }
 
-    fn process_new_request(&mut self) -> bool {
+    fn process_new_request(&mut self) -> ServiceRequest {
         let raw = self.buffer.as_slice();
 
         trace!("Parse disk request {raw:02x?}...");
@@ -141,7 +156,7 @@ impl Disk {
             Ok(value) => value,
             Err(err) => {
                 error!("Failed to parse request: {err}");
-                return false;
+                return ServiceRequest::NotRequired;
             }
         };
 
@@ -161,10 +176,14 @@ impl Disk {
             _ => panic!("Unexpected request {req:?}"),
         };
 
-        req.code == RequestCode::Read
+        return if req.code == RequestCode::Read {
+            ServiceRequest::Required
+        } else {
+            ServiceRequest::NotRequired
+        };
     }
 
-    fn process_write_request(&mut self, sector: u32) -> bool {
+    fn process_write_request(&mut self, sector: u32) -> ServiceRequest {
         let offset = sector as usize * SECTOR_SIZE;
 
         let is_u32_max = sector == u32::MAX;
@@ -184,7 +203,7 @@ impl Disk {
 
         self.state = State::Write { sector, state };
 
-        return true;
+        return ServiceRequest::Required;
     }
 
     fn talk(&mut self, mut talker: Talker) {
@@ -229,7 +248,7 @@ impl Device for Disk {
         self.reset();
     }
 
-    fn process_byte(&mut self, byte: u8, eoi: bool) -> bool {
+    fn process_byte(&mut self, byte: u8, eoi: bool) -> ServiceRequest {
         self.process_byte(byte, eoi)
     }
 

@@ -51,6 +51,7 @@ pub fn read_data(pins: &[InputPin; 8]) -> u8 {
     byte
 }
 
+#[allow(clippy::identity_op)]
 pub fn write_data(pins: &mut [OutputPin; 8], byte: u8) {
     write_bool(&mut pins[0], (byte >> 7) & 1);
     write_bool(&mut pins[1], (byte >> 6) & 1);

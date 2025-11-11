@@ -1,52 +1,37 @@
-use crate::{debug, error, gpib_command::GPIBCommand, listener::Listener, talker::Talker, trace, warn};
+use crate::{
+    debug, devices::device::ServiceRequest, error, gpib_command::GPIBCommand, listener::Listener, talker::Talker,
+    trace, warn,
+};
 
-use super::{Device, disk::Disk, printer::GenericPrinter};
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum KnownDevice {
-    HardDisk,
-    FloppyDrive,
-    PortableFloppy,
-    HardDisk2,
-    FloppyDrive2,
-    Printer,
-}
-
-impl KnownDevice {
-    fn from_address(address: u8) -> Option<Self> {
-        match address {
-            4 => Some(Self::HardDisk),
-            5 => Some(Self::FloppyDrive),
-            6 => Some(Self::PortableFloppy),
-            12 => Some(Self::HardDisk2),
-            13 => Some(Self::FloppyDrive2),
-            25 => Some(Self::Printer),
-            _ => None,
-        }
-    }
-}
+use super::{KnownDevice, device::Device, disk::Disk, printer::GenericPrinter};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SerialPollState {
+    /// There was no Service Request yet.
     Init,
+
+    /// A Service Request was requested by device.
     Requested(KnownDevice),
+
+    /// The laptop sent SPE. The next Talk will be interpreted as an attempt
+    /// to find which device made the Service Request.
     Enabled(KnownDevice),
+
+    /// The laptop sent SPD. However, after SPD, SPE can still be sent again,
+    /// so we need to remember the device.
     Disabled(KnownDevice),
 }
 
 impl SerialPollState {
+    fn is_enabled(self) -> bool {
+        matches!(self, Self::Enabled(_))
+    }
+
     fn to_enabled(self) -> Self {
         match self {
             Self::Requested(d) => Self::Enabled(d),
             Self::Disabled(d) => Self::Enabled(d),
             _ => self,
-        }
-    }
-
-    fn is_enabled(self) -> bool {
-        match self {
-            Self::Enabled(_) => true,
-            _ => false,
         }
     }
 
@@ -59,7 +44,13 @@ impl SerialPollState {
 }
 
 enum TalkMode<'a> {
+    /// This request is not for the device itself, the laptop is just checking
+    /// which device made the Service Request.
+    ///
+    /// The parameter shows if this device made the request.
     SerialPollProbe(bool),
+
+    /// The laptop told the device to talk.
     Device(&'a mut dyn Device),
 }
 
@@ -86,7 +77,8 @@ impl DeviceManager {
         }
     }
 
-    pub fn insert_image(&mut self, disk: u8, image: Vec<u8>, superblock_id: u16, bitmap_block_id: u16) {
+    pub fn insert_image(&mut self, disk: KnownDevice, image: Vec<u8>, superblock_id: u16, bitmap_block_id: u16) {
+        assert!(disk != KnownDevice::Printer);
         self.disks[disk as usize].use_image(image, superblock_id, bitmap_block_id);
     }
 
@@ -114,7 +106,9 @@ impl DeviceManager {
                         self.reset_all();
                     }
                     GPIBCommand::SDC => {
-                        self.active_listener.map(|d| self.get_device(d).reset());
+                        if let Some(d) = self.active_listener {
+                            self.get_device(d).reset()
+                        }
                     }
                     GPIBCommand::SPE => {
                         self.serial_poll_state = self.serial_poll_state.to_enabled();
@@ -123,12 +117,11 @@ impl DeviceManager {
                         self.serial_poll_state = self.serial_poll_state.to_disabled();
                     }
                     GPIBCommand::MLA(address) => {
-                        let Some(device) = KnownDevice::from_address(address) else {
+                        if let Some(device) = KnownDevice::from_address(address) {
+                            self.active_listener = Some(device);
+                        } else {
                             listener.wait_next_command();
-                            continue;
-                        };
-
-                        self.active_listener = Some(device);
+                        }
                     }
                     GPIBCommand::UNL => {
                         self.active_listener = None;
@@ -192,7 +185,7 @@ impl DeviceManager {
         let device = self.get_device(active_listener);
 
         let service_request = device.process_byte(byte, eoi);
-        if service_request {
+        if service_request == ServiceRequest::Required {
             self.serial_poll_state = SerialPollState::Requested(active_listener);
             listener.service_request();
         }

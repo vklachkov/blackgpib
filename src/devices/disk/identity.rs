@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 /// Describes a block device connected to a GRiD computer.
 #[derive(Clone, Copy, Default)]
 pub struct DiskIdentity {
@@ -83,34 +85,30 @@ impl DiskIdentity {
     pub fn from_bytes<const N: usize>(data: &[u8; N]) -> Self {
         const { assert!(N == 52 || N == 56, "invalid size") };
 
-        let mut status = DiskIdentity::default();
+        let mut device_name = [0u8; 32];
+        device_name.copy_from_slice(&data[14..46]);
 
-        status.sector_size = u16::from_le_bytes([data[0], data[1]]);
-        status.logical_sector_size = u16::from_le_bytes([data[2], data[3]]);
-        status.sector_count = u16::from_le_bytes([data[4], data[5]]);
-        status.drive_ready = data[6] == 1;
-        status.bitmap_block_id = u16::from_le_bytes([data[7], data[8]]);
-        status.superblock_id = u16::from_le_bytes([data[9], data[10]]);
-        status.min_dir_pages = u16::from_le_bytes([data[11], data[12]]);
-        status.flush = data[13];
-
-        status.device_name.copy_from_slice(&data[14..46]);
-
-        status.bytes_per_sector = u16::from_le_bytes([data[46], data[47]]);
-        status.sectors_per_track = u16::from_le_bytes([data[48], data[49]]);
-        status.tracks_per_cylinder = u16::from_le_bytes([data[50], data[51]]);
-
-        if N == 56 {
-            status.interleave_factor = data[52];
-            status.second_side_count = data[53];
-            status.num_cylinders = u16::from_le_bytes([data[54], data[55]]);
-        } else {
-            status.interleave_factor = 0;
-            status.second_side_count = 0;
-            status.num_cylinders = 0;
+        DiskIdentity {
+            sector_size: u16::from_le_bytes([data[0], data[1]]),
+            logical_sector_size: u16::from_le_bytes([data[2], data[3]]),
+            sector_count: u16::from_le_bytes([data[4], data[5]]),
+            drive_ready: data[6] == 1,
+            bitmap_block_id: u16::from_le_bytes([data[7], data[8]]),
+            superblock_id: u16::from_le_bytes([data[9], data[10]]),
+            min_dir_pages: u16::from_le_bytes([data[11], data[12]]),
+            flush: data[13],
+            device_name,
+            bytes_per_sector: u16::from_le_bytes([data[46], data[47]]),
+            sectors_per_track: u16::from_le_bytes([data[48], data[49]]),
+            tracks_per_cylinder: u16::from_le_bytes([data[50], data[51]]),
+            interleave_factor: if N == 56 { data[52] } else { 0 },
+            second_side_count: if N == 56 { data[53] } else { 0 },
+            num_cylinders: if N == 56 {
+                u16::from_le_bytes([data[54], data[55]])
+            } else {
+                0
+            },
         }
-
-        status
     }
 
     /// Serializes the struct into a byte array.
