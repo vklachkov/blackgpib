@@ -20,17 +20,25 @@ enum State {
         full: bool,
     },
     Read {
-        sector_number: u32,
+        sector: u32,
     },
     Write {
         sector: u32,
-        data_received: bool,
+        state: WriteDataState,
     },
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum WriteDataState {
+    NotAccepted,
+    Saved,
+    Checked,
+    OutOfBounds,
+}
+
 pub struct Disk {
-    identity: DiskIdentity,
-    identity_bytes: [u8; 56],
+    name: String,
+    identity: [u8; 56],
     image: Vec<u8>,
     buffer: Vec<u8>,
     state: State,
@@ -38,18 +46,16 @@ pub struct Disk {
 
 impl Disk {
     pub fn new(name: &str) -> Self {
-        let identity = Self::create_identity(name);
-
         Self {
-            identity: identity,
-            identity_bytes: identity.into_bytes(),
+            name: name.to_owned(),
+            identity: Self::identity(name, 0xFFFF, 0xFFFF, 0xFFFF).into_bytes(),
             image: Vec::new(),
             buffer: Vec::with_capacity(SECTOR_SIZE),
             state: State::Idle,
         }
     }
 
-    fn create_identity(name: &str) -> DiskIdentity {
+    fn identity(name: &str, sector_count: u16, superblock_id: u16, bitmap_block_id: u16) -> DiskIdentity {
         assert!(name.is_ascii(), "Device name must be ASCII");
 
         let mut device_name = [b' '; 32];
@@ -59,10 +65,10 @@ impl Disk {
         DiskIdentity {
             sector_size: SECTOR_SIZE as _,
             logical_sector_size: LOGICAL_SECTOR_SIZE as _,
-            sector_count: 0xFFFF,
+            sector_count,
             drive_ready: true,
-            bitmap_block_id: 0xFFFF,
-            superblock_id: 0xFFFF,
+            bitmap_block_id,
+            superblock_id,
             min_dir_pages: 1,
             flush: 0,
             device_name,
@@ -85,10 +91,8 @@ impl Disk {
 
         self.image = image;
 
-        self.identity.sector_count = (self.image.len() / SECTOR_SIZE) as u16;
-        self.identity.superblock_id = superblock_id;
-        self.identity.bitmap_block_id = bitmap_block_id;
-        self.identity_bytes = self.identity.into_bytes();
+        let sector_count = (self.image.len() / SECTOR_SIZE) as u16;
+        self.identity = Self::identity(&self.name, sector_count, superblock_id, bitmap_block_id).into_bytes();
     }
 
     fn reset(&mut self) {
@@ -109,24 +113,26 @@ impl Disk {
 
     fn process_buffer(&mut self) -> bool {
         match self.state {
-            State::Idle => self.process_request(),
-            State::Identity { .. } => panic!("unexpected data received"),
-            State::Read { .. } => panic!("unexpected data received"),
-            State::Write { sector, data_received } => {
-                if data_received {
+            State::Idle => {
+                return self.process_new_request();
+            }
+            State::Identity { .. } => {
+                panic!("unexpected data received");
+            }
+            State::Read { .. } => {
+                panic!("unexpected data received");
+            }
+            State::Write { sector, state } => {
+                if state != WriteDataState::NotAccepted {
                     panic!("unexpected data received")
-                } else {
-                    self.state = State::Write {
-                        sector,
-                        data_received: true,
-                    };
-                    true
                 }
+
+                return self.process_write_request(sector);
             }
         }
     }
 
-    fn process_request(&mut self) -> bool {
+    fn process_new_request(&mut self) -> bool {
         let raw = self.buffer.as_slice();
 
         trace!("Parse disk request {raw:02x?}...");
@@ -143,21 +149,42 @@ impl Disk {
 
         self.state = match req.code {
             RequestCode::GetStatus => State::Identity {
-                // Sometimes the Compass may request 54 bytes of identifier,
+                // Sometimes Compass may request 54 bytes of identifier,
                 // and in this case it is necessary to reply with exactly 52 bytes.
                 full: req.data_size == 56,
             },
-            RequestCode::Read => State::Read {
-                sector_number: req.sector,
-            },
+            RequestCode::Read => State::Read { sector: req.sector },
             RequestCode::Write => State::Write {
                 sector: req.sector,
-                data_received: false,
+                state: WriteDataState::NotAccepted,
             },
             _ => panic!("Unexpected request {req:?}"),
         };
 
         req.code == RequestCode::Read
+    }
+
+    fn process_write_request(&mut self, sector: u32) -> bool {
+        let offset = sector as usize * SECTOR_SIZE;
+
+        let is_u32_max = sector == u32::MAX;
+        let in_bounds = offset < self.image.len();
+
+        let state = if is_u32_max {
+            // Do nothing.
+            // I do not know exactly why the laptop sends a write request to sector
+            // 0xFFFFFFFF, but I think it is used to check the read data.
+            WriteDataState::Checked
+        } else if in_bounds {
+            self.image[offset..offset + SECTOR_SIZE].copy_from_slice(&self.buffer);
+            WriteDataState::Saved
+        } else {
+            WriteDataState::OutOfBounds
+        };
+
+        self.state = State::Write { sector, state };
+
+        return true;
     }
 
     fn talk(&mut self, mut talker: Talker) {
@@ -172,26 +199,22 @@ impl Disk {
             }
             State::Identity { full } => {
                 let size = if full { 56 } else { 52 };
-                &self.identity_bytes[..size]
+                &self.identity[..size]
             }
-            State::Read { sector_number } => {
-                let offset = sector_number as usize * SECTOR_SIZE;
+            State::Read { sector } => {
+                let offset = sector as usize * SECTOR_SIZE;
                 if offset >= self.image.len() {
                     &OUT_OF_BOUNDS_RESPONSE
                 } else {
                     &self.image[offset..offset + SECTOR_SIZE]
                 }
             }
-            State::Write {
-                sector: sector_number,
-                data_received,
-            } => {
-                if !data_received {
+            State::Write { state, .. } => {
+                if state == WriteDataState::NotAccepted {
                     panic!("Disk can't talk while waiting for data");
                 }
 
-                let offset = sector_number as usize * SECTOR_SIZE;
-                if offset >= self.image.len() {
+                if state == WriteDataState::OutOfBounds {
                     &OUT_OF_BOUNDS_RESPONSE
                 } else {
                     &WRITE_SUCCESSFUL_RESPONSE
