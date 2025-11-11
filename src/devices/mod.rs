@@ -1,6 +1,7 @@
 mod device;
 mod disk;
 mod manager;
+mod plotter;
 mod printer;
 
 pub use manager::DeviceManager;
@@ -13,6 +14,7 @@ pub enum KnownDevice {
     HardDisk2,
     FloppyDrive2,
     Printer,
+    Plotter,
 }
 
 impl KnownDevice {
@@ -24,6 +26,8 @@ impl KnownDevice {
             12 => Some(Self::HardDisk2),
             13 => Some(Self::FloppyDrive2),
             25 => Some(Self::Printer),
+            20 => Some(Self::Plotter),
+            21 => Some(Self::Plotter),
             _ => None,
         }
     }

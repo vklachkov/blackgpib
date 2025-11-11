@@ -1,9 +1,12 @@
-use crate::{
-    debug, devices::device::ServiceRequest, error, gpib_command::GPIBCommand, listener::Listener, talker::Talker,
-    trace, warn,
-};
+use crate::{debug, error, gpib_command::GPIBCommand, listener::Listener, talker::Talker, trace, warn};
 
-use super::{KnownDevice, device::Device, disk::Disk, printer::GenericPrinter};
+use super::{
+    KnownDevice,
+    device::{Device, ServiceRequest},
+    disk::Disk,
+    plotter::GenericPlotter,
+    printer::GenericPrinter,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SerialPollState {
@@ -57,6 +60,7 @@ enum TalkMode<'a> {
 pub struct DeviceManager {
     disks: [Disk; 5],
     printer: GenericPrinter,
+    plotter: GenericPlotter,
     active_listener: Option<KnownDevice>,
     serial_poll_state: SerialPollState,
 }
@@ -72,6 +76,7 @@ impl DeviceManager {
                 Disk::new("Disk 0x0D"),
             ],
             printer: GenericPrinter::new(),
+            plotter: GenericPlotter::new(),
             active_listener: None,
             serial_poll_state: SerialPollState::Init,
         }
@@ -173,6 +178,7 @@ impl DeviceManager {
             KnownDevice::HardDisk2 => &mut self.disks[3],
             KnownDevice::FloppyDrive2 => &mut self.disks[4],
             KnownDevice::Printer => &mut self.printer,
+            KnownDevice::Plotter => &mut self.plotter,
         }
     }
 
