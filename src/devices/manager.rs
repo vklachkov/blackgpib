@@ -4,8 +4,7 @@ use super::{
     KnownDevice,
     device::{Device, ServiceRequest},
     disk::Disk,
-    plotter::GenericPlotter,
-    printer::GenericPrinter,
+    proxy::DataToSocketDevice,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,8 +58,8 @@ enum TalkMode<'a> {
 
 pub struct DeviceManager {
     disks: [Disk; 5],
-    printer: GenericPrinter,
-    plotter: GenericPlotter,
+    printer: DataToSocketDevice,
+    plotter: DataToSocketDevice,
     active_listener: Option<KnownDevice>,
     serial_poll_state: SerialPollState,
 }
@@ -75,8 +74,8 @@ impl DeviceManager {
                 Disk::new("Disk 0x0C"),
                 Disk::new("Disk 0x0D"),
             ],
-            printer: GenericPrinter::new(),
-            plotter: GenericPlotter::new(),
+            printer: DataToSocketDevice::new("/tmp/blackgpib-printer.sock"),
+            plotter: DataToSocketDevice::new("/tmp/blackgpib-plotter.sock"),
             active_listener: None,
             serial_poll_state: SerialPollState::Init,
         }
@@ -129,7 +128,11 @@ impl DeviceManager {
                         }
                     }
                     GPIBCommand::UNL => {
-                        self.active_listener = None;
+                        if let Some(d) = self.active_listener.take() {
+                            self.get_device(d).process_complete();
+                        } else {
+                            warn!("Laptop sent UNL to the bus without MLA command");
+                        }
                     }
                     GPIBCommand::MTA(address) => {
                         let Some(talk_device) = KnownDevice::from_address(address) else {
@@ -184,7 +187,7 @@ impl DeviceManager {
 
     fn process_byte(&mut self, listener: &mut Listener, byte: u8, eoi: bool) {
         let Some(active_listener) = self.active_listener else {
-            error!("The laptop sent byte {byte:#010b} to the bus without an MLA command");
+            error!("Laptop sent byte {byte:#010b} to the bus without MLA command");
             return;
         };
 

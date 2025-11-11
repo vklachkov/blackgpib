@@ -1,8 +1,7 @@
 mod device;
 mod disk;
 mod manager;
-mod plotter;
-mod printer;
+mod proxy;
 
 pub use manager::DeviceManager;
 
@@ -25,9 +24,9 @@ impl KnownDevice {
             6 => Some(Self::PortableFloppy),
             12 => Some(Self::HardDisk2),
             13 => Some(Self::FloppyDrive2),
-            25 => Some(Self::Printer),
             20 => Some(Self::Plotter),
-            21 => Some(Self::Plotter),
+            21 => Some(Self::Printer),
+            25 => Some(Self::Printer),
             _ => None,
         }
     }

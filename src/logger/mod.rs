@@ -50,7 +50,9 @@ pub fn setup() {
 
 /// Adds a message to the queue. If the queue is full, the message will be lost.
 pub fn log(instant: Instant, file: &'static str, line: u32, level: LogLevel, message: Arguments<'_>) {
-    // if level == LogLevel::Debug || level == LogLevel::Trace { return; }
+    if level == LogLevel::Trace {
+        return;
+    }
 
     let mut log_producer = LOG_PRODUCER
         .get()
