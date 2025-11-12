@@ -13,13 +13,14 @@ use std::fs;
 
 use crate::{
     devices::{DeviceManager, KnownDevice},
+    logger::LogLevel,
     utils::configure_scheduler,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    logger::setup();
+    logger::setup(LogLevel::Info);
 
     info!("BlackGPiB v{VERSION} started");
 
