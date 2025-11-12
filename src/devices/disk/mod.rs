@@ -175,6 +175,7 @@ impl Disk {
             },
             _ => panic!("Unexpected request {req:?}"),
         };
+        self.buffer.clear();
 
         return if req.code == RequestCode::Read {
             ServiceRequest::Required
@@ -202,12 +203,15 @@ impl Disk {
         };
 
         self.state = State::Write { sector, state };
+        self.buffer.clear();
 
         return ServiceRequest::Required;
     }
 
     fn talk(&mut self, mut talker: Talker) {
         talker.send_bytes(self.response(), true);
+
+        // Reset to default state after answer because disk is stateless :)
         self.reset();
     }
 
