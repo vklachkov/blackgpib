@@ -1,5 +1,6 @@
 #![allow(clippy::needless_return, clippy::upper_case_acronyms)]
 
+mod args;
 mod devices;
 mod gpib_command;
 mod gpib_gpio;
@@ -12,6 +13,7 @@ mod utils;
 use std::fs;
 
 use crate::{
+    args::Args,
     devices::{DeviceManager, KnownDevice},
     logger::LogLevel,
     utils::configure_scheduler,
@@ -20,6 +22,8 @@ use crate::{
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
+    let args = Args::parse();
+
     logger::setup(LogLevel::Info);
 
     info!("BlackGPiB v{VERSION} started");
@@ -31,13 +35,31 @@ fn main() {
     configure_scheduler();
 
     let mut devman = DeviceManager::new();
+    configure_devman(args, &mut devman);
 
-    // FIXME: Remove hardcoded images.
-    devman.insert_image(KnownDevice::HardDisk, fs::read("XECUT_BOOT.IMG").unwrap(), 0x121, 0x120);
-    devman.insert_image(KnownDevice::FloppyDrive, fs::read("disk1").unwrap(), 0x121, 0x120);
-    devman.insert_image(KnownDevice::PortableFloppy, fs::read("2101_6ext_fixed").unwrap(), 0x121, 0x120);
-    devman.insert_image(KnownDevice::HardDisk2, fs::read("GRIDOS.IMG").unwrap(), 0x121, 0x120);
-    devman.insert_image(KnownDevice::FloppyDrive2, fs::read("disk1").unwrap(), 0x121, 0x120);
-
+    debug!("Configuration complete, device manager started");
     devman.start();
+}
+
+fn configure_devman(args: Args, devman: &mut DeviceManager) {
+    if let Some(ref path) = args.hdd_1_image {
+        let image = fs::read(path).expect("Failed to read HDD 1 image");
+        devman.insert_image(KnownDevice::HardDisk, image, 0x121, 0x120);
+    }
+    if let Some(ref path) = args.floppy_drive_1_image {
+        let image = fs::read(path).expect("Failed to read Floppy Drive 1 image");
+        devman.insert_image(KnownDevice::FloppyDrive, image, 0x121, 0x120);
+    }
+    if let Some(ref path) = args.portable_floppy_image {
+        let image = fs::read(path).expect("Failed to read Portable Floppy image");
+        devman.insert_image(KnownDevice::PortableFloppy, image, 0x121, 0x120);
+    }
+    if let Some(ref path) = args.hdd_2_image {
+        let image = fs::read(path).expect("Failed to read HDD 2 image");
+        devman.insert_image(KnownDevice::HardDisk2, image, 0x121, 0x120);
+    }
+    if let Some(ref path) = args.floppy_drive_2_image {
+        let image = fs::read(path).expect("Failed to read Floppy Drive 2 image");
+        devman.insert_image(KnownDevice::FloppyDrive2, image, 0x121, 0x120);
+    }
 }

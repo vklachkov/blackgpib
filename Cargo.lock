@@ -6,10 +6,17 @@ version = 4
 name = "blackgpib"
 version = "2.0.0"
 dependencies = [
+ "bpaf",
  "libc",
  "ringbuf",
  "rppal",
 ]
+
+[[package]]
+name = "bpaf"
+version = "0.9.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "473976d7a8620bb1e06dcdd184407c2363fe4fec8e983ee03ed9197222634a31"
 
 [[package]]
 name = "crossbeam-utils"

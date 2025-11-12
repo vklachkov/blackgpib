@@ -58,7 +58,7 @@ Other requests, except reading and writing, are not supported. You cannot format
 
 ### Printer and Plotter
 
-BlackGPiB can emulate a printer and a plotter. It connects to the right addresses and sends everything from the laptop to print or draw as UDP broadcast to configured ports.
+BlackGPiB can emulate a printer and a plotter. It connects to the right addresses and sends everything from the laptop as UDP broadcast to `49275` for printer and `49276` for plotter.
 
 A proxy for CUPS or any other system is not part of this project and will not be added to this repository.
 
