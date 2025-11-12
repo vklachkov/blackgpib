@@ -24,7 +24,13 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 fn main() {
     let args = Args::parse();
 
-    logger::setup(LogLevel::Info);
+    logger::setup(if args.trace {
+        LogLevel::Trace
+    } else if args.verbose {
+        LogLevel::Debug
+    } else {
+        LogLevel::Info
+    });
 
     info!("BlackGPiB v{VERSION} started");
 

@@ -4,6 +4,9 @@ use bpaf::{Parser, construct, long};
 
 #[derive(Debug)]
 pub struct Args {
+    pub trace: bool,
+    pub verbose: bool,
+
     pub hdd_1_image: Option<PathBuf>,
     pub floppy_drive_1_image: Option<PathBuf>,
     pub portable_floppy_image: Option<PathBuf>,
@@ -13,6 +16,9 @@ pub struct Args {
 
 impl Args {
     pub fn parse() -> Self {
+        let trace = long("trace").help("Enable super mega verbose logs").switch();
+        let verbose = long("verbose").help("Enable extra logs").switch();
+
         let hdd_1_image = long("hdd-1-image")
             .help("Image inserted to the first virtual HDD")
             .argument::<PathBuf>("PATH")
@@ -39,6 +45,8 @@ impl Args {
             .optional();
 
         let parser = construct!(Args {
+            trace,
+            verbose,
             hdd_1_image,
             floppy_drive_1_image,
             portable_floppy_image,
