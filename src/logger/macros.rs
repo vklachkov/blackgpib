@@ -6,7 +6,7 @@ macro_rules! log {
             file!(),
             line!(),
             $level,
-            format_args!($($arg)*)
+            &format_args!($($arg)*)
         );
     };
 }

@@ -56,7 +56,7 @@ pub fn setup(level: LogLevel) {
 }
 
 /// Adds a message to the queue. If the queue is full, the message will be lost.
-pub fn log(instant: Instant, file: &'static str, line: u32, level: LogLevel, message: Arguments<'_>) {
+pub fn log(instant: Instant, file: &'static str, line: u32, level: LogLevel, message: &Arguments<'_>) {
     let mut log_producer = LOG_PRODUCER
         .get()
         .expect("logger was not initialized")
@@ -80,7 +80,7 @@ pub fn log(instant: Instant, file: &'static str, line: u32, level: LogLevel, mes
     entry.file[entry.file.len() - 1] = 0;
 
     let mut msg_cursor = io::Cursor::new(entry.message.as_mut_slice());
-    _ = msg_cursor.write_fmt(message);
+    _ = msg_cursor.write_fmt(*message);
     entry.message[entry.message.len() - 1] = 0;
 
     _ = log_producer.buffer.try_push(entry);
