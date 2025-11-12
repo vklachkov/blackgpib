@@ -238,7 +238,9 @@ impl Disk {
                 }
 
                 if state == WriteDataState::OutOfBounds {
-                    &OUT_OF_BOUNDS_RESPONSE
+                    // TODO: What is correct response for this situation?
+                    // &OUT_OF_BOUNDS_RESPONSE
+                    &WRITE_SUCCESSFUL_RESPONSE
                 } else {
                     &WRITE_SUCCESSFUL_RESPONSE
                 }
