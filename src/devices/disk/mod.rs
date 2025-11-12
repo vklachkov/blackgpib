@@ -25,7 +25,7 @@ const LOGICAL_SECTOR_SIZE: usize = 504;
 // These responses were obtained through reverse engineering.
 // The exact purpose of the bytes is unknown.
 const OUT_OF_BOUNDS_RESPONSE: [u8; 7] = [0x6b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-const WRITE_SUCCESSFUL_RESPONSE: [u8; 7] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+const OPERATION_DONE_RESPONSE: [u8; 7] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 
 #[derive(Clone, Debug, Default)]
 enum State {
@@ -33,6 +33,9 @@ enum State {
     Idle,
     Identity {
         full: bool,
+    },
+    Initialize {
+        _sector: u32,
     },
     Read {
         sector: u32,
@@ -131,10 +134,7 @@ impl Disk {
             State::Idle => {
                 return self.process_new_request();
             }
-            State::Identity { .. } => {
-                panic!("unexpected data received");
-            }
-            State::Read { .. } => {
+            State::Initialize { .. } | State::Identity { .. } | State::Read { .. } => {
                 panic!("unexpected data received");
             }
             State::Write { sector, state } => {
@@ -163,6 +163,10 @@ impl Disk {
         debug!("Received disk request {req:?}");
 
         self.state = match req.code {
+            RequestCode::Initialize => State::Initialize {
+                _sector: req.sector,
+                // TODO: What means data_size=0xFFFF?
+            },
             RequestCode::GetStatus => State::Identity {
                 // Sometimes Compass may request 54 bytes of identifier,
                 // and in this case it is necessary to reply with exactly 52 bytes.
@@ -220,6 +224,10 @@ impl Disk {
             State::Idle => {
                 panic!("Disk can't talk in idle state");
             }
+            State::Initialize { .. } => {
+                // TODO: What should we do?
+                &OPERATION_DONE_RESPONSE
+            }
             State::Identity { full } => {
                 let size = if full { 56 } else { 52 };
                 &self.identity[..size]
@@ -240,9 +248,9 @@ impl Disk {
                 if state == WriteDataState::OutOfBounds {
                     // TODO: What is correct response for this situation?
                     // &OUT_OF_BOUNDS_RESPONSE
-                    &WRITE_SUCCESSFUL_RESPONSE
+                    &OPERATION_DONE_RESPONSE
                 } else {
-                    &WRITE_SUCCESSFUL_RESPONSE
+                    &OPERATION_DONE_RESPONSE
                 }
             }
         }
