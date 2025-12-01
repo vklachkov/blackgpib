@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
-use crate::{gpib_gpio, gpib_pinout::GPIBPin, utils::busy_wait};
+use crate::{gpib_gpio, gpib_pinout::GPIBPin, info, utils::busy_wait};
 
 #[allow(unused)]
 pub struct Listener {
@@ -37,7 +37,7 @@ impl Listener {
 
             dc: gpib_gpio::output(GPIBPin::DC, Level::High),
             te: gpib_gpio::output(GPIBPin::TE, Level::Low),
-            pe: gpib_gpio::output(GPIBPin::PE, Level::High),
+            pe: gpib_gpio::output(GPIBPin::PE, Level::Low),
 
             atn: gpib_gpio::input(GPIBPin::ATN),
             srq: gpib_gpio::output(GPIBPin::SRQ, Level::High),
@@ -88,6 +88,8 @@ impl Listener {
 
     /// Waits for the next command the same way a real disk does.
     pub fn wait_next_command(&mut self) {
+        info!("Wait next command...");
+
         self.nrfd.set_high();
 
         busy_wait(Duration::from_micros(15));

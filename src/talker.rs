@@ -32,7 +32,7 @@ impl Talker {
         Self {
             dc: gpib_gpio::output(GPIBPin::DC, Level::Low),
             te: gpib_gpio::output(GPIBPin::TE, Level::High),
-            pe: gpib_gpio::output(GPIBPin::PE, Level::High),
+            pe: gpib_gpio::output(GPIBPin::PE, Level::Low),
 
             atn: gpib_gpio::output(GPIBPin::ATN, Level::High),
             srq: gpib_gpio::input(GPIBPin::SRQ),
