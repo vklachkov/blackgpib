@@ -19,6 +19,14 @@ For more information about device emulation, see the [Details About Emulation](#
 
 There is no illustrated guide, and there won't be one until a new version of the board is developed. If you are interested in assembling a prototype, you can find the board project files and their description in the [`hardware/`](./hardware/) folder.
 
+## Prepare Raspberry Pi
+
+For stable work please setup a real-time (RT) kernel on your Raspberry Pi. Otherwise, sometimes the emulator may sometimes hang and the Compass will show timeout errors.
+
+To build kernel please read official instruction from Raspberry Pi: https://www.raspberrypi.com/documentation/computers/linux_kernel.html.
+
+Before building, check the "Configure the kernel" section and enable Real Time mode. You'll need to select "Fully Preemptible Kernel (Real-Time)" in menu "General Setup" -> "Preemption Model".
+
 ## How to Build Software
 
 To build the project, you need to install the latest [Rust](https://rust-lang.org/) compiler.
@@ -37,8 +45,6 @@ Copy this file to your Raspberry Pi and try it.
 
 For a detailed description of how to use BlackGPiB, run the program with the `-h` option.
 
-For better stability on the Raspberry Pi prototype, it is recommended to set up a real-time (RT) kernel. Otherwise, sometimes the emulator may stop working and the Compass will show timeout errors.
-
 ## Disk Images for Emulator
 
 The disks with the operating system and instructions for making your own disks are in the [`disks/`](./disks/) folder.
@@ -54,7 +60,7 @@ The GRiD Compass does not see any difference between a floppy drive and a hard d
 
 BlackGPiB can emulate disks for reading and writing at all standard addresses: 4, 5, 6, 12, and 13. Disks at non-standard addresses are not supported (for now).
 
-Other requests, except reading and writing, are not supported. You cannot format or initialize the virtual disk. Because of this, there may be problems when loading MS-DOS 2.0. Issues: https://github.com/vklachkov/blackgpib/issues/1 and https://github.com/vklachkov/blackgpib/issues/2.
+Other requests, except reading and writing, are not supported. You cannot format or initialize the virtual disk. Issues: https://github.com/vklachkov/blackgpib/issues/1 and https://github.com/vklachkov/blackgpib/issues/2.
 
 ### Printer and Plotter
 
