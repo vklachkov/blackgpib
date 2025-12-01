@@ -8,10 +8,12 @@ use super::device::{Device, ServiceRequest};
 use identity::DiskIdentity;
 use request::{Request, RequestCode};
 
+use memmap2::MmapMut;
+
 /// Actual sector size. This size is used by both the hard disk and floppy drive.
 ///
 /// The laptop does not support a different sector size for disks connected
-/// via GPIB.сThe sector size is hardcoded in the laptop bootloader, so this
+/// via GPIB. The sector size is hardcoded in the laptop bootloader, so this
 /// parameter is specified as a constant.
 const SECTOR_SIZE: usize = 512;
 
@@ -24,7 +26,7 @@ const LOGICAL_SECTOR_SIZE: usize = 504;
 
 // These responses were obtained through reverse engineering.
 // The exact purpose of the bytes is unknown.
-const OUT_OF_BOUNDS_RESPONSE: [u8; 7] = [0x6b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+const NO_DISK_RESPONSE: [u8; 7] = [0x6b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 const OPERATION_DONE_RESPONSE: [u8; 7] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
 
 #[derive(Clone, Debug, Default)]
@@ -57,7 +59,7 @@ enum WriteDataState {
 pub struct Disk {
     name: String,
     identity: [u8; 56],
-    image: Vec<u8>,
+    image: Option<MmapMut>,
     buffer: Vec<u8>,
     state: State,
 }
@@ -67,7 +69,7 @@ impl Disk {
         Self {
             name: name.to_owned(),
             identity: Self::identity(name, 0xFFFF, 0xFFFF, 0xFFFF).into_bytes(),
-            image: Vec::new(),
+            image: None,
             buffer: Vec::with_capacity(SECTOR_SIZE),
             state: State::Idle,
         }
@@ -99,18 +101,21 @@ impl Disk {
         }
     }
 
-    pub fn use_image(&mut self, mut image: Vec<u8>, superblock_id: u16, bitmap_block_id: u16) {
+    pub fn use_image(&mut self, image: MmapMut, superblock_id: u16, bitmap_block_id: u16) {
         // Make the image size a multiple of the sector size.
         let sector_remainder = image.len() % SECTOR_SIZE;
         if sector_remainder != 0 {
-            let padding = SECTOR_SIZE - sector_remainder;
-            image.extend(std::iter::repeat_n(0u8, padding));
+            panic!("Image must be multiple of {SECTOR_SIZE}!");
         }
 
-        self.image = image;
-
-        let sector_count = (self.image.len() / SECTOR_SIZE) as u16;
+        let sector_count = (image.len() / SECTOR_SIZE) as u16;
         self.identity = Self::identity(&self.name, sector_count, superblock_id, bitmap_block_id).into_bytes();
+
+        self.image = Some(image);
+    }
+
+    pub fn has_image(&self) -> bool {
+        self.image.is_some()
     }
 
     fn reset(&mut self) {
@@ -189,10 +194,14 @@ impl Disk {
     }
 
     fn process_write_request(&mut self, sector: u32) -> ServiceRequest {
+        let Some(image) = self.image.as_mut() else {
+            return ServiceRequest::NotRequired;
+        };
+
         let offset = sector as usize * SECTOR_SIZE;
 
         let is_u32_max = sector == u32::MAX;
-        let in_bounds = offset < self.image.len();
+        let in_bounds = offset < image.len();
 
         let state = if is_u32_max {
             // Do nothing.
@@ -200,7 +209,7 @@ impl Disk {
             // 0xFFFFFFFF, but I think it is used to check the read data.
             WriteDataState::Checked
         } else if in_bounds {
-            self.image[offset..offset + SECTOR_SIZE].copy_from_slice(&self.buffer);
+            image[offset..offset + SECTOR_SIZE].copy_from_slice(&self.buffer);
             WriteDataState::Saved
         } else {
             WriteDataState::OutOfBounds
@@ -219,7 +228,11 @@ impl Disk {
         self.reset();
     }
 
-    fn response(&mut self) -> &[u8] {
+    fn response(&mut self) -> &[u8] {        
+        let Some(image) = self.image.as_mut() else {
+            return &NO_DISK_RESPONSE;
+        };
+
         match self.state {
             State::Idle => {
                 panic!("Disk can't talk in idle state");
@@ -234,10 +247,11 @@ impl Disk {
             }
             State::Read { sector } => {
                 let offset = sector as usize * SECTOR_SIZE;
-                if offset >= self.image.len() {
-                    &OUT_OF_BOUNDS_RESPONSE
+                if offset >= image.len() {
+                    // FIXME: What is correct response for this situation?
+                    &NO_DISK_RESPONSE
                 } else {
-                    &self.image[offset..offset + SECTOR_SIZE]
+                    &image[offset..offset + SECTOR_SIZE]
                 }
             }
             State::Write { state, .. } => {
@@ -247,7 +261,6 @@ impl Disk {
 
                 if state == WriteDataState::OutOfBounds {
                     // TODO: What is correct response for this situation?
-                    // &OUT_OF_BOUNDS_RESPONSE
                     &OPERATION_DONE_RESPONSE
                 } else {
                     &OPERATION_DONE_RESPONSE

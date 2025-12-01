@@ -1,3 +1,5 @@
+use memmap2::MmapMut;
+
 use crate::{debug, error, gpib_command::GPIBCommand, listener::Listener, talker::Talker, trace, warn};
 
 use super::{
@@ -81,7 +83,7 @@ impl DeviceManager {
         }
     }
 
-    pub fn insert_image(&mut self, disk: KnownDevice, image: Vec<u8>, superblock_id: u16, bitmap_block_id: u16) {
+    pub fn insert_image(&mut self, disk: KnownDevice, image: MmapMut, superblock_id: u16, bitmap_block_id: u16) {
         assert!(disk != KnownDevice::Printer);
         self.disks[disk as usize].use_image(image, superblock_id, bitmap_block_id);
     }
