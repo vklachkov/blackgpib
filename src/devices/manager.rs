@@ -189,7 +189,7 @@ impl DeviceManager {
 
     fn process_byte(&mut self, listener: &mut Listener, byte: u8, eoi: bool) {
         let Some(active_listener) = self.active_listener else {
-            return self.atn_broken(listener);
+            return self.atn_broken(listener, byte);
         };
 
         let device = self.get_device(active_listener);
@@ -201,8 +201,8 @@ impl DeviceManager {
         }
     }
 
-    fn atn_broken(&mut self, listener: &mut Listener) {
-        error!("Laptop sent byte to the bus without MLA command. Probably, GPiB state is broken");
+    fn atn_broken(&mut self, listener: &mut Listener, byte: u8) {
+        error!("Laptop sent byte {byte:#04x} to the bus without MLA command. Probably, GPiB state is broken");
         warn!("Reset all devices and wait for next command...");
 
         self.reset_all();
