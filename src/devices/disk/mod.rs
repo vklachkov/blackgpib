@@ -46,6 +46,7 @@ enum State {
         sector: u32,
         state: WriteDataState,
     },
+    Format,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,6 +150,9 @@ impl Disk {
 
                 return self.process_write_request(sector);
             }
+            State::Format => {
+                panic!("unexpected data received");
+            }
         }
     }
 
@@ -182,15 +186,33 @@ impl Disk {
                 sector: req.sector,
                 state: WriteDataState::NotAccepted,
             },
+            RequestCode::Format => {
+                self.format_image();
+                State::Format
+            }
             _ => panic!("Unexpected request {req:?}"),
         };
         self.buffer.clear();
 
-        return if req.code == RequestCode::Read {
+        return if req.code == RequestCode::Read || req.code == RequestCode::Format {
             ServiceRequest::Required
         } else {
             ServiceRequest::NotRequired
         };
+    }
+
+    fn format_image(&mut self) {
+        let Some(image) = self.image.as_mut() else {
+            return;
+        };
+
+        let blocks = image.len() / SECTOR_SIZE;
+        for i in 0..blocks {
+            let offset = i * SECTOR_SIZE;
+            let sector = &mut image[offset..offset + SECTOR_SIZE];
+            sector[0..9].fill(0xff);
+            sector[9..SECTOR_SIZE].fill(0xe5);
+        }
     }
 
     fn process_write_request(&mut self, sector: u32) -> ServiceRequest {
@@ -228,7 +250,7 @@ impl Disk {
         self.reset();
     }
 
-    fn response(&mut self) -> &[u8] {        
+    fn response(&mut self) -> &[u8] {
         let Some(image) = self.image.as_mut() else {
             return &NO_DISK_RESPONSE;
         };
@@ -266,6 +288,7 @@ impl Disk {
                     &OPERATION_DONE_RESPONSE
                 }
             }
+            State::Format => &OPERATION_DONE_RESPONSE,
         }
     }
 }
