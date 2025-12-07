@@ -210,8 +210,8 @@ impl Disk {
         for i in 0..blocks {
             let offset = i * SECTOR_SIZE;
             let sector = &mut image[offset..offset + SECTOR_SIZE];
-            sector[0..9].fill(0xff);
-            sector[9..SECTOR_SIZE].fill(0xe5);
+            sector[0..8].fill(0xff);
+            sector[8..SECTOR_SIZE].fill(0xe5);
         }
     }
 
