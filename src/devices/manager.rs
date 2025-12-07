@@ -90,7 +90,7 @@ impl DeviceManager {
 
     pub fn start(mut self) {
         loop {
-            let mut listener = Listener::new();
+            let mut listener = Listener::new(false);
 
             let talk_mode = 'l: loop {
                 let byte = listener.handshake_byte();

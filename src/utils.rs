@@ -1,10 +1,11 @@
-use std::{
-    thread,
-    time::{Duration, Instant},
-};
+use crate::debug;
+
+use std::time::{Duration, Instant};
 
 /// Increases process priority and pins it to the last CPU core.
 pub fn configure_scheduler() {
+    debug!("Pin blackgpib to core 3 and set priority");
+
     unsafe {
         let mut set = std::mem::zeroed();
         libc::CPU_ZERO(&mut set);

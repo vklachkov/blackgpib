@@ -1,12 +1,19 @@
 use std::path::PathBuf;
 
-use bpaf::{Parser, construct, long};
+use bpaf::{Parser, construct, long, params::ParseCommand};
 
-#[derive(Debug)]
 pub struct Args {
-    pub trace: bool,
     pub verbose: bool,
+    pub trace: bool,
+    pub command: Command,
+}
 
+pub enum Command {
+    Emulator(EmulatorArgs),
+    Sniffer(SnifferArgs),
+}
+
+pub struct EmulatorArgs {
     pub hdd_1_image: Option<PathBuf>,
     pub floppy_drive_1_image: Option<PathBuf>,
     pub portable_floppy_image: Option<PathBuf>,
@@ -14,11 +21,31 @@ pub struct Args {
     pub floppy_drive_2_image: Option<PathBuf>,
 }
 
+pub struct SnifferArgs {
+    pub output_path: PathBuf,
+    pub size: usize,
+}
+
 impl Args {
     pub fn parse() -> Self {
-        let trace = long("trace").help("Enable super mega verbose logs").switch();
         let verbose = long("verbose").help("Enable extra logs").switch();
+        let trace = long("trace").help("Enable super mega verbose logs").switch();
 
+        let emulator_cmd = Self::parse_emulator_command();
+        let sniffer_cmd = Self::parse_sniffer_command();
+        let command = construct!([emulator_cmd, sniffer_cmd]);
+
+        construct!(Args {
+            verbose,
+            trace,
+            command
+        })
+        .to_options()
+        .descr("GPiB Peripheral Emulator for GRiD Compass")
+        .run()
+    }
+
+    fn parse_emulator_command() -> ParseCommand<Command> {
         let hdd_1_image = long("hdd-1-image")
             .help("Image inserted to the first virtual HDD")
             .argument::<PathBuf>("PATH")
@@ -44,9 +71,7 @@ impl Args {
             .argument::<PathBuf>("PATH")
             .optional();
 
-        let parser = construct!(Args {
-            trace,
-            verbose,
+        let args = construct!(EmulatorArgs {
             hdd_1_image,
             floppy_drive_1_image,
             portable_floppy_image,
@@ -54,8 +79,26 @@ impl Args {
             floppy_drive_2_image,
         });
 
-        let args = parser.to_options().descr("GPiB Peripheral Emulator for GRiD Compass");
+        construct!(Command::Emulator(args))
+            .to_options()
+            .descr("Emulate disk, printer and plotter")
+            .command("emulator")
+    }
 
-        args.run()
+    fn parse_sniffer_command() -> ParseCommand<Command> {
+        let output_path = long("output")
+            .help("Path to the file. If it does not exist, it will be created with `size` bytes")
+            .argument::<PathBuf>("PATH");
+
+        let size = long("size")
+            .help("Maximum size of the dump file")
+            .argument::<usize>("BYTES");
+
+        let args = construct!(SnifferArgs { output_path, size });
+
+        construct!(Command::Sniffer(args))
+            .to_options()
+            .descr("Capture communication between other devices")
+            .command("sniffer")
     }
 }

@@ -23,6 +23,7 @@ pub struct Listener {
     data: [InputPin; 8],
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct Byte {
     pub value: u8,
     pub atn: bool,
@@ -30,14 +31,14 @@ pub struct Byte {
 }
 
 impl Listener {
-    pub fn new() -> Self {
+    pub fn new(sniffer: bool) -> Self {
         Self {
-            ndac: gpib_gpio::output(GPIBPin::NDAC, Level::Low),
-            nrfd: gpib_gpio::output(GPIBPin::NRFD, Level::Low),
+            ndac: gpib_gpio::output(GPIBPin::NDAC, if sniffer { Level::High } else { Level::Low }),
+            nrfd: gpib_gpio::output(GPIBPin::NRFD, if sniffer { Level::High } else { Level::Low }),
 
             dc: gpib_gpio::output(GPIBPin::DC, Level::High),
             te: gpib_gpio::output(GPIBPin::TE, Level::Low),
-            pe: gpib_gpio::output(GPIBPin::PE, Level::Low),
+            pe: gpib_gpio::output(GPIBPin::PE, if sniffer { Level::High } else { Level::Low }),
 
             atn: gpib_gpio::input(GPIBPin::ATN),
             srq: gpib_gpio::output(GPIBPin::SRQ, Level::High),
@@ -48,6 +49,30 @@ impl Listener {
 
             data: GPIBPin::data().map(gpib_gpio::input),
         }
+    }
+
+    #[inline]
+    fn read_byte(&mut self) -> Byte {
+        let atn = self.atn.is_low();
+        let eoi = self.eoi.is_low();
+        let value = gpib_gpio::read_data(&self.data);
+
+        return Byte { atn, eoi, value };
+    }
+
+    /// Waits valid data on GPiB bus and reads byte without handshake.
+    pub fn sniff_byte(&mut self) -> Byte {
+        // Wait until Compass sets the data on the bus.
+        while self.dav.read() != Level::Low {}
+
+        let byte = self.read_byte();
+
+        // Wait until all devices read the byte.
+        // The Raspberry Pi is too fast, so if we don't wait until the flag is reset,
+        // the sniffer can read the same byte several times (if function used in a loop).
+        while self.dav.read() != Level::High {}
+
+        return byte;
     }
 
     /// Reads byte from bus with a full handshake cycle as described in the standard
@@ -72,10 +97,8 @@ impl Listener {
         // Not ready to receive a new byte, reading in progress.
         self.nrfd.set_low();
 
-        // Read byte and flags.
-        let atn = self.atn.is_low();
-        let eoi = self.eoi.is_low();
-        let value = gpib_gpio::read_data(&self.data);
+        // Read valid byte from bus.
+        let byte = self.read_byte();
 
         // Signal that we've read the byte.
         self.ndac.set_high();
@@ -83,7 +106,7 @@ impl Listener {
         // Wait until the laptop resets the DAta Valid flag.
         while self.dav.read() != Level::High {}
 
-        return Byte { atn, eoi, value };
+        return byte;
     }
 
     /// Waits for the next command the same way a real disk does.

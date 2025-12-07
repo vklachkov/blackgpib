@@ -2,6 +2,11 @@
 name = "blackgpib"
 version = "2.0.0"
 edition = "2024"
+default-run = "blackgpib"
+
+[[bin]]
+name = "gpib-dump-analyzer"
+path = "src/sniffer/bin/analyzer.rs"
 
 [dependencies]
 bpaf = "0.9.20"
