@@ -1,5 +1,6 @@
 mod identity;
 mod request;
+mod response;
 
 use crate::{debug, error, talker::Talker, trace};
 
@@ -7,6 +8,7 @@ use super::device::{Device, ServiceRequest};
 
 use identity::DiskIdentity;
 use request::{Request, RequestCode};
+use response::{DiskStatus, Response};
 
 use memmap2::MmapMut;
 
@@ -22,12 +24,7 @@ const SECTOR_SIZE: usize = 512;
 /// Does not include the first 4 bytes or the last 4 bytes of the sector.
 /// For more details about the CCOS file system structure, see the repository
 /// by @BOOtak: https://github.com/BOOtak/CCOS-disk-utils/.
-const LOGICAL_SECTOR_SIZE: usize = 504;
-
-// These responses were obtained through reverse engineering.
-// The exact purpose of the bytes is unknown.
-const NO_DISK_RESPONSE: [u8; 7] = [0x6b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
-const OPERATION_DONE_RESPONSE: [u8; 7] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+const LOGICAL_SECTOR_SIZE: usize = SECTOR_SIZE - 8;
 
 #[derive(Clone, Debug, Default)]
 enum State {
@@ -113,10 +110,6 @@ impl Disk {
         self.identity = Self::identity(&self.name, sector_count, superblock_id, bitmap_block_id).into_bytes();
 
         self.image = Some(image);
-    }
-
-    pub fn has_image(&self) -> bool {
-        self.image.is_some()
     }
 
     fn reset(&mut self) {
@@ -244,15 +237,18 @@ impl Disk {
     }
 
     fn talk(&mut self, mut talker: Talker) {
-        talker.send_bytes(self.response(), true);
+        let response = self.response();
+        talker.send_bytes(response.as_slice(), true);
 
         // Reset to default state after answer because disk is stateless :)
         self.reset();
     }
 
-    fn response(&mut self) -> &[u8] {
+    #[inline]
+    fn response<'d>(&'d mut self) -> Response<'d> {
         let Some(image) = self.image.as_mut() else {
-            return &NO_DISK_RESPONSE;
+            // FIXME: are we need sector number here?
+            return Response::from_status(DiskStatus::NotReady, 0x00);
         };
 
         match self.state {
@@ -260,35 +256,35 @@ impl Disk {
                 panic!("Disk can't talk in idle state");
             }
             State::Initialize { .. } => {
-                // TODO: What should we do?
-                &OPERATION_DONE_RESPONSE
+                // TODO: What should we return?
+                Response::ok(None)
             }
             State::Identity { full } => {
                 let size = if full { 56 } else { 52 };
-                &self.identity[..size]
+                Response::Raw(&self.identity[..size])
             }
             State::Read { sector } => {
                 let offset = sector as usize * SECTOR_SIZE;
                 if offset >= image.len() {
                     // FIXME: What is correct response for this situation?
-                    &NO_DISK_RESPONSE
+                    Response::ok(None)
                 } else {
-                    &image[offset..offset + SECTOR_SIZE]
+                    Response::Raw(&image[offset..offset + SECTOR_SIZE])
                 }
             }
-            State::Write { state, .. } => {
+            State::Write { state, sector } => {
                 if state == WriteDataState::NotAccepted {
                     panic!("Disk can't talk while waiting for data");
                 }
 
                 if state == WriteDataState::OutOfBounds {
                     // TODO: What is correct response for this situation?
-                    &OPERATION_DONE_RESPONSE
+                    Response::ok(Some(sector))
                 } else {
-                    &OPERATION_DONE_RESPONSE
+                    Response::ok(Some(sector))
                 }
             }
-            State::Format => &OPERATION_DONE_RESPONSE,
+            State::Format => Response::ok(None),
         }
     }
 }
