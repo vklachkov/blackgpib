@@ -52,8 +52,8 @@ impl Iterator for DumpIterator {
         let timestamp = Duration::from_millis(timestamp);
 
         let byte = buffer[3];
-        let atn = buffer[4] & (1 << 0b10) != 0;
-        let eoi = buffer[4] & (1 << 0b01) != 0;
+        let atn = buffer[4] & 0b10 != 0;
+        let eoi = buffer[4] & 0b01 != 0;
 
         let byte = if atn {
             let cmd = GPIBCommand::from(byte);
