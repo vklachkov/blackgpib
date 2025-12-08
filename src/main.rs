@@ -92,6 +92,8 @@ fn run_sniffer(args: SnifferArgs) {
     let file = create_dump_file(&args.output_path, args.size).expect("failed to create dump file");
     let devman = BusSniffer::new(file);
 
+    configure_scheduler();
+
     debug!("Configuration complete, start bus sniffer");
     devman.start();
 
@@ -104,7 +106,7 @@ fn create_dump_file(path: &Path, size: usize) -> io::Result<memmap2::MmapMut> {
     }
 
     let file = fs::OpenOptions::new()
-        .read(false)
+        .read(true)
         .write(true)
         .create_new(true)
         .open(path)?;
