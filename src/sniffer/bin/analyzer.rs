@@ -1,14 +1,19 @@
+mod disk_identity;
 mod disk_request;
+mod disk_response;
 mod gpib_command;
 
-use disk_request::Request as DiskRequest;
-use gpib_command::GPIBCommand;
 use std::{
     env::args,
     fs::File,
     io::{self, Read},
-    process::ExitCode, time::Duration,
+    process::ExitCode,
+    time::Duration,
 };
+
+use disk_identity::DiskIdentity;
+use disk_request::Request as DiskRequest;
+use gpib_command::GPIBCommand;
 
 enum GPiBByte {
     Command { timestamp: Duration, cmd: GPIBCommand },
@@ -66,20 +71,22 @@ impl Iterator for DumpIterator {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum State {
     Idle,
-    ToDevice,
-    FromDevice,
+    SerialPollProbing,
+    SerialPollTalk(u8),
+    DeviceListen(u8),
+    DeviceTalk(u8),
 }
 
 fn main() -> ExitCode {
     let Some(path) = args().nth(1) else {
-        println!("Usage: gpib-dump-analyzer [FILE] [compact|full]");
+        println!("Usage: gpib-dump-analyzer [FILE] [only_requests|full]");
         return ExitCode::FAILURE;
     };
 
-    let compact = args().nth(2).as_deref() == Some("compact");
+    let only_requests = args().nth(2).as_deref() == Some("only_requests");
 
     let file = File::open(&path).expect("failed to open file");
     let mut dump_iter = DumpIterator::new(file);
@@ -88,27 +95,32 @@ fn main() -> ExitCode {
     let mut buffer = Vec::with_capacity(512);
 
     while let Some(byte) = dump_iter.next() {
-        let byte = byte.expect("failed to read byte from dump");
-        match byte {
+        match byte.expect("failed to read byte from dump") {
             GPiBByte::Command { timestamp, cmd } => {
-                if !compact {
-                    println!("Laptop ({timestamp:?}) > {cmd:?}");
-                }
+                display_command(timestamp, cmd, only_requests);
 
-                match cmd {
-                    GPIBCommand::MLA(_) => state = State::ToDevice,
-                    GPIBCommand::MTA(_) => state = State::FromDevice,
-                    GPIBCommand::SPD => if compact {
-                        buffer.clear();
-                        state = State::Idle;
-                    },
-                    _ => state = State::Idle,
+                state = match cmd {
+                    GPIBCommand::MLA(dev) => State::DeviceListen(dev),
+                    GPIBCommand::MTA(dev) => {
+                        if state == State::SerialPollProbing {
+                            State::SerialPollTalk(dev)
+                        } else {
+                            State::DeviceTalk(dev)
+                        }
+                    }
+                    GPIBCommand::SPE => State::SerialPollProbing,
+                    _ => State::Idle,
                 };
             }
             GPiBByte::Data { timestamp, byte, eoi } => {
                 buffer.push(byte);
                 if eoi {
-                    display_buffer(state, timestamp, &buffer);
+                    display_buffer(state, timestamp, &buffer, only_requests);
+                    buffer.clear();
+                } else if matches!(state, State::SerialPollTalk(_)) {
+                    if !only_requests {
+                        display_buffer(state, timestamp, &buffer, only_requests);
+                    }
                     buffer.clear();
                 }
             }
@@ -118,21 +130,51 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-fn display_buffer(state: State, timestamp: Duration, buffer: &[u8]) {
+fn display_command(timestamp: Duration, cmd: GPIBCommand, only_requests: bool) {
+    if !only_requests {
+        let timestamp = format!("{:02}.{:03}s", timestamp.as_secs(), timestamp.as_millis() % 1000);
+        println!("💻 Compass ({timestamp}) > {cmd:?}");
+    }
+}
+
+fn display_buffer(state: State, timestamp: Duration, buffer: &[u8], only_requests: bool) {
+    let timestamp = format!("{}.{:03}s", timestamp.as_secs(), timestamp.as_millis() % 1000);
+
     match state {
         State::Idle => {
-            println!("Idle ({timestamp:?}) > {buffer:02x?}");
+            println!("⚠️ Idle ({timestamp}) > {buffer:02x?}");
         }
-        State::ToDevice => {
+        State::SerialPollProbing => {
+            println!("⚠️ Broken serial poll ({timestamp}) > {buffer:02x?}")
+        }
+        State::SerialPollTalk(dev) => {
+            println!("📟 Device #{dev} ({timestamp}) > {buffer:02x?}");
+        }
+        State::DeviceListen(dev) => {
             if let Ok(a) = DiskRequest::try_from(buffer) {
-                println!();
-                println!("Laptop ({timestamp:?}) > {a:?}");
+                println!("💻 Compass to #{dev} ({timestamp}) > {a:?}");
+                if !only_requests {
+                    println!("\tRaw: {buffer:02x?}");
+                }
             } else {
-                println!("Laptop ({timestamp:?}) > {buffer:02x?}");
+                println!("💻 Compass to #{dev} ({timestamp}) > {buffer:02x?}");
             }
         }
-        State::FromDevice => {
-            println!("Device ({timestamp:?}) > {buffer:02x?}");
+        State::DeviceTalk(dev) => {
+            if buffer.len() == 7 {
+                println!("📟 Device #{dev} ({timestamp}) > {buffer:02x?}");
+            } else if let Ok(identity) = DiskIdentity::try_from_bytes(&buffer) {
+                println!("📟 Device #{dev} ({timestamp}) > {identity:?}");
+                if !only_requests {
+                    println!("\tRaw: {buffer:02x?}");
+                }
+            } else {
+                println!("📟 Device #{dev} ({timestamp}) > {buffer:02x?}");
+            }
+
+            if only_requests {
+                println!();
+            }
         }
     }
 }

@@ -111,6 +111,18 @@ impl DiskIdentity {
         }
     }
 
+    /// Parses slice of bytes into a struct. If slice has invalid value,
+    /// function returns Err(input).
+    pub fn try_from_bytes(input: &[u8]) -> Result<Self, &[u8]> {
+        if let Ok(data) = input.try_into() {
+            Ok(Self::from_bytes::<52>(data))
+        } else if let Ok(data) = input.try_into() {
+            Ok(Self::from_bytes::<56>(data))
+        } else {
+            Err(input)
+        }
+    }
+
     /// Serializes the struct into a byte array.
     pub fn into_bytes(self) -> [u8; 56] {
         let mut output = [0u8; 56];
