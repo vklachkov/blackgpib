@@ -88,7 +88,7 @@ pub enum DiskStatus {
     Ok,
     NotReady,
     BadSector,
-    NotFormated,
+    NotFormatted,
     Unsupported(u8),
 }
 
@@ -98,7 +98,7 @@ impl Into<u8> for DiskStatus {
             Self::Ok => 0x00,
             Self::NotReady => 0x6b,
             Self::BadSector => 0x67,
-            Self::NotFormated => 0x68,
+            Self::NotFormatted => 0x68,
             Self::Unsupported(value) => value,
         }
     }
@@ -110,7 +110,7 @@ impl From<u8> for DiskStatus {
             0x00 => Self::Ok,
             0x6b => Self::NotReady,
             0x67 => Self::BadSector,
-            0x68 => Self::NotFormated,
+            0x68 => Self::NotFormatted,
             _ => Self::Unsupported(value),
         }
     }
