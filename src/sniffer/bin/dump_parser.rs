@@ -13,6 +13,7 @@ use std::{
 
 use disk_identity::DiskIdentity;
 use disk_request::Request as DiskRequest;
+use disk_response::StatusResponse as DiskStatusResponse;
 use gpib_command::GPIBCommand;
 
 enum GPiBByte {
@@ -161,8 +162,8 @@ fn display_buffer(state: State, timestamp: Duration, buffer: &[u8], only_request
             }
         }
         State::DeviceTalk(dev) => {
-            if buffer.len() == 7 {
-                println!("📟 Device #{dev} ({timestamp}) > {buffer:02x?}");
+            if let Ok(status_response) = DiskStatusResponse::try_from_bytes(&buffer) {
+                println!("📟 Device #{dev} ({timestamp}) > {status_response:?}");
             } else if let Ok(identity) = DiskIdentity::try_from_bytes(&buffer) {
                 println!("📟 Device #{dev} ({timestamp}) > {identity:?}");
                 if !only_requests {
