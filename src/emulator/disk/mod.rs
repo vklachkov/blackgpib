@@ -117,18 +117,11 @@ impl Disk {
         self.state = State::Idle;
     }
 
-    fn process_byte(&mut self, byte: u8, eoi: bool) -> ServiceRequest {
+    fn process_byte(&mut self, byte: u8, _eoi: bool) {
         self.buffer.push(byte);
-
-        if eoi {
-            self.process_buffer()
-        } else {
-            // Data is being received, service request is not needed.
-            ServiceRequest::NotRequired
-        }
     }
 
-    fn process_buffer(&mut self) -> ServiceRequest {
+    fn unlisten(&mut self) -> ServiceRequest {
         match self.state {
             State::Idle => {
                 return self.process_new_request();
@@ -294,8 +287,12 @@ impl Device for Disk {
         self.reset();
     }
 
-    fn process_byte(&mut self, byte: u8, eoi: bool) -> ServiceRequest {
-        self.process_byte(byte, eoi)
+    fn process_byte(&mut self, byte: u8, eoi: bool) {
+        self.process_byte(byte, eoi);
+    }
+
+    fn unlisten(&mut self) -> ServiceRequest {
+        self.unlisten()
     }
 
     fn talk(&mut self, talker: Talker) {

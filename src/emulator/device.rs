@@ -15,14 +15,12 @@ pub trait Device {
     fn reset(&mut self);
 
     /// Processes a byte from the bus.
+    fn process_byte(&mut self, byte: u8, eoi: bool);
+
+    /// Data transfer completed and the UNL command was received.
     ///
     /// Returns a flag indicating if a service request is needed.
-    fn process_byte(&mut self, byte: u8, eoi: bool) -> ServiceRequest;
-
-    /// Data transfer completed and the Unlisten command was received.
-    fn process_complete(&mut self) {
-        // Do nothing
-    }
+    fn unlisten(&mut self) -> ServiceRequest;
 
     /// Someone on the bus addressed you and told you "talk".
     fn talk(&mut self, talker: Talker);

@@ -27,12 +27,14 @@ impl DataToSocketDevice {
         self.buffer.push(byte);
     }
 
-    fn process_complete(&mut self) {
+    fn process_complete(&mut self) -> ServiceRequest {
         self.socket
             .send_to(&self.buffer, (IpAddr::V4(Ipv4Addr::BROADCAST), self.port))
             .expect("failed to write to socket");
 
         self.buffer.clear();
+
+        ServiceRequest::NotRequired
     }
 }
 
@@ -41,13 +43,12 @@ impl Device for DataToSocketDevice {
         // Do nothing. The device has no state.
     }
 
-    fn process_byte(&mut self, byte: u8, eoi: bool) -> ServiceRequest {
+    fn process_byte(&mut self, byte: u8, eoi: bool) {
         self.process_byte(byte, eoi);
-        ServiceRequest::NotRequired
     }
 
-    fn process_complete(&mut self) {
-        self.process_complete();
+    fn unlisten(&mut self) -> ServiceRequest {
+        self.process_complete()
     }
 
     fn talk(&mut self, _talker: Talker) {

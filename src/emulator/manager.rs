@@ -130,11 +130,7 @@ impl DeviceManager {
                         }
                     }
                     GPIBCommand::UNL => {
-                        if let Some(d) = self.active_listener.take() {
-                            self.get_device(d).process_complete();
-                        } else {
-                            warn!("Laptop sent UNL to the bus without MLA command");
-                        }
+                        self.process_unlisten(&mut listener);
                     }
                     GPIBCommand::MTA(address) => {
                         let Some(talk_device) = KnownDevice::from_address(address) else {
@@ -192,22 +188,33 @@ impl DeviceManager {
             return self.atn_broken(listener, byte);
         };
 
-        let device = self.get_device(active_listener);
-
-        let service_request = device.process_byte(byte, eoi);
-        if service_request == ServiceRequest::Required {
-            self.serial_poll_state = SerialPollState::Requested(active_listener);
-            listener.service_request();
-        }
+        self.get_device(active_listener).process_byte(byte, eoi);
     }
 
     fn atn_broken(&mut self, listener: &mut Listener, byte: u8) {
-        error!("Laptop sent byte {byte:#04x} to the bus without MLA command. Probably, GPiB state is broken");
+        let command = GPIBCommand::from(byte);
+        error!(
+            "Laptop sent byte {byte:#04x} (maybe {command:?} command) to the bus without MLA command. Probably, GPiB state is broken"
+        );
+
         warn!("Reset all devices and wait for next command...");
 
         self.reset_all();
 
         listener.wait_next_command();
+    }
+
+    fn process_unlisten(&mut self, listener: &mut Listener) {
+        let Some(active_listener) = self.active_listener.take() else {
+            warn!("Laptop sent UNL to the bus without MLA command");
+            return;
+        };
+
+        let service_request = self.get_device(active_listener).unlisten();
+        if service_request == ServiceRequest::Required {
+            self.serial_poll_state = SerialPollState::Requested(active_listener);
+            listener.service_request();
+        }
     }
 
     fn reset_all(&mut self) {
