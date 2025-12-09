@@ -86,6 +86,8 @@ enum State {
 }
 
 fn main() {
+    fix_broken_pipe();
+
     let Args { path, compact } = parse_args();
 
     let file = File::open(&path).expect("failed to open file");
@@ -125,6 +127,12 @@ fn main() {
                 }
             }
         }
+    }
+}
+
+fn fix_broken_pipe() {
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
     }
 }
 
