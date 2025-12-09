@@ -1,7 +1,7 @@
 #![allow(clippy::needless_return, clippy::upper_case_acronyms)]
 
 mod args;
-mod devices;
+mod emulator;
 mod gpib_command;
 mod gpib_gpio;
 mod gpib_pinout;
@@ -15,7 +15,7 @@ use std::{fs, io, path::Path};
 
 use crate::{
     args::{Args, EmulatorArgs, SnifferArgs},
-    devices::{DeviceManager, KnownDevice},
+    emulator::{DeviceManager, KnownDevice},
     logger::LogLevel,
     sniffer::BusSniffer,
     utils::configure_scheduler,
