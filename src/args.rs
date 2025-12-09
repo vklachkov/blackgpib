@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use bpaf::{Parser, construct, long, params::ParseCommand};
+use bpaf::{Parser, construct, long, params::ParseCommand, positional};
 
 pub struct Args {
     pub verbose: bool,
@@ -11,6 +11,7 @@ pub struct Args {
 pub enum Command {
     Emulator(EmulatorArgs),
     Sniffer(SnifferArgs),
+    Controller(ControllerArgs),
 }
 
 pub struct EmulatorArgs {
@@ -26,6 +27,10 @@ pub struct SnifferArgs {
     pub size: usize,
 }
 
+pub struct ControllerArgs {
+    pub address: u8,
+}
+
 impl Args {
     pub fn parse() -> Self {
         let verbose = long("verbose").help("Enable extra logs").switch();
@@ -33,7 +38,8 @@ impl Args {
 
         let emulator_cmd = Self::parse_emulator_command();
         let sniffer_cmd = Self::parse_sniffer_command();
-        let command = construct!([emulator_cmd, sniffer_cmd]);
+        let controller_cmd = Self::parse_controller_command();
+        let command = construct!([emulator_cmd, sniffer_cmd, controller_cmd]);
 
         construct!(Args {
             verbose,
@@ -100,5 +106,16 @@ impl Args {
             .to_options()
             .descr("Capture communication between other devices")
             .command("sniffer")
+    }
+
+    fn parse_controller_command() -> ParseCommand<Command> {
+        let address = positional("ADDRESS");
+
+        let args = construct!(ControllerArgs { address });
+
+        construct!(Command::Controller(args))
+            .to_options()
+            .descr("Communicate with peripheral devices like Compass")
+            .command("controller")
     }
 }

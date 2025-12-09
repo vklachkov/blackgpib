@@ -1,6 +1,7 @@
 #![allow(clippy::needless_return, clippy::upper_case_acronyms)]
 
 mod args;
+mod controller;
 mod emulator;
 mod gpib_command;
 mod gpib_gpio;
@@ -14,7 +15,8 @@ mod utils;
 use std::{fs, io, path::Path};
 
 use crate::{
-    args::{Args, EmulatorArgs, SnifferArgs},
+    args::{Args, ControllerArgs, EmulatorArgs, SnifferArgs},
+    controller::DeviceController,
     emulator::DeviceEmulator,
     logger::LogLevel,
     sniffer::BusSniffer,
@@ -42,6 +44,7 @@ fn main() {
     match args.command {
         args::Command::Emulator(args) => run_emulator(args),
         args::Command::Sniffer(args) => run_sniffer(args),
+        args::Command::Controller(args) => run_controller(args),
     }
 }
 
@@ -94,12 +97,12 @@ fn mmap_disk_image(path: &Path) -> memmap2::MmapMut {
 
 fn run_sniffer(args: SnifferArgs) {
     let file = create_dump_file(&args.output_path, args.size).expect("failed to create dump file");
-    let devman = BusSniffer::new(file);
+    let sniffer = BusSniffer::new(file);
 
     configure_scheduler();
 
     debug!("Configuration complete, start bus sniffer");
-    devman.start();
+    sniffer.start();
 
     info!("Bus sniffer finished, dump saved to {}", args.output_path.display());
 }
@@ -119,4 +122,13 @@ fn create_dump_file(path: &Path, size: usize) -> io::Result<memmap2::MmapMut> {
 
     // SAFETY: Maybe safe, I don't know.
     unsafe { memmap2::MmapMut::map_mut(&file) }
+}
+
+fn run_controller(args: ControllerArgs) {
+    let controller = DeviceController::new(args.address);
+
+    configure_scheduler();
+
+    debug!("Configuration complete");
+    controller.start();
 }

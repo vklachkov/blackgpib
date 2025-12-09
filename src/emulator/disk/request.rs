@@ -26,6 +26,18 @@ pub struct Request {
     pub mode: u8,
 }
 
+impl Request {
+    pub fn into_bytes(self) -> [u8; REQUEST_SIZE] {
+        let mut bytes = [0; REQUEST_SIZE];
+        bytes[0] = self.code as u8;
+        bytes[1..=2].copy_from_slice(&self.connection.to_le_bytes());
+        bytes[3..=6].copy_from_slice(&self.sector.to_le_bytes());
+        bytes[7..=8].copy_from_slice(&self.data_size.to_le_bytes());
+        bytes[9] = self.mode;
+        bytes
+    }
+}
+
 impl TryFrom<&[u8]> for Request {
     type Error = BadRequest;
 
@@ -54,44 +66,14 @@ impl TryFrom<&[u8]> for Request {
 pub enum RequestCode {
     Initialize = 0,
     GetStatus = 1,
-    Open = 2,
-    Close = 3,
+
     Read = 4,
     Write = 5,
-    Seek = 6,
-    Truncate = 7,
-    Attach = 8,
-    Detach = 9,
-    Rename = 10,
-    Delete = 11,
-    ReadDesc = 12,
-    WriteDesc = 13,
-    Flush = 14,
-    WaitSRQ = 15,
+
     SelfTest = 16,
+
     Format = 17,
-    SetStatus = 20,
-    Deactivate = 21,
-
     TrackFormat = 22,
-    ControllerTest = 23,
-    RamTest = 24,
-    DriveTest = 25,
-    Prog = 26,
-    WriteProtect = 27,
-    BufferCommand = 28,
-    ReadDirPage = 29,
-    Signon = 30,
-    SignOff = 31,
-    Send = 32,
-    RemoteCopy = 33,
-    VerifyMedia = 40,
-    ReadVolName = 41,
-    AddMassVolName = 42,
-
-    Connect = 100,
-    DisConnect = 101,
-    WaitConnect = 102,
 }
 
 impl TryFrom<u8> for RequestCode {
@@ -99,7 +81,7 @@ impl TryFrom<u8> for RequestCode {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0..=17 | 20..=33 | 40..=42 | 100..=102 => {
+            1 | 2 | 4 | 5 | 16 | 17 | 22 => {
                 // SAFETY: value is within valid range.
                 Ok(unsafe { transmute::<u8, Self>(value) })
             }
