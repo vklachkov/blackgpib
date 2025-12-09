@@ -2,7 +2,7 @@ mod identity;
 mod request;
 mod response;
 
-use crate::{debug, error, talker::Talker, trace};
+use crate::{debug, error, talker::Talker};
 
 use super::device::{Device, ServiceRequest};
 
@@ -65,10 +65,14 @@ impl Disk {
     pub fn new(name: String, image: MmapMut) -> Self {
         let sector_remainder = image.len() % SECTOR_SIZE;
         if sector_remainder != 0 {
-            panic!("Image must be multiple of {SECTOR_SIZE}!");
+            panic!("Disk image must be multiple of {SECTOR_SIZE}");
         }
 
         let sector_count = (image.len() / SECTOR_SIZE) as u16;
+        if sector_count < 6 {
+            panic!("Disk image must be at least 6 sectors in size");
+        }
+
         let identity = Self::identity(&name, sector_count).into_bytes();
 
         Self {
@@ -138,46 +142,67 @@ impl Disk {
     fn process_new_request(&mut self) -> ServiceRequest {
         let raw = self.buffer.as_slice();
 
-        trace!("Parse disk request {raw:02x?}...");
-
-        let req = match Request::try_from(raw) {
-            Ok(value) => value,
+        let srq = match Request::try_from(raw) {
+            Ok(req) => {
+                debug!("Received {req:?}");
+                self.process_request(req)
+            }
             Err(err) => {
-                error!("Failed to parse request: {err}");
-                return ServiceRequest::NotRequired;
+                // TODO: How real disk handles bad requests?
+                error!("Failed to parse request {raw:02x?}: {err}");
+                ServiceRequest::NotRequired
             }
         };
 
-        debug!("Received disk request {req:?}");
-
-        self.state = match req.code {
-            RequestCode::Initialize => State::Initialize {
-                _sector: req.sector,
-                // TODO: What means data_size=0xFFFF?
-            },
-            RequestCode::GetStatus => State::Identity {
-                // Sometimes Compass may request 54 bytes of identifier,
-                // and in this case it is necessary to reply with exactly 52 bytes.
-                full: req.data_size == 56,
-            },
-            RequestCode::Read => State::Read { sector: req.sector },
-            RequestCode::Write => State::Write {
-                sector: req.sector,
-                state: WriteDataState::NotAccepted,
-            },
-            RequestCode::Format => {
-                self.format_image();
-                State::Format
-            }
-            _ => panic!("Unexpected request {req:?}"),
-        };
         self.buffer.clear();
 
-        return if req.code == RequestCode::Read || req.code == RequestCode::Format {
-            ServiceRequest::Required
-        } else {
-            ServiceRequest::NotRequired
-        };
+        srq
+    }
+
+    fn process_request(&mut self, req: Request) -> ServiceRequest {
+        match req.code {
+            RequestCode::Initialize => {
+                // TODO: What should we do?
+                // TODO: What means data_size=0xFFFF?
+
+                self.state = State::Initialize { _sector: req.sector };
+
+                // TODO: Or required?..
+                ServiceRequest::NotRequired
+            }
+            RequestCode::GetStatus => {
+                self.state = State::Identity {
+                    // Sometimes Compass may request 54 bytes of identifier,
+                    // and in this case it is necessary to reply with exactly 52 bytes.
+                    full: req.data_size == 56,
+                };
+
+                ServiceRequest::NotRequired
+            }
+            RequestCode::Read => {
+                self.state = State::Read { sector: req.sector };
+
+                ServiceRequest::Required
+            }
+            RequestCode::Write => {
+                self.state = State::Write {
+                    sector: req.sector,
+                    state: WriteDataState::NotAccepted,
+                };
+
+                // SRQ required only after receiving a sector.
+                ServiceRequest::NotRequired
+            }
+            RequestCode::Format => {
+                self.format_image();
+                self.state = State::Format;
+                ServiceRequest::Required
+            }
+            _ => {
+                // TODO: How real disk handles unexpected requests?
+                panic!("Unexpected request {req:?}")
+            }
+        }
     }
 
     fn format_image(&mut self) {
@@ -226,6 +251,7 @@ impl Disk {
     fn response<'d>(&'d mut self) -> Response<'d> {
         match self.state {
             State::Idle => {
+                // TODO: What should we return?
                 panic!("Disk can't talk in idle state");
             }
             State::Initialize { .. } => {
@@ -247,6 +273,7 @@ impl Disk {
             }
             State::Write { state, sector } => {
                 if state == WriteDataState::NotAccepted {
+                    // TODO: What should we return?
                     panic!("Disk can't talk while waiting for data");
                 }
 
