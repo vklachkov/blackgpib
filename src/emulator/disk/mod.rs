@@ -263,6 +263,11 @@ impl Disk {
                 Response::Raw(&self.identity[..size])
             }
             State::Read { sector } => {
+                if &self.image[0..8] == &[0xe5; 8] {
+                    debug!("Unformatted disk read detected");
+                    return Response::from_status(DiskStatus::NotFormatted, 0x00);
+                }
+
                 let offset = sector as usize * SECTOR_SIZE;
                 if offset >= self.image.len() {
                     // FIXME: What is correct response for this situation?
