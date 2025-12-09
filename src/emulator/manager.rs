@@ -3,7 +3,6 @@ use memmap2::MmapMut;
 use crate::{debug, error, gpib_command::GPIBCommand, listener::Listener, talker::Talker, trace, warn};
 
 use super::{
-    KnownDevice,
     device::{Device, ServiceRequest},
     disk::Disk,
     proxy::DataToSocketDevice,
@@ -15,15 +14,15 @@ enum SerialPollState {
     Init,
 
     /// A Service Request was requested by device.
-    Requested(KnownDevice),
+    Requested(u8),
 
     /// The laptop sent SPE. The next Talk will be interpreted as an attempt
     /// to find which device made the Service Request.
-    Enabled(KnownDevice),
+    Enabled(u8),
 
     /// The laptop sent SPD. However, after SPD, SPE can still be sent again,
     /// so we need to remember the device.
-    Disabled(KnownDevice),
+    Disabled(u8),
 }
 
 impl SerialPollState {
@@ -58,34 +57,45 @@ enum TalkMode<'a> {
     Device(&'a mut dyn Device),
 }
 
-pub struct DeviceManager {
-    disks: [Disk; 5],
-    printer: DataToSocketDevice,
-    plotter: DataToSocketDevice,
-    active_listener: Option<KnownDevice>,
+pub struct DeviceEmulator {
+    devices: Box<[Option<Box<dyn Device>>; Self::MAX_GPIB_DEVICES]>,
+    active_listener: Option<u8>,
     serial_poll_state: SerialPollState,
 }
 
-impl DeviceManager {
+impl DeviceEmulator {
+    const MAX_GPIB_DEVICES: usize = 31;
+
     pub fn new() -> Self {
         Self {
-            disks: [
-                Disk::new("Disk 0x04"),
-                Disk::new("Disk 0x05"),
-                Disk::new("Disk 0x06"),
-                Disk::new("Disk 0x0C"),
-                Disk::new("Disk 0x0D"),
-            ],
-            printer: DataToSocketDevice::new(49275),
-            plotter: DataToSocketDevice::new(49276),
+            devices: Box::default(),
             active_listener: None,
             serial_poll_state: SerialPollState::Init,
         }
     }
 
-    pub fn insert_image(&mut self, disk: KnownDevice, image: MmapMut, superblock_id: u16, bitmap_block_id: u16) {
-        assert!(disk != KnownDevice::Printer);
-        self.disks[disk as usize].use_image(image, superblock_id, bitmap_block_id);
+    pub fn create_disk(&mut self, address: u8, image: MmapMut) {
+        self.new_device(address, || {
+            let name = format!("Disk {address:#04x}");
+            Disk::new(name, image)
+        });
+    }
+
+    pub fn create_proxy(&mut self, address: u8, port: u16) {
+        self.new_device(address, || DataToSocketDevice::new(port));
+    }
+
+    fn new_device<T, F>(&mut self, address: u8, ctor: F)
+    where
+        T: Device + 'static,
+        F: FnOnce() -> T,
+    {
+        let id = address as usize;
+
+        assert!(id < Self::MAX_GPIB_DEVICES, "address must be in range 0..=30");
+        assert!(self.devices[id].is_none(), "device with address {id} already exists");
+
+        self.devices[id] = Some(Box::new(ctor()))
     }
 
     pub fn start(mut self) {
@@ -123,8 +133,8 @@ impl DeviceManager {
                         self.serial_poll_state = self.serial_poll_state.to_disabled();
                     }
                     GPIBCommand::MLA(address) => {
-                        if let Some(device) = KnownDevice::from_address(address) {
-                            self.active_listener = Some(device);
+                        if self.is_device_exists(address) {
+                            self.active_listener = Some(address);
                         } else {
                             listener.wait_next_command();
                         }
@@ -133,16 +143,16 @@ impl DeviceManager {
                         self.process_unlisten(&mut listener);
                     }
                     GPIBCommand::MTA(address) => {
-                        let Some(talk_device) = KnownDevice::from_address(address) else {
+                        if !self.is_device_exists(address) {
                             listener.wait_next_command();
                             continue;
-                        };
+                        }
 
                         if self.serial_poll_state.is_enabled() {
-                            let is_requester = self.serial_poll_state == SerialPollState::Enabled(talk_device);
+                            let is_requester = self.serial_poll_state == SerialPollState::Enabled(address);
                             break 'l TalkMode::SerialPollProbe(is_requester);
                         } else {
-                            break 'l TalkMode::Device(self.get_device(talk_device));
+                            break 'l TalkMode::Device(self.get_device(address));
                         }
                     }
                     GPIBCommand::UNT => {
@@ -171,16 +181,21 @@ impl DeviceManager {
     }
 
     #[inline]
-    fn get_device(&mut self, device: KnownDevice) -> &mut dyn Device {
-        match device {
-            KnownDevice::HardDisk => &mut self.disks[0],
-            KnownDevice::FloppyDrive => &mut self.disks[1],
-            KnownDevice::PortableFloppy => &mut self.disks[2],
-            KnownDevice::HardDisk2 => &mut self.disks[3],
-            KnownDevice::FloppyDrive2 => &mut self.disks[4],
-            KnownDevice::Printer => &mut self.printer,
-            KnownDevice::Plotter => &mut self.plotter,
+    fn is_device_exists(&self, address: u8) -> bool {
+        match self.devices.get(address as usize) {
+            Some(device) => device.is_some(),
+            None => false,
         }
+    }
+
+    #[inline]
+    fn get_device(&mut self, address: u8) -> &mut dyn Device {
+        self.devices
+            .get_mut(address as usize)
+            .expect("address must be in range 0..=30")
+            .as_mut()
+            .expect("device must exists")
+            .as_mut()
     }
 
     fn process_byte(&mut self, listener: &mut Listener, byte: u8, eoi: bool) {
@@ -221,10 +236,10 @@ impl DeviceManager {
         self.active_listener = None;
         self.serial_poll_state = SerialPollState::Init;
 
-        for disk in &mut self.disks {
-            disk.reset();
+        for device in self.devices.iter_mut() {
+            if let Some(device) = device {
+                device.reset();
+            }
         }
-
-        self.printer.reset();
     }
 }

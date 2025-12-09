@@ -15,7 +15,7 @@ use std::{fs, io, path::Path};
 
 use crate::{
     args::{Args, EmulatorArgs, SnifferArgs},
-    emulator::{DeviceManager, KnownDevice},
+    emulator::DeviceEmulator,
     logger::LogLevel,
     sniffer::BusSniffer,
     utils::configure_scheduler,
@@ -46,34 +46,38 @@ fn main() {
 }
 
 fn run_emulator(args: EmulatorArgs) {
-    let mut devman = DeviceManager::new();
-    configure_devman(args, &mut devman);
+    let mut emulator = DeviceEmulator::new();
+    configure_emulator(args, &mut emulator);
 
     configure_scheduler();
 
     debug!("Configuration complete, start device emulator");
-    devman.start();
+    emulator.start();
 }
 
-fn configure_devman(args: EmulatorArgs, devman: &mut DeviceManager) {
+fn configure_emulator(args: EmulatorArgs, emulator: &mut DeviceEmulator) {
+    emulator.create_proxy(21, 49274); // default printer
+    emulator.create_proxy(25, 49275); // printer hp
+    emulator.create_proxy(20, 49276); // plotter
+
     if let Some(ref path) = args.hdd_1_image {
-        devman.insert_image(KnownDevice::HardDisk, mmap_file(path), 0x121, 0x120);
+        emulator.create_disk(04, mmap_disk_image(path));
     }
     if let Some(ref path) = args.floppy_drive_1_image {
-        devman.insert_image(KnownDevice::FloppyDrive, mmap_file(path), 0x121, 0x120);
+        emulator.create_disk(05, mmap_disk_image(path));
     }
     if let Some(ref path) = args.portable_floppy_image {
-        devman.insert_image(KnownDevice::PortableFloppy, mmap_file(path), 0x121, 0x120);
+        emulator.create_disk(06, mmap_disk_image(path));
     }
     if let Some(ref path) = args.hdd_2_image {
-        devman.insert_image(KnownDevice::HardDisk2, mmap_file(path), 0x121, 0x120);
+        emulator.create_disk(12, mmap_disk_image(path));
     }
     if let Some(ref path) = args.floppy_drive_2_image {
-        devman.insert_image(KnownDevice::FloppyDrive2, mmap_file(path), 0x121, 0x120);
+        emulator.create_disk(13, mmap_disk_image(path));
     }
 }
 
-fn mmap_file(path: &Path) -> memmap2::MmapMut {
+fn mmap_disk_image(path: &Path) -> memmap2::MmapMut {
     let file = fs::OpenOptions::new()
         .read(true)
         .write(true)
