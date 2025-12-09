@@ -4,10 +4,9 @@ mod disk_response;
 mod gpib_command;
 
 use std::{
-    env::args,
     fs::File,
     io::{self, Read},
-    process::ExitCode,
+    path::PathBuf,
     time::Duration,
 };
 
@@ -15,6 +14,11 @@ use disk_identity::DiskIdentity;
 use disk_request::Request as DiskRequest;
 use disk_response::StatusResponse as DiskStatusResponse;
 use gpib_command::GPIBCommand;
+
+struct Args {
+    compact: bool,
+    path: PathBuf,
+}
 
 enum GPiBByte {
     Command { timestamp: Duration, cmd: GPIBCommand },
@@ -81,13 +85,8 @@ enum State {
     DeviceTalk(u8),
 }
 
-fn main() -> ExitCode {
-    let Some(path) = args().nth(1) else {
-        println!("Usage: gpib-dump-analyzer [FILE] [only_requests|full]");
-        return ExitCode::FAILURE;
-    };
-
-    let only_requests = args().nth(2).as_deref() == Some("only_requests");
+fn main() {
+    let Args { path, compact } = parse_args();
 
     let file = File::open(&path).expect("failed to open file");
     let mut dump_iter = DumpIterator::new(file);
@@ -98,7 +97,7 @@ fn main() -> ExitCode {
     while let Some(byte) = dump_iter.next() {
         match byte.expect("failed to read byte from dump") {
             GPiBByte::Command { timestamp, cmd } => {
-                display_command(timestamp, cmd, only_requests);
+                display_command(timestamp, cmd, compact);
 
                 state = match cmd {
                     GPIBCommand::MLA(dev) => State::DeviceListen(dev),
@@ -116,29 +115,39 @@ fn main() -> ExitCode {
             GPiBByte::Data { timestamp, byte, eoi } => {
                 buffer.push(byte);
                 if eoi {
-                    display_buffer(state, timestamp, &buffer, only_requests);
+                    display_buffer(state, timestamp, &buffer, compact);
                     buffer.clear();
                 } else if matches!(state, State::SerialPollTalk(_)) {
-                    if !only_requests {
-                        display_buffer(state, timestamp, &buffer, only_requests);
+                    if !compact {
+                        display_buffer(state, timestamp, &buffer, compact);
                     }
                     buffer.clear();
                 }
             }
         }
     }
-
-    ExitCode::SUCCESS
 }
 
-fn display_command(timestamp: Duration, cmd: GPIBCommand, only_requests: bool) {
-    if !only_requests {
+fn parse_args() -> Args {
+    use bpaf::{Parser, construct, long, positional};
+
+    let compact = long("compact").help("Hide all GPiB commands and raw data").switch();
+    let path = positional("PATH");
+
+    construct!(Args { compact, path })
+        .to_options()
+        .descr("GPiB Peripheral Emulator for GRiD Compass")
+        .run()
+}
+
+fn display_command(timestamp: Duration, cmd: GPIBCommand, compact: bool) {
+    if !compact {
         let timestamp = format!("{:02}.{:03}s", timestamp.as_secs(), timestamp.as_millis() % 1000);
         println!("💻 Compass ({timestamp}) > {cmd:?}");
     }
 }
 
-fn display_buffer(state: State, timestamp: Duration, buffer: &[u8], only_requests: bool) {
+fn display_buffer(state: State, timestamp: Duration, buffer: &[u8], compact: bool) {
     let timestamp = format!("{}.{:03}s", timestamp.as_secs(), timestamp.as_millis() % 1000);
 
     match state {
@@ -154,7 +163,7 @@ fn display_buffer(state: State, timestamp: Duration, buffer: &[u8], only_request
         State::DeviceListen(dev) => {
             if let Ok(a) = DiskRequest::try_from(buffer) {
                 println!("💻 Compass to #{dev} ({timestamp}) > {a:?}");
-                if !only_requests {
+                if !compact {
                     println!("\tRaw: {buffer:02x?}");
                 }
             } else {
@@ -166,14 +175,14 @@ fn display_buffer(state: State, timestamp: Duration, buffer: &[u8], only_request
                 println!("📟 Device #{dev} ({timestamp}) > {status_response:?}");
             } else if let Ok(identity) = DiskIdentity::try_from_bytes(&buffer) {
                 println!("📟 Device #{dev} ({timestamp}) > {identity:?}");
-                if !only_requests {
+                if !compact {
                     println!("\tRaw: {buffer:02x?}");
                 }
             } else {
                 println!("📟 Device #{dev} ({timestamp}) > {buffer:02x?}");
             }
 
-            if only_requests {
+            if compact {
                 println!();
             }
         }
