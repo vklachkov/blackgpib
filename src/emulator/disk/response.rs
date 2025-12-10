@@ -86,6 +86,7 @@ impl StatusResponse {
 #[repr(u8)]
 pub enum DiskStatus {
     Ok,
+    UnsupportedCommand,
     NotReady,
     BadSector,
     NotFormatted,
@@ -96,6 +97,7 @@ impl Into<u8> for DiskStatus {
     fn into(self) -> u8 {
         match self {
             Self::Ok => 0x00,
+            Self::UnsupportedCommand => 0x23,
             Self::NotReady => 0x6b,
             Self::BadSector => 0x67,
             Self::NotFormatted => 0x68,
@@ -108,6 +110,7 @@ impl From<u8> for DiskStatus {
     fn from(value: u8) -> Self {
         match value {
             0x00 => Self::Ok,
+            0x23 => Self::UnsupportedCommand,
             0x6b => Self::NotReady,
             0x67 => Self::BadSector,
             0x68 => Self::NotFormatted,

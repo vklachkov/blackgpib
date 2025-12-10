@@ -44,6 +44,7 @@ enum State {
         state: WriteDataState,
     },
     Format,
+    Unsupported,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -136,6 +137,9 @@ impl Disk {
             State::Format => {
                 panic!("unexpected data received");
             }
+            State::Unsupported => {
+                panic!("unexpected data received");
+            }
         }
     }
 
@@ -199,8 +203,8 @@ impl Disk {
                 ServiceRequest::Required
             }
             _ => {
-                // TODO: How real disk handles unexpected requests?
-                panic!("Unexpected request {req:?}")
+                self.state = State::Unsupported;
+                ServiceRequest::NotRequired
             }
         }
     }
@@ -290,6 +294,7 @@ impl Disk {
                 }
             }
             State::Format => Response::ok(None),
+            State::Unsupported => Response::from_status(DiskStatus::UnsupportedCommand, 0x00),
         }
     }
 }
