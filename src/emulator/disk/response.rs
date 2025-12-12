@@ -31,14 +31,14 @@ pub struct StatusResponse {
     /// Status code of the request.
     status: DiskStatus,
 
-    /// Unknown, always 0.
-    unknown1: u16,
+    /// Exact purpose is unknown, maybe connection or drive init flag, on real drive always 0.
+    unknown1: u8,
 
-    /// Sector size from the request.
+    /// Sector size from the request, if needed.
     sector: u16,
 
-    /// Unknown, always 0.
-    unknown2: u16,
+    /// Unused, always 0.
+    unused: u16,
 }
 
 impl StatusResponse {
@@ -47,16 +47,16 @@ impl StatusResponse {
             status,
             unknown1: 0,
             sector,
-            unknown2: 0,
+            unused: 0,
         }
     }
 
     pub fn from_bytes(input: &[u8; 7]) -> Self {
         Self {
-            status: input[0].into(),
-            unknown1: ((input[2] as u16) << 8) | (input[1] as u16),
+            status: (((input[1] as u16) << 8) | (input[0] as u16)).into(),
+            unknown1: input[1],
             sector: ((input[4] as u16) << 8) | (input[3] as u16),
-            unknown2: ((input[6] as u16) << 8) | (input[5] as u16),
+            unused: ((input[6] as u16) << 8) | (input[5] as u16),
         }
     }
 
@@ -71,30 +71,30 @@ impl StatusResponse {
     #[inline]
     pub fn as_bytes(self) -> [u8; 7] {
         [
-            self.status.into(),
-            ((self.unknown1 & 0x00FF) >> 0) as u8,
-            ((self.unknown1 & 0xFF00) >> 8) as u8,
+            ((Into::<u16>::into(self.status) & 0x00FF) >> 0) as u8,
+            ((Into::<u16>::into(self.status) & 0xFF00) >> 8) as u8,
+            self.unknown1,
             ((self.sector & 0x00FF) >> 0) as u8,
             ((self.sector & 0xFF00) >> 8) as u8,
-            ((self.unknown2 & 0x00FF) >> 0) as u8,
-            ((self.unknown2 & 0xFF00) >> 8) as u8,
+            ((self.unused & 0x00FF) >> 0) as u8,
+            ((self.unused & 0xFF00) >> 8) as u8,
         ]
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum DiskStatus {
     Ok,
     UnsupportedCommand,
     NotReady,
     BadSector,
     NotFormatted,
-    Unsupported(u8),
+    Unsupported(u16),
 }
 
-impl Into<u8> for DiskStatus {
-    fn into(self) -> u8 {
+impl Into<u16> for DiskStatus {
+    fn into(self) -> u16 {
         match self {
             Self::Ok => 0x00,
             Self::UnsupportedCommand => 0x23,
@@ -106,8 +106,8 @@ impl Into<u8> for DiskStatus {
     }
 }
 
-impl From<u8> for DiskStatus {
-    fn from(value: u8) -> Self {
+impl From<u16> for DiskStatus {
+    fn from(value: u16) -> Self {
         match value {
             0x00 => Self::Ok,
             0x23 => Self::UnsupportedCommand,
