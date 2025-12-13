@@ -94,7 +94,7 @@ impl Disk {
             sector_size: SECTOR_SIZE as _,
             logical_sector_size: LOGICAL_SECTOR_SIZE as _,
             sector_count,
-            drive_ready: true,
+            drive_status: 1,
             bitmap_block_id: 0x120,
             superblock_id: 0x121,
             min_dir_pages: 1,
