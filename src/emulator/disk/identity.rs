@@ -41,7 +41,7 @@ pub struct DiskIdentity {
 
     /// Unknown purpose. On real devices always true and
     /// the laptop does not react to changes for this field.
-    pub drive_ready: bool,
+    pub drive_status: u8,
 
     /// Bitmap block number. Usually 0x120 (one less than the superblock),
     /// but sometimes there are exceptions. Used only in CCOS.
@@ -92,7 +92,7 @@ impl DiskIdentity {
             sector_size: u16::from_le_bytes([data[0], data[1]]),
             logical_sector_size: u16::from_le_bytes([data[2], data[3]]),
             sector_count: u16::from_le_bytes([data[4], data[5]]),
-            drive_ready: data[6] == 1,
+            drive_status: data[6],
             bitmap_block_id: u16::from_le_bytes([data[7], data[8]]),
             superblock_id: u16::from_le_bytes([data[9], data[10]]),
             min_dir_pages: u16::from_le_bytes([data[11], data[12]]),
@@ -130,7 +130,7 @@ impl DiskIdentity {
         output[0..2].copy_from_slice(&self.sector_size.to_le_bytes());
         output[2..4].copy_from_slice(&self.logical_sector_size.to_le_bytes());
         output[4..6].copy_from_slice(&self.sector_count.to_le_bytes());
-        output[6] = self.drive_ready as u8;
+        output[6] = self.drive_status;
         output[7..9].copy_from_slice(&self.bitmap_block_id.to_le_bytes());
         output[9..11].copy_from_slice(&self.superblock_id.to_le_bytes());
         output[11..13].copy_from_slice(&self.min_dir_pages.to_le_bytes());
@@ -153,7 +153,7 @@ impl std::fmt::Debug for DiskIdentity {
             .field("sector_size", &self.sector_size)
             .field("logical_sector_size", &self.logical_sector_size)
             .field("sector_count", &self.sector_count)
-            .field("drive_ready", &self.drive_ready)
+            .field("drive_status", &self.drive_status)
             .field("bitmap_block_id", &self.bitmap_block_id)
             .field("superblock_id", &self.superblock_id)
             .field("min_dir_pages", &self.min_dir_pages)
@@ -188,8 +188,8 @@ mod tests {
         assert_eq!(status.sector_size, 512);
         assert_eq!(status.logical_sector_size, 504);
         assert_eq!(status.sector_count, 20876);
-        assert_eq!(status.drive_ready, true);
-        assert_eq!(status.bitmap_block_id, 0b00000000);
+        assert_eq!(status.drive_status, 1);
+        assert_eq!(status.bitmap_block_id, 0);
         assert_eq!(status.superblock_id, 0);
         assert_eq!(status.min_dir_pages, 1);
         assert_eq!(status.flush, 0);
@@ -208,9 +208,9 @@ mod tests {
     #[test]
     fn test_round_trip_floppy_identity() {
         let bytes = [
-            0x00, 0x02, 0xf8, 0x01, 0xD0, 0x02, 0x01, 0x20, 0x01, 0x21, 0x01, 0x01, 0x00, 0x00, 0x34, 0x38, 0x20, 0x54,
-            0x50, 0x49, 0x20, 0x44, 0x53, 0x20, 0x44, 0x44, 0x20, 0x46, 0x4c, 0x4f, 0x50, 0x50, 0x59, 0x20, 0x20, 0x20,
-            0x20, 0x33, 0x30, 0x32, 0x33, 0x37, 0x2d, 0x30, 0x30, 0x00, 0x02, 0x09, 0x00, 0x09, 0x00, 0x02,
+            0x00, 0x02, 0xF8, 0x01, 0xD0, 0x02, 0x01, 0x20, 0x01, 0x21, 0x01, 0x01, 0x00, 0x00, 0x34, 0x38, 0x20, 0x54,
+            0x50, 0x49, 0x20, 0x44, 0x53, 0x20, 0x44, 0x44, 0x20, 0x46, 0x4C, 0x4F, 0x50, 0x50, 0x59, 0x20, 0x20, 0x20,
+            0x20, 0x33, 0x30, 0x30, 0x32, 0x33, 0x37, 0x2D, 0x30, 0x30, 0x00, 0x02, 0x09, 0x00, 0x02, 0x00,
         ];
 
         let status = DiskIdentity::from_bytes(&bytes);
@@ -219,15 +219,15 @@ mod tests {
         assert_eq!(status.sector_size, 512);
         assert_eq!(status.logical_sector_size, 504);
         assert_eq!(status.sector_count, 720);
-        assert_eq!(status.drive_ready, true);
-        assert_eq!(status.bitmap_block_id, 0b100100000);
-        assert_eq!(status.superblock_id, 289);
+        assert_eq!(status.drive_status, 1);
+        assert_eq!(status.bitmap_block_id, 0x120);
+        assert_eq!(status.superblock_id, 0x121);
         assert_eq!(status.min_dir_pages, 1);
         assert_eq!(status.flush, 0);
-        assert_eq!(status.device_name, *b"48 TPI DS DD FLOPPY    30237-00\0");
-        assert_eq!(status.bytes_per_sector, 2306);
-        assert_eq!(status.sectors_per_track, 2304);
-        assert_eq!(status.tracks_per_cylinder, 512);
+        assert_eq!(status.device_name, *b"48 TPI DS DD FLOPPY    300237-00");
+        assert_eq!(status.bytes_per_sector, 512);
+        assert_eq!(status.sectors_per_track, 9);
+        assert_eq!(status.tracks_per_cylinder, 2);
         assert_eq!(status.interleave_factor, 0);
         assert_eq!(status.second_side_count, 0);
         assert_eq!(status.num_cylinders, 0);
