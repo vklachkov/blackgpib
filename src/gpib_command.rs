@@ -6,9 +6,6 @@ pub enum GPIBCommand {
     /// Device Clear.
     DCL,
 
-    /// Selected Device Clear.
-    SDC,
-
     /// Serial Poll Enable.
     SPE,
 
@@ -35,8 +32,6 @@ impl From<u8> for GPIBCommand {
     fn from(value: u8) -> Self {
         if value == 0b0001_0100 {
             Self::DCL
-        } else if value == 0b0000_0100 {
-            Self::SDC
         } else if value == 0b0001_1000 {
             Self::SPE
         } else if value == 0b0001_1001 {
@@ -59,7 +54,6 @@ impl From<GPIBCommand> for u8 {
     fn from(cmd: GPIBCommand) -> u8 {
         match cmd {
             GPIBCommand::DCL => 0b0001_0100,
-            GPIBCommand::SDC => 0b0000_0100,
             GPIBCommand::SPE => 0b0001_1000,
             GPIBCommand::SPD => 0b0001_1001,
             GPIBCommand::UNL => 0b0011_1111,
@@ -78,7 +72,6 @@ mod tests {
     #[test]
     fn parse_all_variants() {
         assert_eq!(GPIBCommand::from(0x14), GPIBCommand::DCL);
-        assert_eq!(GPIBCommand::from(0x04), GPIBCommand::SDC);
 
         for i in 0..31 {
             assert_eq!(GPIBCommand::from(0x20 | i), GPIBCommand::MLA(i));
@@ -100,8 +93,6 @@ mod tests {
     fn serialize_all_variants() {
         let byte: u8 = GPIBCommand::DCL.into();
         assert_eq!(byte, 0x14);
-        let byte: u8 = GPIBCommand::SDC.into();
-        assert_eq!(byte, 0x04);
 
         for i in 0..31 {
             let byte: u8 = GPIBCommand::MLA(i).into();
@@ -129,14 +120,6 @@ mod tests {
     #[test]
     fn round_trip_dcl() {
         let cmd = GPIBCommand::DCL;
-        let byte: u8 = cmd.into();
-        let round_trip = GPIBCommand::from(byte);
-        assert_eq!(cmd, round_trip);
-    }
-
-    #[test]
-    fn round_trip_sdc() {
-        let cmd = GPIBCommand::SDC;
         let byte: u8 = cmd.into();
         let round_trip = GPIBCommand::from(byte);
         assert_eq!(cmd, round_trip);

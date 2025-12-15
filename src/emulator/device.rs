@@ -11,17 +11,9 @@ pub enum ServiceRequest {
 }
 
 pub trait Device {
-    /// Resets the device to default state.
     fn reset(&mut self);
 
-    /// Processes a byte from the bus.
-    fn process_byte(&mut self, byte: u8, eoi: bool);
+    fn process_bytes(&mut self, buffer: &[u8]) -> ServiceRequest;
 
-    /// Data transfer completed and the UNL command was received.
-    ///
-    /// Returns a flag indicating if a service request is needed.
-    fn unlisten(&mut self) -> ServiceRequest;
-
-    /// Someone on the bus addressed you and told you "talk".
     fn talk(&mut self, talker: Talker);
 }

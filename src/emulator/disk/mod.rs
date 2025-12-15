@@ -15,8 +15,7 @@ use memmap2::MmapMut;
 /// Actual sector size. This size is used by both the hard disk and floppy drive.
 ///
 /// The laptop does not support a different sector size for disks connected
-/// via GPIB. The sector size is hardcoded in the laptop bootloader, so this
-/// parameter is specified as a constant.
+/// via GPIB. The sector size is hardcoded everywhere, from bootloader to firmwares.
 const SECTOR_SIZE: usize = 512;
 
 /// The number of bytes in a sector that can be used.
@@ -44,7 +43,7 @@ enum State {
         state: WriteDataState,
     },
     Format,
-    Unsupported,
+    InvalidRequest,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,7 +57,6 @@ enum WriteDataState {
 pub struct Disk {
     identity: [u8; 56],
     image: MmapMut,
-    buffer: Vec<u8>,
     state: State,
 }
 
@@ -79,7 +77,6 @@ impl Disk {
         Self {
             identity,
             image,
-            buffer: Vec::with_capacity(SECTOR_SIZE),
             state: State::Idle,
         }
     }
@@ -111,18 +108,13 @@ impl Disk {
     }
 
     fn reset(&mut self) {
-        self.buffer.clear();
         self.state = State::Idle;
     }
 
-    fn process_byte(&mut self, byte: u8, _eoi: bool) {
-        self.buffer.push(byte);
-    }
-
-    fn unlisten(&mut self) -> ServiceRequest {
+    fn process_bytes(&mut self, buffer: &[u8]) -> ServiceRequest {
         match self.state {
             State::Idle => {
-                return self.process_new_request();
+                return self.process_new_request(buffer);
             }
             State::Initialize { .. } | State::Identity { .. } | State::Read { .. } => {
                 panic!("unexpected data received");
@@ -132,46 +124,38 @@ impl Disk {
                     panic!("unexpected data received")
                 }
 
-                return self.process_write_request(sector);
+                return self.process_write_request(sector, buffer);
             }
             State::Format => {
                 panic!("unexpected data received");
             }
-            State::Unsupported => {
+            State::InvalidRequest => {
                 panic!("unexpected data received");
             }
         }
     }
 
-    fn process_new_request(&mut self) -> ServiceRequest {
-        let raw = self.buffer.as_slice();
-
-        let srq = match Request::try_from(raw) {
+    fn process_new_request(&mut self, buffer: &[u8]) -> ServiceRequest {
+        match Request::try_from(buffer) {
             Ok(req) => {
                 debug!("Received {req:?}");
                 self.process_request(req)
             }
             Err(err) => {
-                // TODO: How real disk handles bad requests?
-                error!("Failed to parse request {raw:02x?}: {err}");
+                error!("Failed to parse request {buffer:02x?}: {err}");
+
+                self.state = State::InvalidRequest;
+
                 ServiceRequest::NotRequired
             }
-        };
-
-        self.buffer.clear();
-
-        srq
+        }
     }
 
     fn process_request(&mut self, req: Request) -> ServiceRequest {
         match req.code {
             RequestCode::Initialize => {
-                // TODO: What should we do?
-                // TODO: What means data_size=0xFFFF?
-
                 self.state = State::Initialize { _sector: req.sector };
 
-                // TODO: Or required?..
                 ServiceRequest::NotRequired
             }
             RequestCode::GetStatus => {
@@ -194,7 +178,7 @@ impl Disk {
                     state: WriteDataState::NotAccepted,
                 };
 
-                // SRQ required only after receiving a sector.
+                // SRQ required only after receiving a sector bytes for writing.
                 ServiceRequest::NotRequired
             }
             RequestCode::Format => {
@@ -203,7 +187,7 @@ impl Disk {
                 ServiceRequest::Required
             }
             _ => {
-                self.state = State::Unsupported;
+                self.state = State::InvalidRequest;
                 ServiceRequest::NotRequired
             }
         }
@@ -219,7 +203,7 @@ impl Disk {
         }
     }
 
-    fn process_write_request(&mut self, sector: u32) -> ServiceRequest {
+    fn process_write_request(&mut self, sector: u32, buffer: &[u8]) -> ServiceRequest {
         let offset = sector as usize * SECTOR_SIZE;
 
         let is_u32_max = sector == u32::MAX;
@@ -231,21 +215,20 @@ impl Disk {
             // 0xFFFFFFFF, but I think it is used to check the read data.
             WriteDataState::Checked
         } else if in_bounds {
-            self.image[offset..offset + SECTOR_SIZE].copy_from_slice(&self.buffer);
+            self.image[offset..offset + SECTOR_SIZE].copy_from_slice(buffer);
             WriteDataState::Saved
         } else {
             WriteDataState::OutOfBounds
         };
 
         self.state = State::Write { sector, state };
-        self.buffer.clear();
 
         return ServiceRequest::Required;
     }
 
     fn talk(&mut self, mut talker: Talker) {
         let response = self.response();
-        talker.send_bytes(response.as_slice(), true);
+        talker.send_bytes(response.as_slice());
 
         // Reset to default state after answer because disk is stateless :)
         self.reset();
@@ -294,7 +277,7 @@ impl Disk {
                 }
             }
             State::Format => Response::ok(None),
-            State::Unsupported => Response::from_status(DiskStatus::UnsupportedCommand, 0x00),
+            State::InvalidRequest => Response::from_status(DiskStatus::UnsupportedCommand, 0x00),
         }
     }
 }
@@ -304,12 +287,8 @@ impl Device for Disk {
         self.reset();
     }
 
-    fn process_byte(&mut self, byte: u8, eoi: bool) {
-        self.process_byte(byte, eoi);
-    }
-
-    fn unlisten(&mut self) -> ServiceRequest {
-        self.unlisten()
+    fn process_bytes(&mut self, buffer: &[u8]) -> ServiceRequest {
+        self.process_bytes(buffer)
     }
 
     fn talk(&mut self, talker: Talker) {

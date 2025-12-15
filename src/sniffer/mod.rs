@@ -14,7 +14,7 @@ impl BusSniffer {
     pub fn start(mut self) {
         let start_time = Instant::now();
 
-        let mut sniffer = Listener::new(true);
+        let mut sniffer = Listener::new();
         let mut offset = 0usize;
 
         loop {

@@ -1,8 +1,8 @@
-use std::time::Duration;
+use std::{fmt::Debug, ops::Deref};
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
-use crate::{gpib_gpio, gpib_pinout::GPIBPin, info, utils::busy_wait};
+use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin};
 
 #[allow(unused)]
 pub struct Listener {
@@ -31,14 +31,14 @@ pub struct Byte {
 }
 
 impl Listener {
-    pub fn new(sniffer: bool) -> Self {
+    pub fn new() -> Self {
         Self {
-            ndac: gpib_gpio::output(GPIBPin::NDAC, if sniffer { Level::High } else { Level::Low }),
-            nrfd: gpib_gpio::output(GPIBPin::NRFD, if sniffer { Level::High } else { Level::Low }),
+            ndac: gpib_gpio::output(GPIBPin::NDAC, Level::High),
+            nrfd: gpib_gpio::output(GPIBPin::NRFD, Level::High),
 
             dc: gpib_gpio::output(GPIBPin::DC, Level::High),
             te: gpib_gpio::output(GPIBPin::TE, Level::Low),
-            pe: gpib_gpio::output(GPIBPin::PE, if sniffer { Level::High } else { Level::Low }),
+            pe: gpib_gpio::output(GPIBPin::PE, Level::High),
 
             atn: gpib_gpio::input(GPIBPin::ATN),
             srq: gpib_gpio::output(GPIBPin::SRQ, Level::High),
@@ -75,61 +75,108 @@ impl Listener {
         return byte;
     }
 
-    /// Reads byte from bus with a full handshake cycle as described in the standard
-    /// in section "Annex B Handshake Process Timing Sequence".
-    ///
-    /// This function should be called as frequently as possible to avoid missing the last byte.
-    ///
-    /// Although GPiB is not timing-sensitive, the GRiD Compass has an annoying bug:
-    /// when sending the last byte (byte with EOI), the laptop doesn't wait for us
-    /// to read the byte (and set NDAC=false) and after about ten microseconds sets ATN,
-    /// resets DAV and EOI, and starts transmitting another command.
-    /// No fix found. Neither NRFD delay nor anything else helped.
-    /// The only solution is to read bytes as quickly as possible.
-    pub fn handshake_byte(&mut self) -> Byte {
-        // Ready for a new byte.
-        self.ndac.set_low();
-        self.nrfd.set_high();
+    pub fn start_command_handshake<'a>(&'a mut self) -> HandshakeGuard<'a, GPIBCommand> {
+        loop {
+            self.ndac.set_high();
 
-        // Wait until Compass sets the data on the bus and raise the DAta Valid flag.
-        while self.dav.read() != Level::Low {}
+            if self.atn.read() != Level::Low {
+                continue;
+            }
 
-        // Not ready to receive a new byte, reading in progress.
-        self.nrfd.set_low();
+            self.ndac.set_low();
 
-        // Read valid byte from bus.
-        let byte = self.read_byte();
+            if self.dav.read() != Level::Low {
+                continue;
+            }
 
-        // Signal that we've read the byte.
-        self.ndac.set_high();
+            self.nrfd.set_low();
 
-        // Wait until the laptop resets the DAta Valid flag.
-        while self.dav.read() != Level::High {}
+            let byte = self.read_byte();
 
-        return byte;
+            break self.handshake_guard(GPIBCommand::from(byte.value));
+        }
     }
 
-    /// Waits for the next command the same way a real disk does.
-    pub fn wait_next_command(&mut self) {
-        info!("Wait next command...");
+    pub fn start_data_handshake<'a>(&'a mut self) -> HandshakeGuard<'a, Byte> {
+        while self.dav.read() != Level::Low {}
 
-        self.nrfd.set_high();
+        let byte = self.read_byte();
 
-        busy_wait(Duration::from_micros(15));
+        return self.handshake_guard(byte);
+    }
 
-        self.ndac.set_low();
+    fn handshake_guard<'a, T>(&'a mut self, value: T) -> HandshakeGuard<'a, T> {
+        HandshakeGuard {
+            listener: self,
+            value,
+            unexpected: false,
+        }
+    }
 
-        while self.atn.read() != Level::High {}
-
+    fn end_handshake(&mut self) {
+        self.nrfd.set_low();
         self.ndac.set_high();
 
-        while self.atn.read() != Level::Low {}
+        while self.dav.read() != Level::High {}
 
         self.ndac.set_low();
+        self.nrfd.set_high();
+    }
+
+    fn unexpected_data_received(&mut self) {
+        self.ndac.set_high();
+
+        while self.dav.read() != Level::High {}
+
+        self.nrfd.set_high();
+    }
+
+    pub fn wait_atn_before_talk(self) {
+        while self.atn.read() != Level::High {}
     }
 
     /// Raise SRQ pin.
     pub fn service_request(&mut self) {
         self.srq.set_low();
+    }
+}
+
+pub struct HandshakeGuard<'a, T> {
+    listener: &'a mut Listener,
+    value: T,
+    unexpected: bool,
+}
+
+impl<'a, T> HandshakeGuard<'a, T> {
+    pub fn expected(mut self) {
+        self.unexpected = false;
+    }
+
+    pub fn unexpected(mut self) {
+        self.unexpected = true;
+    }
+}
+
+impl<'a, T: Debug> Debug for HandshakeGuard<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.value.fmt(f)
+    }
+}
+
+impl<'a, T> Deref for HandshakeGuard<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl<'a, T> Drop for HandshakeGuard<'a, T> {
+    fn drop(&mut self) {
+        if self.unexpected {
+            self.listener.unexpected_data_received();
+        } else {
+            self.listener.end_handshake();
+        }
     }
 }

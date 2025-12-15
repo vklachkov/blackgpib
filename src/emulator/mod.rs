@@ -10,42 +10,21 @@ use proxy::DataToSocketDevice;
 
 use memmap2::MmapMut;
 
+const MAX_GPIB_DEVICES: usize = 31;
+
+type Devices = [Option<Box<dyn Device>>; MAX_GPIB_DEVICES];
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum SerialPollState {
     /// There was no Service Request yet.
-    Init,
+    Disabled,
 
     /// A Service Request was requested by device.
     Requested(u8),
 
     /// The laptop sent SPE. The next Talk will be interpreted as an attempt
     /// to find which device made the Service Request.
-    Enabled(u8),
-
-    /// The laptop sent SPD. However, after SPD, SPE can still be sent again,
-    /// so we need to remember the device.
-    Disabled(u8),
-}
-
-impl SerialPollState {
-    fn is_enabled(self) -> bool {
-        matches!(self, Self::Enabled(_))
-    }
-
-    fn to_enabled(self) -> Self {
-        match self {
-            Self::Requested(d) => Self::Enabled(d),
-            Self::Disabled(d) => Self::Enabled(d),
-            _ => self,
-        }
-    }
-
-    fn to_disabled(self) -> Self {
-        match self {
-            Self::Enabled(d) => Self::Disabled(d),
-            _ => self,
-        }
-    }
+    UnexpectedSPE,
 }
 
 enum TalkMode<'a> {
@@ -60,19 +39,21 @@ enum TalkMode<'a> {
 }
 
 pub struct DeviceEmulator {
-    devices: Box<[Option<Box<dyn Device>>; Self::MAX_GPIB_DEVICES]>,
+    devices: Box<Devices>,
     active_listener: Option<u8>,
+    active_talker: Option<u8>,
     serial_poll_state: SerialPollState,
+    listen_buffer: Vec<u8>,
 }
 
 impl DeviceEmulator {
-    const MAX_GPIB_DEVICES: usize = 31;
-
     pub fn new() -> Self {
         Self {
             devices: Box::default(),
             active_listener: None,
-            serial_poll_state: SerialPollState::Init,
+            active_talker: None,
+            serial_poll_state: SerialPollState::Disabled,
+            listen_buffer: Vec::with_capacity(10 * 1024),
         }
     }
 
@@ -94,7 +75,7 @@ impl DeviceEmulator {
     {
         let id = address as usize;
 
-        assert!(id < Self::MAX_GPIB_DEVICES, "address must be in range 0..=30");
+        assert!(id < MAX_GPIB_DEVICES, "address must be in range 0..=30");
         assert!(self.devices[id].is_none(), "device with address {id} already exists");
 
         self.devices[id] = Some(Box::new(ctor()))
@@ -102,71 +83,75 @@ impl DeviceEmulator {
 
     pub fn start(mut self) {
         loop {
-            let mut listener = Listener::new(false);
+            let mut listener = Listener::new();
 
             let talk_mode = 'l: loop {
-                let byte = listener.handshake_byte();
-                trace!(
-                    "Accept byte {:#010b} ({:#04x}) ATN={} EOI={}",
-                    byte.value, byte.value, byte.atn as u8, byte.eoi as u8
-                );
+                let cmd = listener.start_command_handshake();
+                trace!("Accept command {cmd:?}");
 
-                if !byte.atn {
-                    self.process_byte(&mut listener, byte.value, byte.eoi);
-                    continue;
-                }
-
-                let cmd = GPIBCommand::from(byte.value);
-                debug!("Accept command {cmd:?}");
-
-                match cmd {
+                match *cmd {
                     GPIBCommand::DCL => {
                         self.reset_all();
                     }
-                    GPIBCommand::SDC => {
-                        if let Some(d) = self.active_listener {
-                            self.get_device(d).reset()
+                    GPIBCommand::SPE => match self.serial_poll_state {
+                        SerialPollState::Disabled => {
+                            self.serial_poll_state = SerialPollState::UnexpectedSPE;
+                        }
+                        SerialPollState::Requested(_) => {
+                            // 
+                        }
+                        SerialPollState::UnexpectedSPE => {
+                            cmd.unexpected();
                         }
                     }
-                    GPIBCommand::SPE => {
-                        self.serial_poll_state = self.serial_poll_state.to_enabled();
-                    }
                     GPIBCommand::SPD => {
-                        self.serial_poll_state = self.serial_poll_state.to_disabled();
+                        self.serial_poll_state = SerialPollState::Disabled;
                     }
                     GPIBCommand::MLA(address) => {
                         if self.is_device_exists(address) {
-                            self.active_listener = Some(address);
+                            cmd.expected();
+                            self.listen_to_buffer(&mut listener, address);
                         } else {
-                            listener.wait_next_command();
+                            cmd.unexpected();
                         }
                     }
                     GPIBCommand::UNL => {
-                        self.process_unlisten(&mut listener);
+                        if let Some(active_listener) = self.active_listener.take() {
+                            cmd.expected();
+                            self.process_bytes(&mut listener, active_listener);
+                        } else {
+                            cmd.unexpected();
+                        }
                     }
                     GPIBCommand::MTA(address) => {
-                        if !self.is_device_exists(address) {
-                            listener.wait_next_command();
-                            continue;
-                        }
+                        if self.is_device_exists(address) {
+                            self.active_talker = Some(address);
 
-                        if self.serial_poll_state.is_enabled() {
-                            let is_requester = self.serial_poll_state == SerialPollState::Enabled(address);
-                            break 'l TalkMode::SerialPollProbe(is_requester);
+                            if self.serial_poll_state == SerialPollState::Disabled {
+                                break 'l TalkMode::Device(Self::get_device(&mut self.devices, address));
+                            } else {
+                                let f = self.serial_poll_state == SerialPollState::Requested(address);
+                                break 'l TalkMode::SerialPollProbe(f);
+                            }
                         } else {
-                            break 'l TalkMode::Device(self.get_device(address));
+                            cmd.unexpected();
                         }
                     }
                     GPIBCommand::UNT => {
-                        continue;
+                        if self.active_talker.take().is_some() {
+                            cmd.expected();
+                        } else {
+                            cmd.unexpected();
+                        }
                     }
-                    GPIBCommand::Unsupported(cmd) => {
-                        warn!("Unsupported command {cmd:#04x}");
+                    GPIBCommand::Unsupported(value) => {
+                        warn!("Unsupported command {value:#04x}");
+                        cmd.unexpected();
                     }
                 }
             };
 
-            drop(listener);
+            listener.wait_atn_before_talk();
 
             let mut talker = Talker::new();
 
@@ -182,7 +167,18 @@ impl DeviceEmulator {
         }
     }
 
-    #[inline]
+    fn reset_all(&mut self) {
+        self.active_listener = None;
+        self.serial_poll_state = SerialPollState::Disabled;
+        self.listen_buffer.clear();
+
+        for device in self.devices.iter_mut() {
+            if let Some(device) = device {
+                device.reset();
+            }
+        }
+    }
+
     fn is_device_exists(&self, address: u8) -> bool {
         match self.devices.get(address as usize) {
             Some(device) => device.is_some(),
@@ -190,9 +186,8 @@ impl DeviceEmulator {
         }
     }
 
-    #[inline]
-    fn get_device(&mut self, address: u8) -> &mut dyn Device {
-        self.devices
+    fn get_device(devices: &mut Devices, address: u8) -> &mut dyn Device {
+        devices
             .get_mut(address as usize)
             .expect("address must be in range 0..=30")
             .as_mut()
@@ -200,48 +195,46 @@ impl DeviceEmulator {
             .as_mut()
     }
 
-    fn process_byte(&mut self, listener: &mut Listener, byte: u8, eoi: bool) {
+    fn listen_to_buffer(&mut self, listener: &mut Listener, address: u8) {
+        self.active_listener = Some(address);
+        self.listen_buffer.clear();
+
+        loop {
+            let byte = listener.start_data_handshake();
+            if byte.atn {
+                self.reset_active_listener();
+                break;
+            }
+
+            self.listen_buffer.push(byte.value);
+
+            if byte.eoi {
+                break;
+            }
+        }
+    }
+
+    fn reset_active_listener(&mut self) {
         let Some(active_listener) = self.active_listener else {
-            return self.atn_broken(listener, byte);
-        };
-
-        self.get_device(active_listener).process_byte(byte, eoi);
-    }
-
-    fn atn_broken(&mut self, listener: &mut Listener, byte: u8) {
-        let command = GPIBCommand::from(byte);
-        error!(
-            "Laptop sent byte {byte:#04x} (maybe {command:?} command) to the bus without MLA command. Probably, GPiB state is broken"
-        );
-
-        warn!("Reset all devices and wait for next command...");
-
-        self.reset_all();
-
-        listener.wait_next_command();
-    }
-
-    fn process_unlisten(&mut self, listener: &mut Listener) {
-        let Some(active_listener) = self.active_listener.take() else {
-            warn!("Laptop sent UNL to the bus without MLA command");
             return;
         };
 
-        let service_request = self.get_device(active_listener).unlisten();
-        if service_request == ServiceRequest::Required {
-            self.serial_poll_state = SerialPollState::Requested(active_listener);
-            listener.service_request();
-        }
+        self.active_listener = None;
+        self.listen_buffer.clear();
+
+        Self::get_device(&mut self.devices, active_listener).reset();
     }
 
-    fn reset_all(&mut self) {
-        self.active_listener = None;
-        self.serial_poll_state = SerialPollState::Init;
+    fn process_bytes(&mut self, listener: &mut Listener, address: u8) {
+        let device = Self::get_device(&mut self.devices, address);
 
-        for device in self.devices.iter_mut() {
-            if let Some(device) = device {
-                device.reset();
-            }
+        let service_request = device.process_bytes(&self.listen_buffer);
+        if service_request == ServiceRequest::Required {
+            self.serial_poll_state = SerialPollState::Requested(address);
+            listener.service_request();
         }
+
+        self.active_listener = None;
+        self.listen_buffer.clear();
     }
 }
