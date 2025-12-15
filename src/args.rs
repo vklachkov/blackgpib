@@ -11,7 +11,7 @@ pub struct Args {
 pub enum Command {
     Emulator(EmulatorArgs),
     Sniffer(SnifferArgs),
-    Controller(ControllerArgs),
+    Controller(ControllerCommand),
 }
 
 pub struct EmulatorArgs {
@@ -27,8 +27,10 @@ pub struct SnifferArgs {
     pub size: usize,
 }
 
-pub struct ControllerArgs {
-    pub address: u8,
+pub enum ControllerCommand {
+    Format { validate: bool, address: u8 },
+    Write { from_path: PathBuf, to_address: u8 },
+    Read { from_address: u8, to_path: PathBuf },
 }
 
 impl Args {
@@ -109,11 +111,52 @@ impl Args {
     }
 
     fn parse_controller_command() -> ParseCommand<Command> {
-        let address = positional("ADDRESS");
+        // -- Format disk ----------------------------------------------------------------------------------------------
 
-        let args = construct!(ControllerArgs { address });
+        let validate = long("validate").help("TODO").switch().fallback(true);
 
-        construct!(Command::Controller(args))
+        let address = positional("ADDRESS")
+            .help("GPIB device bus address")
+            .guard(|v| (0..=30).contains(v), "address must be in range 0..30");
+
+        let format_cmd = construct!(ControllerCommand::Format { validate, address })
+            .to_options()
+            .descr("TODO")
+            .command("format");
+
+        // -- Read disk ------------------------------------------------------------------------------------------------
+
+        let from_address = long("from")
+            .help("GPIB device bus address")
+            .argument("ADDRESS")
+            .guard(|v| (0..=30).contains(v), "address must be in range 0..30");
+
+        let to_path = long("to").help("TODO").argument("IMAGE_PATH");
+
+        let read_cmd = construct!(ControllerCommand::Read { from_address, to_path })
+            .to_options()
+            .descr("TODO")
+            .command("read");
+
+        // -- Write disk -----------------------------------------------------------------------------------------------
+
+        let from_path = long("from").help("TODO").argument("IMAGE_PATH");
+
+        let to_address = long("to")
+            .help("GPIB device bus address")
+            .argument("ADDRESS")
+            .guard(|v| (0..=30).contains(v), "address must be in range 0..30");
+
+        let write_cmd = construct!(ControllerCommand::Write { from_path, to_address })
+            .to_options()
+            .descr("TODO")
+            .command("write");
+
+        // -- Collect subcommands to parser ----------------------------------------------------------------------------
+
+        let subcommands = construct!([format_cmd, read_cmd, write_cmd]);
+
+        construct!(Command::Controller(subcommands))
             .to_options()
             .descr("Communicate with peripheral devices like Compass")
             .command("controller")

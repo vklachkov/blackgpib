@@ -1,3 +1,4 @@
+mod disk_identity;
 mod disk_request;
 
 use std::io;
@@ -12,28 +13,41 @@ pub struct DeviceController {
 }
 
 impl DeviceController {
-    pub fn new(address: u8) -> Self {
+    pub fn new_with_reset(address: u8) -> Self {
+        Talker::new().send_command(GPIBCommand::DCL);
+
         Self {
             address,
             buffer: Vec::with_capacity(512),
         }
     }
 
-    pub fn reset_device(&self) {
-        let mut talker = Talker::new();
-        talker.send_command(GPIBCommand::DCL);
+    pub fn read_status(&mut self) -> io::Result<disk_identity::DiskIdentity> {
+        self.send_get_status_cmd();
+
+        self.response_handshake();
+        let status = disk_identity::DiskIdentity::try_from_bytes(&self.buffer[0..52]).unwrap();
+        Ok(status)
     }
 
-    pub fn format_disk(&mut self) {
+    pub fn format_disk(&mut self, validate: bool) -> io::Result<()> {
         self.low_level_format();
-        println!("Low level format complete!");
 
-        for i in 0..720 {
+        if !validate {
+            return Ok(());
+        }
+
+        let status = self.read_status()?;
+        let sector_count = status.sector_count;
+
+        for i in 0..sector_count {
             let sector = self.read_sector(i as u32);
             assert_eq!(&sector[..8], &[0xff; 8], "bad sector after format");
             assert_eq!(&sector[8..], &[0xe5; 504], "bad sector after format");
-            println!("Sector {}/720 verified", i+1);
+            println!("Sector {}/{} verified", i + 1, sector_count);
         }
+
+        Ok(())
     }
 
     fn low_level_format(&mut self) {
@@ -45,21 +59,26 @@ impl DeviceController {
         assert_eq!(self.buffer[0], 0x00, "format failed");
     }
 
-    pub fn read_disk_to_image(&mut self) {
-        panic!("TODO");
-    }
+    pub fn read_disk_to_writer(&mut self, mut w: impl io::Write) -> io::Result<()> {
+        let status = self.read_status()?;
+        let sector_count = status.sector_count;
 
-    pub fn write_image_to_disk(&mut self, image: &[u8]) -> io::Result<()> {
-        if image.len() % SECTOR_SIZE != 0 {
-            return Err(io::ErrorKind::InvalidInput.into());
+        for i in 0..sector_count {
+            let sector = self.read_sector(i as u32);
+            w.write_all(sector)?;
         }
 
-        let total_sectors = image.len() / SECTOR_SIZE;
-        for i in 0..total_sectors {
-            let offset = i * SECTOR_SIZE;
-            let data = &image[offset..offset + SECTOR_SIZE];
+        Ok(())
+    }
 
-            self.write_sector(i as u32, data);
+    pub fn write_image_to_disk(&mut self, mut r: impl io::Read) -> io::Result<()> {
+        let status = self.read_status()?;
+        let sector_count = status.sector_count;
+
+        for i in 0..sector_count {
+            let mut data = [0u8; SECTOR_SIZE];
+            r.read_exact(&mut data)?;
+            self.write_sector(i as u32, &data);
 
             let sector = self.read_sector(i as u32);
             assert_eq!(sector, data, "read write data mismatch");
@@ -90,6 +109,22 @@ impl DeviceController {
 
         assert_eq!(self.buffer.len(), SECTOR_SIZE, "weird `read` response length from device");
         return &self.buffer;
+    }
+
+    fn send_get_status_cmd(&self) {
+        let mut talker = Talker::new();
+
+        self.send_bytes_with_handshake(
+            &mut talker,
+            &disk_request::Request {
+                code: disk_request::RequestCode::GetStatus,
+                connection: 0,
+                sector: 0,
+                data_size: 52,
+                mode: 0,
+            }
+            .into_bytes(),
+        );
     }
 
     fn send_format_cmd(&self) {
@@ -185,10 +220,9 @@ impl DeviceController {
 
         let mut talker = Talker::new();
         talker.send_command(GPIBCommand::UNT);
-        drop(talker);        
+        drop(talker);
     }
 
-    #[inline(always)]
     fn send_bytes_with_handshake(&self, talker: &mut Talker, bytes: &[u8]) {
         talker.send_command(GPIBCommand::MLA(self.address));
         talker.send_bytes(bytes, true);
