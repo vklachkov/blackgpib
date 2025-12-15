@@ -12,10 +12,13 @@ mod sniffer;
 mod talker;
 mod utils;
 
-use std::{fs, io, path::Path};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use crate::{
-    args::{Args, ControllerArgs, EmulatorArgs, SnifferArgs},
+    args::{Args, ControllerCommand, EmulatorArgs, SnifferArgs},
     controller::DeviceController,
     emulator::DeviceEmulator,
     logger::LogLevel,
@@ -41,18 +44,18 @@ fn main() {
     debug!("Reset all pins to Z-State...");
     gpib_gpio::reset_all();
 
+    configure_scheduler();
+
     match args.command {
         args::Command::Emulator(args) => run_emulator(args),
         args::Command::Sniffer(args) => run_sniffer(args),
-        args::Command::Controller(args) => run_controller(args),
+        args::Command::Controller(cmd) => run_controller(cmd).expect("controller panicked"),
     }
 }
 
 fn run_emulator(args: EmulatorArgs) {
     let mut emulator = DeviceEmulator::new();
     configure_emulator(args, &mut emulator);
-
-    configure_scheduler();
 
     debug!("Configuration complete, start device emulator");
     emulator.start();
@@ -99,8 +102,6 @@ fn run_sniffer(args: SnifferArgs) {
     let file = create_dump_file(&args.output_path, args.size).expect("failed to create dump file");
     let sniffer = BusSniffer::new(file);
 
-    configure_scheduler();
-
     debug!("Configuration complete, start bus sniffer");
     sniffer.start();
 
@@ -124,17 +125,66 @@ fn create_dump_file(path: &Path, size: usize) -> io::Result<memmap2::MmapMut> {
     unsafe { memmap2::MmapMut::map_mut(&file) }
 }
 
-fn run_controller(args: ControllerArgs) {
-    let mut controller = DeviceController::new(args.address);
+fn run_controller(cmd: ControllerCommand) -> io::Result<()> {
+    match cmd {
+        ControllerCommand::Format { address, validate } => {
+            DeviceController::new_with_reset(address).format_disk(validate)
+        }
+        ControllerCommand::Write {
+            from_path: path,
+            to_address: address,
+        } => {
+            let mut controller = DeviceController::new_with_reset(address);
 
-    configure_scheduler();
+            let disk_status = controller.read_status()?;
+            let image_size = disk_status.sector_size as usize * disk_status.sector_count as usize;
 
-    debug!("Configuration complete");
+            let file = open_disk_copy_file(path, image_size)?;
+            controller.write_image_to_disk(file)
+        }
+        ControllerCommand::Read {
+            from_address: address,
+            to_path: path,
+        } => {
+            let mut controller = DeviceController::new_with_reset(address);
 
-    // let image = fs::read("MS-DOS 2.00A.img").unwrap();
+            let disk_status = controller.read_status()?;
+            let image_size = disk_status.sector_size as usize * disk_status.sector_count as usize;
 
-    // controller.reset_device();
-    // println!("Reset complete!");
-    // controller.format_disk();
-    // controller.write_image_to_disk(&image).unwrap();
+            let file = open_image_file(path, image_size)?;
+            controller.read_disk_to_writer(file)
+        }
+    }
+}
+
+fn open_disk_copy_file(path: PathBuf, image_size: usize) -> io::Result<fs::File> {
+    let file = fs::OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .read(false)
+        .write(true)
+        .open(path)?;
+
+    file.lock()?;
+
+    file.set_len(image_size as u64)?;
+
+    Ok(file)
+}
+
+fn open_image_file(path: PathBuf, image_size: usize) -> io::Result<fs::File> {
+    let file = fs::OpenOptions::new()
+        .create(false)
+        .read(true)
+        .write(false)
+        .open(path)?;
+
+    file.lock()?;
+
+    let file_len = file.metadata()?.len();
+    if file_len != image_size as u64 {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "TODO"));
+    }
+
+    Ok(file)
 }
