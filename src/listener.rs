@@ -77,9 +77,8 @@ impl Listener {
 
     pub fn start_command_handshake<'a>(&'a mut self) -> HandshakeGuard<'a, GPIBCommand> {
         loop {
-            self.ndac.set_high();
-
             if self.atn.read() != Level::Low {
+                self.ndac.set_high();
                 continue;
             }
 
