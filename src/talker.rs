@@ -32,7 +32,7 @@ impl Talker {
         Self {
             dc: gpib_gpio::output(GPIBPin::DC, Level::Low),
             te: gpib_gpio::output(GPIBPin::TE, Level::High),
-            pe: gpib_gpio::output(GPIBPin::PE, Level::Low),
+            pe: gpib_gpio::output(GPIBPin::PE, Level::High),
 
             atn: gpib_gpio::output(GPIBPin::ATN, Level::High),
             srq: gpib_gpio::input(GPIBPin::SRQ),
@@ -51,20 +51,22 @@ impl Talker {
     /// Sends a byte to the bus with atn flag and
     /// [`Self::INTERBYTE_DELAY`] delay after sending.
     pub fn send_command(&mut self, cmd: GPIBCommand) {
-        self.send_byte(cmd.into(), true, false);
+        self.atn.write(Level::Low);
+
+        self.send_byte(cmd.into(), false);
 
         busy_wait(Self::INTERBYTE_DELAY);
     }
 
     /// Sends all `bytes` to the bus with a delay [`Self::INTERBYTE_DELAY`] between bytes.
     /// For the last byte, the eoi flag will be set if the `send_eoi` flag is true.
-    pub fn send_bytes(&mut self, bytes: &[u8], send_eoi: bool) {
+    pub fn send_bytes(&mut self, bytes: &[u8]) {
         trace!("Send {} bytes to bus", bytes.len());
 
         for i in 0..bytes.len() {
             let is_last_byte = i == bytes.len() - 1;
 
-            self.send_byte(bytes[i], false, is_last_byte && send_eoi);
+            self.send_byte(bytes[i], is_last_byte);
 
             busy_wait(Self::INTERBYTE_DELAY);
         }
@@ -72,17 +74,9 @@ impl Talker {
 
     /// Send byte in bus with a full handshake cycle as described in the standard
     /// in section "Annex B Handshake Process Timing Sequence".
-    pub fn send_byte(&mut self, byte: u8, atn: bool, eoi: bool) {
-        // Notify whether the next byte on the bus will be a command or not.
-        self.atn.write(if atn { Level::Low } else { Level::High });
-
-        // Notify that data on the bus is no longer valid.
-        self.dav.set_high();
-
-        // Wait laptop readiness.
-        if self.ndac.is_high() && self.nrfd.is_high() {
-            while self.ndac.is_high() && self.nrfd.is_high() {}
-        }
+    pub fn send_byte(&mut self, byte: u8, eoi: bool) {
+        // TODO
+        while self.ndac.read() != Level::Low && self.nrfd.read() != Level::High {}
 
         // Write data to the bus and set the last byte flag.
         self.eoi.write(if eoi { Level::Low } else { Level::High });
@@ -90,9 +84,6 @@ impl Talker {
 
         // Delay for lines to settle.
         busy_wait(Duration::from_micros(10));
-
-        // Wait until the laptop signals it's ready for data.
-        while self.nrfd.read() != Level::High {}
 
         // Now we can signal that data is valid.
         self.dav.set_low();
@@ -102,5 +93,6 @@ impl Talker {
 
         // Signal that data is no longer valid.
         self.dav.set_high();
+        self.eoi.set_high();
     }
 }

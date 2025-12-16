@@ -1,8 +1,8 @@
-use std::{fmt::Debug, ops::Deref};
+use std::{fmt::Debug, ops::Deref, time::Duration};
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
-use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin};
+use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin, utils::busy_wait};
 
 #[allow(unused)]
 pub struct Listener {
@@ -131,7 +131,12 @@ impl Listener {
         self.nrfd.set_high();
     }
 
-    pub fn wait_atn_before_talk(self) {
+    pub fn wait_atn_before_talk(mut self) {
+        busy_wait(Duration::from_micros(5));
+
+        self.nrfd.set_high();
+        self.ndac.set_high();
+
         while self.atn.read() != Level::High {}
     }
 
@@ -174,8 +179,10 @@ impl<'a, T> Deref for HandshakeGuard<'a, T> {
 impl<'a, T> Drop for HandshakeGuard<'a, T> {
     fn drop(&mut self) {
         if self.unexpected {
+            // crate::trace!("unexpected byte, wait next");
             self.listener.unexpected_data_received();
         } else {
+            // crate::trace!("expected byte");
             self.listener.end_handshake();
         }
     }

@@ -98,18 +98,28 @@ impl DeviceEmulator {
                             self.serial_poll_state = SerialPollState::UnexpectedSPE;
                         }
                         SerialPollState::Requested(_) => {
-                            // 
+                            panic!("Temporary panic for second SPE");
                         }
                         SerialPollState::UnexpectedSPE => {
                             cmd.unexpected();
                         }
                     }
-                    GPIBCommand::SPD => {
-                        self.serial_poll_state = SerialPollState::Disabled;
+                    GPIBCommand::SPD => match self.serial_poll_state {
+                        SerialPollState::Disabled => {
+                            cmd.unexpected();
+                        }
+                        SerialPollState::Requested(_) => {
+                            cmd.expected();
+                        }
+                        SerialPollState::UnexpectedSPE => {
+                            self.serial_poll_state = SerialPollState::Disabled;
+                            cmd.unexpected();
+                        }
                     }
                     GPIBCommand::MLA(address) => {
                         if self.is_device_exists(address) {
                             cmd.expected();
+                            crate::trace!("MLA, listen to buffer");
                             self.listen_to_buffer(&mut listener, address);
                         } else {
                             cmd.unexpected();
@@ -158,7 +168,7 @@ impl DeviceEmulator {
             match talk_mode {
                 TalkMode::SerialPollProbe(valid_address) => {
                     let response = if valid_address { 0x4F } else { 0x0F };
-                    talker.send_byte(response, false, false);
+                    talker.send_byte(response, false);
                 }
                 TalkMode::Device(device) => {
                     device.talk(talker);
@@ -212,6 +222,8 @@ impl DeviceEmulator {
                 break;
             }
         }
+
+        debug!("in buffer {} bytes", self.listen_buffer.len());
     }
 
     fn reset_active_listener(&mut self) {
