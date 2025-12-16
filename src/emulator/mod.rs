@@ -98,23 +98,20 @@ impl DeviceEmulator {
                             self.serial_poll_state = SerialPollState::UnexpectedSPE;
                         }
                         SerialPollState::Requested(_) => {
-                            panic!("Temporary panic for second SPE");
-                        }
-                        SerialPollState::UnexpectedSPE => {
-                            cmd.unexpected();
-                        }
-                    }
-                    GPIBCommand::SPD => match self.serial_poll_state {
-                        SerialPollState::Disabled => {
-                            cmd.unexpected();
-                        }
-                        SerialPollState::Requested(_) => {
                             cmd.expected();
                         }
                         SerialPollState::UnexpectedSPE => {
-                            self.serial_poll_state = SerialPollState::Disabled;
                             cmd.unexpected();
                         }
+                    },
+                    GPIBCommand::SPD => {
+                        match self.serial_poll_state {
+                            SerialPollState::Disabled => cmd.unexpected(),
+                            SerialPollState::Requested(_) => cmd.expected(),
+                            SerialPollState::UnexpectedSPE => cmd.unexpected(),
+                        }
+
+                        self.serial_poll_state = SerialPollState::Disabled;
                     }
                     GPIBCommand::MLA(address) => {
                         if self.is_device_exists(address) {
