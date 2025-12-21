@@ -8,6 +8,7 @@ mod gpib_gpio;
 mod gpib_pinout;
 mod listener;
 mod logger;
+mod patch_nanosleep;
 mod sniffer;
 mod talker;
 mod utils;
