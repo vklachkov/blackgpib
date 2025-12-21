@@ -4,7 +4,13 @@ use std::time::Duration;
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
-use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin, trace, utils::busy_wait};
+use crate::{
+    gpib_command::GPIBCommand,
+    gpib_gpio,
+    gpib_pinout::GPIBPin,
+    trace,
+    utils::busy_wait,
+};
 
 #[allow(unused)]
 pub struct Talker {
@@ -12,10 +18,10 @@ pub struct Talker {
     te: OutputPin,
     pe: OutputPin,
 
-    atn: OutputPin,
-    srq: InputPin,
-    ren: OutputPin,
-    ifc: OutputPin,
+    atn: InputPin,
+    srq: OutputPin,
+    ren: InputPin,
+    ifc: InputPin,
     eoi: OutputPin,
     dav: OutputPin,
 
@@ -26,18 +32,18 @@ pub struct Talker {
 }
 
 impl Talker {
-    pub const INTERBYTE_DELAY: Duration = Duration::from_micros(10);
+    pub const INTERBYTE_DELAY: Duration = Duration::from_micros(25);
 
     pub fn new() -> Self {
         Self {
-            dc: gpib_gpio::output(GPIBPin::DC, Level::Low),
+            dc: gpib_gpio::output(GPIBPin::DC, Level::High),
             te: gpib_gpio::output(GPIBPin::TE, Level::High),
             pe: gpib_gpio::output(GPIBPin::PE, Level::High),
 
-            atn: gpib_gpio::output(GPIBPin::ATN, Level::High),
-            srq: gpib_gpio::input(GPIBPin::SRQ),
-            ren: gpib_gpio::output(GPIBPin::REN, Level::High),
-            ifc: gpib_gpio::output(GPIBPin::IFC, Level::High),
+            atn: gpib_gpio::input(GPIBPin::ATN),
+            srq: gpib_gpio::output(GPIBPin::SRQ, Level::High),
+            ren: gpib_gpio::input(GPIBPin::REN),
+            ifc: gpib_gpio::input(GPIBPin::IFC),
             eoi: gpib_gpio::output(GPIBPin::EOI, Level::High),
             dav: gpib_gpio::output(GPIBPin::DAV, Level::High),
 
@@ -48,42 +54,51 @@ impl Talker {
         }
     }
 
-    /// Sends a byte to the bus with atn flag and
-    /// [`Self::INTERBYTE_DELAY`] delay after sending.
-    pub fn send_command(&mut self, cmd: GPIBCommand) {
-        self.atn.write(Level::Low);
-
-        self.send_byte(cmd.into(), false);
-
-        busy_wait(Self::INTERBYTE_DELAY);
-    }
-
-    /// Sends all `bytes` to the bus with a delay [`Self::INTERBYTE_DELAY`] between bytes.
-    /// For the last byte, the eoi flag will be set if the `send_eoi` flag is true.
     pub fn send_bytes(&mut self, bytes: &[u8]) {
-        trace!("Send {} bytes to bus", bytes.len());
+        let bytes_len = bytes.len();
 
-        for i in 0..bytes.len() {
-            let is_last_byte = i == bytes.len() - 1;
+        crate::info!("Send {bytes_len} bytes to bus... Wait ATN");
 
-            self.send_byte(bytes[i], is_last_byte);
+        self.wait_atn(Level::High);
 
-            busy_wait(Self::INTERBYTE_DELAY);
+        crate::info!("ATN high, start transmition");
+
+        for i in 0..bytes_len {
+            let eoi = i == bytes_len - 1;
+            self.send_byte(bytes[i], eoi);
+            if !eoi {
+                busy_wait(Self::INTERBYTE_DELAY);
+            }
         }
+
+        crate::info!("End transmition");
     }
 
-    /// Send byte in bus with a full handshake cycle as described in the standard
-    /// in section "Annex B Handshake Process Timing Sequence".
-    pub fn send_byte(&mut self, byte: u8, eoi: bool) {
-        // TODO
-        while self.ndac.read() != Level::Low && self.nrfd.read() != Level::High {}
+    pub fn send_serial_poll_response(&mut self, byte: u8) {
+        crate::info!("Send serial poll response {:#04x} to bus", byte);
 
-        // Write data to the bus and set the last byte flag.
-        self.eoi.write(if eoi { Level::Low } else { Level::High });
+        self.wait_atn(Level::High);
+
+        self.send_byte(byte, false);
+
+        crate::info!("End transmition");
+    }
+
+    #[inline]
+    fn wait_atn(&self, level: Level) {
+        while self.atn.read() != level {}
+    }
+
+    fn send_byte(&mut self, byte: u8, eoi: bool) {
+        if eoi {
+            self.eoi.write(Level::Low);
+        }
+
         gpib_gpio::write_data(&mut self.data, byte);
-
-        // Delay for lines to settle.
         busy_wait(Duration::from_micros(10));
+
+        // TODO
+        while self.ndac.read() != Level::Low || self.nrfd.read() != Level::High {}
 
         // Now we can signal that data is valid.
         self.dav.set_low();
@@ -93,6 +108,10 @@ impl Talker {
 
         // Signal that data is no longer valid.
         self.dav.set_high();
-        self.eoi.set_high();
+
+        if eoi {
+            busy_wait(Duration::from_micros(20));
+            self.eoi.write(Level::High);
+        }
     }
 }

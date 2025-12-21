@@ -2,7 +2,9 @@ mod device;
 mod disk;
 mod proxy;
 
-use crate::{debug, error, gpib_command::GPIBCommand, listener::Listener, talker::Talker, trace, warn};
+use std::time::Instant;
+
+use crate::{debug, gpib_command::GPIBCommand, listener::Listener, talker::Talker, warn};
 
 use device::{Device, ServiceRequest};
 use disk::Disk;
@@ -83,11 +85,13 @@ impl DeviceEmulator {
 
     pub fn start(mut self) {
         loop {
+            let a = Instant::now();
             let mut listener = Listener::new();
+            crate::info!("Listener setup {:?}", a.elapsed());
 
             let talk_mode = 'l: loop {
                 let cmd = listener.start_command_handshake();
-                trace!("Accept command {cmd:?}");
+                crate::info!("Accept command {cmd:?}");
 
                 match *cmd {
                     GPIBCommand::DCL => {
@@ -158,14 +162,14 @@ impl DeviceEmulator {
                 }
             };
 
-            listener.wait_atn_before_talk();
+            drop(listener);
 
             let mut talker = Talker::new();
 
             match talk_mode {
                 TalkMode::SerialPollProbe(valid_address) => {
                     let response = if valid_address { 0x4F } else { 0x0F };
-                    talker.send_byte(response, false);
+                    talker.send_serial_poll_response(response);
                 }
                 TalkMode::Device(device) => {
                     device.talk(talker);
@@ -207,7 +211,8 @@ impl DeviceEmulator {
         self.listen_buffer.clear();
 
         loop {
-            let byte = listener.start_data_handshake();
+            let byte = *listener.start_data_handshake();
+
             if byte.atn {
                 self.reset_active_listener();
                 break;

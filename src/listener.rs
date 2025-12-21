@@ -1,8 +1,8 @@
-use std::{fmt::Debug, ops::Deref, time::Duration};
+use std::{fmt::Debug, ops::Deref};
 
 use rppal::gpio::{InputPin, Level, OutputPin};
 
-use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin, utils::busy_wait};
+use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin};
 
 #[allow(unused)]
 pub struct Listener {
@@ -33,9 +33,6 @@ pub struct Byte {
 impl Listener {
     pub fn new() -> Self {
         Self {
-            ndac: gpib_gpio::output(GPIBPin::NDAC, Level::High),
-            nrfd: gpib_gpio::output(GPIBPin::NRFD, Level::High),
-
             dc: gpib_gpio::output(GPIBPin::DC, Level::High),
             te: gpib_gpio::output(GPIBPin::TE, Level::Low),
             pe: gpib_gpio::output(GPIBPin::PE, Level::High),
@@ -46,6 +43,9 @@ impl Listener {
             ifc: gpib_gpio::input(GPIBPin::IFC),
             eoi: gpib_gpio::input(GPIBPin::EOI),
             dav: gpib_gpio::input(GPIBPin::DAV),
+
+            ndac: gpib_gpio::output(GPIBPin::NDAC, Level::High),
+            nrfd: gpib_gpio::output(GPIBPin::NRFD, Level::High),
 
             data: GPIBPin::data().map(gpib_gpio::input),
         }
@@ -91,8 +91,9 @@ impl Listener {
             self.nrfd.set_low();
 
             let byte = self.read_byte();
+            let cmd = GPIBCommand::from(byte.value);
 
-            break self.handshake_guard(GPIBCommand::from(byte.value));
+            break self.handshake_guard(cmd);
         }
     }
 
@@ -128,15 +129,6 @@ impl Listener {
         while self.dav.read() != Level::High {}
 
         self.nrfd.set_high();
-    }
-
-    pub fn wait_atn_before_talk(mut self) {
-        busy_wait(Duration::from_micros(5));
-
-        self.nrfd.set_high();
-        self.ndac.set_high();
-
-        while self.atn.read() != Level::High {}
     }
 
     /// Raise SRQ pin.
@@ -178,10 +170,10 @@ impl<'a, T> Deref for HandshakeGuard<'a, T> {
 impl<'a, T> Drop for HandshakeGuard<'a, T> {
     fn drop(&mut self) {
         if self.unexpected {
-            // crate::trace!("unexpected byte, wait next");
+            crate::trace!("unexpected byte, wait next");
             self.listener.unexpected_data_received();
         } else {
-            // crate::trace!("expected byte");
+            crate::trace!("expected byte");
             self.listener.end_handshake();
         }
     }
