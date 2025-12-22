@@ -8,7 +8,7 @@ mod gpib_command;
 mod gpib_pinout;
 mod listener;
 mod logger;
-mod rppal;
+mod gpio;
 mod sniffer;
 mod talker;
 mod utils;

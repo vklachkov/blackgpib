@@ -1,6 +1,6 @@
 use crate::{
     gpib_pinout::GPIBPin,
-    rppal::{Gpio, InputPin, OutputPin},
+    gpio::{Gpio, InputPin, OutputPin},
 };
 
 pub fn reset_all_pins(gpio: &Gpio) {

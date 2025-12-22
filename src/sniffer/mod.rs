@@ -3,7 +3,7 @@ use std::time::Instant;
 use crate::{
     common::{CommonPins, reset_all_pins},
     listener::Listener,
-    rppal::Gpio,
+    gpio::Gpio,
 };
 
 pub struct BusSniffer {

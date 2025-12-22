@@ -9,7 +9,7 @@ use crate::{
     debug,
     gpib_command::GPIBCommand,
     listener::Listener,
-    rppal::Gpio,
+    gpio::Gpio,
     talker::Talker,
     warn,
 };

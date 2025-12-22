@@ -6,7 +6,7 @@ use crate::{
     common::CommonPins,
     gpib_command::GPIBCommand,
     gpib_pinout::GPIBPin,
-    rppal::{Gpio, InputPin, Level, OutputPin},
+    gpio::{Gpio, InputPin, Level, OutputPin},
     trace,
     utils::busy_wait,
 };
