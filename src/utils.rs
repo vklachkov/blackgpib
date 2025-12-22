@@ -1,6 +1,6 @@
 use crate::debug;
 
-use std::time::{Duration, Instant};
+use core::arch::asm;
 
 /// Increases process priority and pins it to the last CPU core.
 pub fn configure_scheduler() {
@@ -17,7 +17,34 @@ pub fn configure_scheduler() {
 }
 
 /// Waits for the specified time without context switching.
-pub fn busy_wait(duration: Duration) {
-    let start = Instant::now();
-    while Instant::now() - start < duration {}
+pub fn busy_wait(ns: u64) {
+    unsafe {
+        let frq: u64;
+        let start: u64;
+        let target: u64;
+
+        asm!(
+            "isb",
+            "mrs {out_frq}, cntfrq_el0",
+            "mrs {out_start}, cntvct_el0",
+            out_frq = out(reg) frq,
+            out_start = out(reg) start,
+            options(nomem, nostack)
+        );
+
+        target = start + (frq * ns / 1_000_000_000);
+
+        loop {
+            let now: u64;
+            asm!(
+                "mrs {out_now}, cntvct_el0",
+                out_now = out(reg) now,
+                options(nomem, nostack)
+            );
+
+            if now >= target {
+                break;
+            }
+        }
+    }
 }
