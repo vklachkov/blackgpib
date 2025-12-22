@@ -1,14 +1,14 @@
 #![allow(clippy::needless_return, clippy::upper_case_acronyms)]
 
 mod args;
+mod common;
 mod controller;
 mod emulator;
 mod gpib_command;
-mod gpib_gpio;
 mod gpib_pinout;
 mod listener;
 mod logger;
-mod patch_nanosleep;
+mod rppal;
 mod sniffer;
 mod talker;
 mod utils;
@@ -38,9 +38,6 @@ fn main() {
     });
 
     info!("BlackGPiB v{VERSION} started");
-
-    debug!("Reset all pins to Z-State...");
-    gpib_gpio::reset_all();
 
     match args.command {
         args::Command::Emulator(args) => run_emulator(args),

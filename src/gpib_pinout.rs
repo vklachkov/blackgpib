@@ -73,14 +73,14 @@ impl GPIBPin {
 
     pub const fn data() -> [GPIBPin; 8] {
         [
-            GPIBPin::DIO8,
-            GPIBPin::DIO7,
-            GPIBPin::DIO6,
-            GPIBPin::DIO5,
-            GPIBPin::DIO4,
-            GPIBPin::DIO3,
-            GPIBPin::DIO2,
             GPIBPin::DIO1,
+            GPIBPin::DIO2,
+            GPIBPin::DIO3,
+            GPIBPin::DIO4,
+            GPIBPin::DIO5,
+            GPIBPin::DIO6,
+            GPIBPin::DIO7,
+            GPIBPin::DIO8,
         ]
     }
 

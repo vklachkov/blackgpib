@@ -13,9 +13,9 @@ bpaf = "0.9.20"
 libc = "0.2.177"
 memmap2 = "0.9.9"
 ringbuf = { version = "0.4.8", default-features = false }
-rppal = "0.22.1"
 
 [profile.release]
-lto = "thin"
+opt-level = 3
+lto = "fat"
 codegen-units = 1
 panic = "abort"

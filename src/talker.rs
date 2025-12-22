@@ -2,55 +2,45 @@
 
 use std::time::Duration;
 
-use rppal::gpio::{InputPin, Level, OutputPin};
-
 use crate::{
+    common::CommonPins,
     gpib_command::GPIBCommand,
-    gpib_gpio,
     gpib_pinout::GPIBPin,
+    rppal::{Gpio, InputPin, Level, OutputPin},
     trace,
     utils::busy_wait,
 };
 
 #[allow(unused)]
-pub struct Talker {
-    dc: OutputPin,
-    te: OutputPin,
-    pe: OutputPin,
+pub struct Talker<'gpio, 'p> {
+    common: &'p CommonPins<'gpio>,
 
-    atn: InputPin,
-    srq: OutputPin,
-    ren: InputPin,
-    ifc: InputPin,
-    eoi: OutputPin,
-    dav: OutputPin,
+    eoi: OutputPin<'gpio>,
+    dav: OutputPin<'gpio>,
 
-    ndac: InputPin,
-    nrfd: InputPin,
+    ndac: InputPin<'gpio>,
+    nrfd: InputPin<'gpio>,
 
-    data: [OutputPin; 8],
+    data: [OutputPin<'gpio>; 8],
 }
 
-impl Talker {
+impl<'gpio, 'p> Talker<'gpio, 'p> {
     pub const INTERBYTE_DELAY: Duration = Duration::from_micros(25);
 
-    pub fn new() -> Self {
+    pub fn new(gpio: &'gpio Gpio, common: &'p CommonPins<'gpio>) -> Self {
         Self {
-            dc: gpib_gpio::output(GPIBPin::DC, Level::High),
-            te: gpib_gpio::output(GPIBPin::TE, Level::High),
-            pe: gpib_gpio::output(GPIBPin::PE, Level::High),
+            common,
 
-            atn: gpib_gpio::input(GPIBPin::ATN),
-            srq: gpib_gpio::output(GPIBPin::SRQ, Level::High),
-            ren: gpib_gpio::input(GPIBPin::REN),
-            ifc: gpib_gpio::input(GPIBPin::IFC),
-            eoi: gpib_gpio::output(GPIBPin::EOI, Level::High),
-            dav: gpib_gpio::output(GPIBPin::DAV, Level::High),
+            eoi: unsafe { gpio.get(GPIBPin::EOI.pin_number()) }.into_output_high(),
+            dav: unsafe { gpio.get(GPIBPin::DAV.pin_number()) }.into_output_high(),
 
-            ndac: gpib_gpio::input(GPIBPin::NDAC),
-            nrfd: gpib_gpio::input(GPIBPin::NRFD),
+            ndac: unsafe { gpio.get(GPIBPin::NDAC.pin_number()) }.into_input_pullup(),
+            nrfd: unsafe { gpio.get(GPIBPin::NRFD.pin_number()) }.into_input_pullup(),
 
-            data: GPIBPin::data().map(|pin| gpib_gpio::output(pin, Level::High)),
+            data: GPIBPin::data().map(|gpib_pin| {
+                //
+                unsafe { gpio.get(gpib_pin.pin_number()) }.into_output_high()
+            }),
         }
     }
 
@@ -67,14 +57,14 @@ impl Talker {
             let eoi = i == bytes_len - 1;
             self.send_byte(bytes[i], eoi);
             if !eoi {
-                busy_wait(Self::INTERBYTE_DELAY);
+                busy_wait(Self::INTERBYTE_DELAY.as_nanos() as _);
             }
         }
 
         crate::info!("End transmition");
     }
 
-    pub fn send_serial_poll_response(&mut self, byte: u8) {
+    pub fn send_serial_poll_response(&self, byte: u8) {
         crate::info!("Send serial poll response {:#04x} to bus", byte);
 
         self.wait_atn(Level::High);
@@ -86,16 +76,16 @@ impl Talker {
 
     #[inline]
     fn wait_atn(&self, level: Level) {
-        while self.atn.read() != level {}
+        while self.common.atn.read() != level {}
     }
 
-    fn send_byte(&mut self, byte: u8, eoi: bool) {
+    fn send_byte(&self, byte: u8, eoi: bool) {
         if eoi {
             self.eoi.write(Level::Low);
         }
 
-        gpib_gpio::write_data(&mut self.data, byte);
-        busy_wait(Duration::from_micros(10));
+        self.write_data(byte);
+        busy_wait(Duration::from_micros(10).as_nanos() as _);
 
         // TODO
         while self.ndac.read() != Level::Low || self.nrfd.read() != Level::High {}
@@ -110,8 +100,19 @@ impl Talker {
         self.dav.set_high();
 
         if eoi {
-            busy_wait(Duration::from_micros(20));
+            busy_wait(Duration::from_micros(20).as_nanos() as _);
             self.eoi.write(Level::High);
         }
+    }
+
+    fn write_data(&self, byte: u8) {
+        self.data[0].write(!Level::from((byte >> 0) & 1));
+        self.data[1].write(!Level::from((byte >> 1) & 1));
+        self.data[2].write(!Level::from((byte >> 2) & 1));
+        self.data[3].write(!Level::from((byte >> 3) & 1));
+        self.data[4].write(!Level::from((byte >> 4) & 1));
+        self.data[5].write(!Level::from((byte >> 5) & 1));
+        self.data[6].write(!Level::from((byte >> 6) & 1));
+        self.data[7].write(!Level::from((byte >> 7) & 1));
     }
 }

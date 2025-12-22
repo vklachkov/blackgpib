@@ -1,26 +1,23 @@
 use std::{fmt::Debug, ops::Deref};
 
-use rppal::gpio::{InputPin, Level, OutputPin};
-
-use crate::{gpib_command::GPIBCommand, gpib_gpio, gpib_pinout::GPIBPin};
+use crate::{
+    common::CommonPins,
+    gpib_command::GPIBCommand,
+    gpib_pinout::GPIBPin,
+    rppal::{Gpio, InputPin, Level, OutputPin},
+};
 
 #[allow(unused)]
-pub struct Listener {
-    dc: OutputPin,
-    te: OutputPin,
-    pe: OutputPin,
+pub struct Listener<'gpio> {
+    common: &'gpio CommonPins<'gpio>,
 
-    atn: InputPin,
-    srq: OutputPin,
-    ren: InputPin,
-    ifc: InputPin,
-    eoi: InputPin,
-    dav: InputPin,
+    eoi: InputPin<'gpio>,
+    dav: InputPin<'gpio>,
 
-    ndac: OutputPin,
-    nrfd: OutputPin,
+    ndac: OutputPin<'gpio>,
+    nrfd: OutputPin<'gpio>,
 
-    data: [InputPin; 8],
+    data: [InputPin<'gpio>; 8],
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -30,38 +27,46 @@ pub struct Byte {
     pub eoi: bool,
 }
 
-impl Listener {
-    pub fn new() -> Self {
+impl<'gpio> Listener<'gpio> {
+    pub fn new(gpio: &'gpio Gpio, common: &'gpio CommonPins<'gpio>) -> Self {
         Self {
-            dc: gpib_gpio::output(GPIBPin::DC, Level::High),
-            te: gpib_gpio::output(GPIBPin::TE, Level::Low),
-            pe: gpib_gpio::output(GPIBPin::PE, Level::High),
+            common,
 
-            atn: gpib_gpio::input(GPIBPin::ATN),
-            srq: gpib_gpio::output(GPIBPin::SRQ, Level::High),
-            ren: gpib_gpio::input(GPIBPin::REN),
-            ifc: gpib_gpio::input(GPIBPin::IFC),
-            eoi: gpib_gpio::input(GPIBPin::EOI),
-            dav: gpib_gpio::input(GPIBPin::DAV),
+            eoi: unsafe { gpio.get(GPIBPin::EOI.pin_number()) }.into_input_pullup(),
+            dav: unsafe { gpio.get(GPIBPin::DAV.pin_number()) }.into_input_pullup(),
 
-            ndac: gpib_gpio::output(GPIBPin::NDAC, Level::High),
-            nrfd: gpib_gpio::output(GPIBPin::NRFD, Level::High),
+            ndac: unsafe { gpio.get(GPIBPin::NDAC.pin_number()) }.into_output_high(),
+            nrfd: unsafe { gpio.get(GPIBPin::NRFD.pin_number()) }.into_output_high(),
 
-            data: GPIBPin::data().map(gpib_gpio::input),
+            data: GPIBPin::data().map(|gpib_pin| {
+                //
+                unsafe { gpio.get(gpib_pin.pin_number()) }.into_input_pullup()
+            }),
         }
     }
 
-    #[inline]
-    fn read_byte(&mut self) -> Byte {
-        let atn = self.atn.is_low();
+    fn read_byte(&self) -> Byte {
+        let atn = self.common.atn.is_low();
         let eoi = self.eoi.is_low();
-        let value = gpib_gpio::read_data(&self.data);
+        let value = self.read_data();
 
         return Byte { atn, eoi, value };
     }
 
+    #[rustfmt::skip]
+    fn read_data(&self) -> u8 {
+        (self.data[0].is_low() as u8) << 0 |
+        (self.data[1].is_low() as u8) << 1 |
+        (self.data[2].is_low() as u8) << 2 |
+        (self.data[3].is_low() as u8) << 3 |
+        (self.data[4].is_low() as u8) << 4 |
+        (self.data[5].is_low() as u8) << 5 |
+        (self.data[6].is_low() as u8) << 6 |
+        (self.data[7].is_low() as u8) << 7
+    }
+
     /// Waits valid data on GPiB bus and reads byte without handshake.
-    pub fn sniff_byte(&mut self) -> Byte {
+    pub fn sniff_byte(&self) -> Byte {
         // Wait until Compass sets the data on the bus.
         while self.dav.read() != Level::Low {}
 
@@ -75,9 +80,9 @@ impl Listener {
         return byte;
     }
 
-    pub fn start_command_handshake<'a>(&'a mut self) -> HandshakeGuard<'a, GPIBCommand> {
+    pub fn start_command_handshake<'l>(&'l self) -> HandshakeGuard<'l, 'gpio, GPIBCommand> {
         loop {
-            if self.atn.read() != Level::Low {
+            if self.common.atn.read() != Level::Low {
                 self.ndac.set_high();
                 continue;
             }
@@ -97,7 +102,7 @@ impl Listener {
         }
     }
 
-    pub fn start_data_handshake<'a>(&'a mut self) -> HandshakeGuard<'a, Byte> {
+    pub fn start_data_handshake<'l>(&'l self) -> HandshakeGuard<'l, 'gpio, Byte> {
         while self.dav.read() != Level::Low {}
 
         let byte = self.read_byte();
@@ -105,7 +110,7 @@ impl Listener {
         return self.handshake_guard(byte);
     }
 
-    fn handshake_guard<'a, T>(&'a mut self, value: T) -> HandshakeGuard<'a, T> {
+    fn handshake_guard<'l, T>(&'l self, value: T) -> HandshakeGuard<'l, 'gpio, T> {
         HandshakeGuard {
             listener: self,
             value,
@@ -113,7 +118,7 @@ impl Listener {
         }
     }
 
-    fn end_handshake(&mut self) {
+    fn end_handshake(&self) {
         self.nrfd.set_low();
         self.ndac.set_high();
 
@@ -123,7 +128,7 @@ impl Listener {
         self.nrfd.set_high();
     }
 
-    fn unexpected_data_received(&mut self) {
+    fn unexpected_data_received(&self) {
         self.ndac.set_high();
 
         while self.dav.read() != Level::High {}
@@ -132,18 +137,18 @@ impl Listener {
     }
 
     /// Raise SRQ pin.
-    pub fn service_request(&mut self) {
-        self.srq.set_low();
+    pub fn service_request(&self) {
+        self.common.srq.set_low();
     }
 }
 
-pub struct HandshakeGuard<'a, T> {
-    listener: &'a mut Listener,
+pub struct HandshakeGuard<'l, 'p: 'l, T> {
+    listener: &'l Listener<'p>,
     value: T,
     unexpected: bool,
 }
 
-impl<'a, T> HandshakeGuard<'a, T> {
+impl<T> HandshakeGuard<'_, '_, T> {
     pub fn expected(mut self) {
         self.unexpected = false;
     }
@@ -153,13 +158,13 @@ impl<'a, T> HandshakeGuard<'a, T> {
     }
 }
 
-impl<'a, T: Debug> Debug for HandshakeGuard<'a, T> {
+impl<T: Debug> Debug for HandshakeGuard<'_, '_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.value.fmt(f)
     }
 }
 
-impl<'a, T> Deref for HandshakeGuard<'a, T> {
+impl<T> Deref for HandshakeGuard<'_, '_, T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -167,7 +172,7 @@ impl<'a, T> Deref for HandshakeGuard<'a, T> {
     }
 }
 
-impl<'a, T> Drop for HandshakeGuard<'a, T> {
+impl<T> Drop for HandshakeGuard<'_, '_, T> {
     fn drop(&mut self) {
         if self.unexpected {
             crate::trace!("unexpected byte, wait next");

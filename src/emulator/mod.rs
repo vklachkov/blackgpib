@@ -4,7 +4,15 @@ mod proxy;
 
 use std::time::Instant;
 
-use crate::{debug, gpib_command::GPIBCommand, listener::Listener, talker::Talker, warn};
+use crate::{
+    common::{CommonPins, reset_all_pins},
+    debug,
+    gpib_command::GPIBCommand,
+    listener::Listener,
+    rppal::Gpio,
+    talker::Talker,
+    warn,
+};
 
 use device::{Device, ServiceRequest};
 use disk::Disk;
@@ -84,9 +92,14 @@ impl DeviceEmulator {
     }
 
     pub fn start(mut self) {
+        let gpio = unsafe { Gpio::new() }.unwrap();
+        reset_all_pins(&gpio);
+
+        let common_pins = CommonPins::new(&gpio);
+
         loop {
             let a = Instant::now();
-            let mut listener = Listener::new();
+            let listener = Listener::new(&gpio, &common_pins);
             crate::info!("Listener setup {:?}", a.elapsed());
 
             let talk_mode = 'l: loop {
@@ -121,7 +134,7 @@ impl DeviceEmulator {
                         if self.is_device_exists(address) {
                             cmd.expected();
                             crate::trace!("MLA, listen to buffer");
-                            self.listen_to_buffer(&mut listener, address);
+                            self.listen_to_buffer(&listener, address);
                         } else {
                             cmd.unexpected();
                         }
@@ -129,7 +142,7 @@ impl DeviceEmulator {
                     GPIBCommand::UNL => {
                         if let Some(active_listener) = self.active_listener.take() {
                             cmd.expected();
-                            self.process_bytes(&mut listener, active_listener);
+                            self.process_bytes(&listener, active_listener);
                         } else {
                             cmd.unexpected();
                         }
@@ -164,7 +177,7 @@ impl DeviceEmulator {
 
             drop(listener);
 
-            let mut talker = Talker::new();
+            let talker = Talker::new(&gpio, &common_pins);
 
             match talk_mode {
                 TalkMode::SerialPollProbe(valid_address) => {
@@ -206,7 +219,7 @@ impl DeviceEmulator {
             .as_mut()
     }
 
-    fn listen_to_buffer(&mut self, listener: &mut Listener, address: u8) {
+    fn listen_to_buffer(&mut self, listener: &Listener, address: u8) {
         self.active_listener = Some(address);
         self.listen_buffer.clear();
 
@@ -239,7 +252,7 @@ impl DeviceEmulator {
         Self::get_device(&mut self.devices, active_listener).reset();
     }
 
-    fn process_bytes(&mut self, listener: &mut Listener, address: u8) {
+    fn process_bytes(&mut self, listener: &Listener, address: u8) {
         let device = Self::get_device(&mut self.devices, address);
 
         let service_request = device.process_bytes(&self.listen_buffer);

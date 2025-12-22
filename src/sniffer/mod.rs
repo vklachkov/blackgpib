@@ -1,6 +1,10 @@
 use std::time::Instant;
 
-use crate::listener::Listener;
+use crate::{
+    common::{CommonPins, reset_all_pins},
+    listener::Listener,
+    rppal::Gpio,
+};
 
 pub struct BusSniffer {
     file: memmap2::MmapMut,
@@ -14,9 +18,13 @@ impl BusSniffer {
     pub fn start(mut self) {
         let start_time = Instant::now();
 
-        let mut sniffer = Listener::new();
-        let mut offset = 0usize;
+        let gpio = unsafe { Gpio::new() }.unwrap();
+        reset_all_pins(&gpio);
 
+        let common_pins = CommonPins::new(&gpio);
+        let sniffer = Listener::new(&gpio, &common_pins);
+
+        let mut offset = 0usize;
         loop {
             const ENTRY_SIZE: usize = 5;
 

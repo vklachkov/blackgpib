@@ -10,7 +10,6 @@ dependencies = [
  "libc",
  "memmap2",
  "ringbuf",
- "rppal",
 ]
 
 [[package]]
@@ -47,13 +46,4 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe47b720588c8702e34b5979cb3271a8b1842c7cb6f57408efa70c779363488c"
 dependencies = [
  "crossbeam-utils",
-]
-
-[[package]]
-name = "rppal"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1ce3b019009cff02cb6b0e96e7cc2e5c5b90187dc1a490f8ef1521d0596b026"
-dependencies = [
- "libc",
 ]

@@ -15,10 +15,7 @@ impl DataToSocketDevice {
         let socket = UdpSocket::bind(addr).expect("failed to bind to socket");
         socket.set_broadcast(true).expect("failed to set_broadcast for socket");
 
-        Self {
-            socket,
-            port,
-        }
+        Self { socket, port }
     }
 
     fn process_bytes(&mut self, buffer: &[u8]) -> ServiceRequest {
