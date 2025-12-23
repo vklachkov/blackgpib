@@ -21,8 +21,6 @@ pub struct GpioMode<'gpio> {
 
 impl<'gpio> GpioMode<'gpio> {
     pub(in crate::gpio) fn new(gpio_mem: &'gpio mut GpioMem) -> Self {
-        gpio_mem.set_low(KnownPin::TE as _);
-
         // Setup modes.
         gpio_mem.write_pins_modes(const { Self::pin_modes() });
 
@@ -30,6 +28,7 @@ impl<'gpio> GpioMode<'gpio> {
         gpio_mem.write_pins_bias(const { Self::input_pins_mask() }, Bias::PullUp);
 
         // Configure output.
+        gpio_mem.set_low(KnownPin::TE as _);
         gpio_mem.set_pins_high(const { Self::output_pins_mask() });
 
         Self { gpio_mem }
@@ -38,11 +37,19 @@ impl<'gpio> GpioMode<'gpio> {
     const fn pin_modes() -> PinModesRegs {
         let mut regs = PinModesRegs::new();
 
-        regs.set(KnownPin::NDAC, Mode::Output);
-        regs.set(KnownPin::NRFD, Mode::Output);
+        regs.set(KnownPin::DC, Mode::Output);
+        regs.set(KnownPin::TE, Mode::Output);
+        regs.set(KnownPin::PE, Mode::Output);
 
+        regs.set(KnownPin::ATN, Mode::Input);
+        regs.set(KnownPin::SRQ, Mode::Output);
+        regs.set(KnownPin::REN, Mode::Input);
+        regs.set(KnownPin::IFC, Mode::Input);
         regs.set(KnownPin::EOI, Mode::Input);
         regs.set(KnownPin::DAV, Mode::Input);
+
+        regs.set(KnownPin::NDAC, Mode::Output);
+        regs.set(KnownPin::NRFD, Mode::Output);
 
         let data_pins = KnownPin::data();
 
@@ -55,18 +62,12 @@ impl<'gpio> GpioMode<'gpio> {
         regs
     }
 
-    const fn output_pins_mask() -> PinMask {
-        let mut mask = PinMask::new();
-
-        mask.set(KnownPin::NDAC);
-        mask.set(KnownPin::NRFD);
-
-        mask
-    }
-
     const fn input_pins_mask() -> PinMask {
         let mut mask = PinMask::new();
 
+        mask.set(KnownPin::ATN);
+        mask.set(KnownPin::REN);
+        mask.set(KnownPin::IFC);
         mask.set(KnownPin::EOI);
         mask.set(KnownPin::DAV);
 
@@ -77,6 +78,15 @@ impl<'gpio> GpioMode<'gpio> {
             mask.set(data_pins[i]);
             i += 1;
         }
+
+        mask
+    }
+
+    const fn output_pins_mask() -> PinMask {
+        let mut mask = PinMask::new();
+
+        mask.set(KnownPin::NDAC);
+        mask.set(KnownPin::NRFD);
 
         mask
     }

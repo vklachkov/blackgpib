@@ -19,11 +19,7 @@ pub struct Gpio {
 
 impl Gpio {
     pub unsafe fn new() -> io::Result<Gpio> {
-        let mem = GpioMem::open()?;
-
-        mode::prepare_common_pins(&mem);
-
-        Ok(Self { mem })
+        Ok(Self { mem: GpioMem::open()? })
     }
 
     pub fn into_listener_mode(&mut self) -> ListenerGpio<'_> {
