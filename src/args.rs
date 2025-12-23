@@ -47,7 +47,7 @@ impl Args {
             command
         })
         .to_options()
-        .descr("GPiB Peripheral Emulator for GRiD Compass")
+        .descr("GPIB Peripheral Emulator for GRiD Compass")
         .run()
     }
 

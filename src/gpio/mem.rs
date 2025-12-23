@@ -1,15 +1,15 @@
-use std::fmt;
 use std::fs::OpenOptions;
 use std::io;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
 use std::ptr;
-use std::time::Duration;
 
 use libc::{self, MAP_FAILED, MAP_SHARED, O_SYNC, PROT_READ, PROT_WRITE, c_void, size_t};
 
-use super::system::{DeviceInfo, SoC};
-use super::{Bias, Level, Mode};
+use super::{
+    system::{DeviceInfo, SoC},
+    types::{Bias, Level, Mode, PinMask, PinModesRegs},
+};
 
 const PATH_DEV_GPIOMEM: &str = "/dev/gpiomem";
 // The BCM2835 has 41 32-bit registers related to the GPIO (datasheet @ 6.1).
@@ -34,27 +34,15 @@ const FSEL_ALT3: u8 = 0b111;
 const FSEL_ALT4: u8 = 0b011;
 const FSEL_ALT5: u8 = 0b010;
 
-pub struct GpioMem {
+#[derive(Debug)]
+pub(in crate::gpio) struct GpioMem {
     mem_ptr: *mut u32,
     soc: SoC,
 }
 
-impl fmt::Debug for GpioMem {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("GpioMem")
-            .field("mem_ptr", &self.mem_ptr)
-            .field("locks", &format_args!("{{ .. }}"))
-            .field("soc", &self.soc)
-            .finish()
-    }
-}
-
 impl GpioMem {
     pub fn open() -> io::Result<GpioMem> {
-        // Try /dev/gpiomem first. If that fails, return error to user without trying /dev/mem instead.
         let mem_ptr = Self::map_devgpiomem()?;
-
-        // Identify which SoC we're using.
         let soc = DeviceInfo::new()?.soc();
 
         Ok(GpioMem { mem_ptr, soc })
@@ -84,12 +72,12 @@ impl GpioMem {
     }
 
     #[inline(always)]
-    fn read(&self, offset: usize) -> u32 {
+    unsafe fn read(&self, offset: usize) -> u32 {
         unsafe { ptr::read_volatile(self.mem_ptr.add(offset)) }
     }
 
     #[inline(always)]
-    fn write(&self, offset: usize, value: u32) {
+    unsafe fn write(&self, offset: usize, value: u32) {
         unsafe {
             ptr::write_volatile(self.mem_ptr.add(offset), value);
         }
@@ -110,7 +98,7 @@ impl GpioMem {
         let offset = GPSET0 + pin as usize / 32;
         let shift = pin % 32;
 
-        self.write(offset, 1 << shift);
+        unsafe { self.write(offset, 1 << shift) };
     }
 
     #[inline(always)]
@@ -118,14 +106,19 @@ impl GpioMem {
         let offset = GPCLR0 + pin as usize / 32;
         let shift = pin % 32;
 
-        self.write(offset, 1 << shift);
+        unsafe { self.write(offset, 1 << shift) };
     }
 
     #[inline(always)]
-    pub fn level(&self, pin: u8) -> Level {
+    pub unsafe fn read_bank_levels(&self, bank: u8) -> u32 {
+        return unsafe { self.read(GPLEV0 + bank as usize) };
+    }
+
+    #[inline(always)]
+    pub unsafe fn level(&self, pin: u8) -> Level {
         let offset = GPLEV0 + pin as usize / 32;
         let shift = pin % 32;
-        let reg_value = self.read(offset);
+        let reg_value = unsafe { self.read(offset) };
 
         unsafe { std::mem::transmute((reg_value >> shift) as u8 & 0b1) }
     }
@@ -133,18 +126,18 @@ impl GpioMem {
     pub fn mode(&self, pin: u8) -> Mode {
         let offset = GPFSEL0 + pin as usize / 10;
         let shift = (pin % 10) * 3;
-        let reg_value = self.read(offset);
+        let reg_value = unsafe { self.read(offset) };
 
         match (reg_value >> shift) as u8 & 0b111 {
             FSEL_INPUT => Mode::Input,
             FSEL_OUTPUT => Mode::Output,
-            FSEL_ALT0 => Mode::Alt0,
-            FSEL_ALT1 => Mode::Alt1,
-            FSEL_ALT2 => Mode::Alt2,
-            FSEL_ALT3 => Mode::Alt3,
-            FSEL_ALT4 => Mode::Alt4,
-            FSEL_ALT5 => Mode::Alt5,
             _ => Mode::Input,
+        }
+    }
+
+    pub fn write_pins_modes(&self, regs: PinModesRegs) {
+        for (i, reg) in regs.regs().into_iter().enumerate() {
+            unsafe { self.write(GPFSEL0 + i as usize, reg) };
         }
     }
 
@@ -152,20 +145,42 @@ impl GpioMem {
         let offset = GPFSEL0 + pin as usize / 10;
         let shift = (pin % 10) * 3;
 
-        let fsel_mode = match mode {
-            Mode::Input => FSEL_INPUT,
-            Mode::Output => FSEL_OUTPUT,
-            Mode::Alt0 => FSEL_ALT0,
-            Mode::Alt1 => FSEL_ALT1,
-            Mode::Alt2 => FSEL_ALT2,
-            Mode::Alt3 => FSEL_ALT3,
-            Mode::Alt4 => FSEL_ALT4,
-            Mode::Alt5 => FSEL_ALT5,
-            _ => FSEL_INPUT,
-        };
+        let reg_value = unsafe { self.read(offset) };
+        unsafe { self.write(offset, (reg_value & !(0b111 << shift)) | ((mode as u32) << shift)) };
+    }
 
-        let reg_value = self.read(offset);
-        self.write(offset, (reg_value & !(0b111 << shift)) | ((fsel_mode as u32) << shift));
+    pub fn write_pins_bias(&self, mask: PinMask, bias: Bias) {
+        // Offset for register.
+        let offset: usize;
+        // Bit shift for pin position within register value.
+        let shift: u8;
+
+        // BCM2711 (RPi4) and BCM2712 (RPi5) need special handling.
+        if self.soc == SoC::Bcm2711 || self.soc == SoC::Bcm2712 {
+            unimplemented!()
+        } else {
+            offset = GPPUDCLK0;
+
+            // Set the control signal in GPPUD.
+            let reg_value = unsafe { self.read(GPPUD) };
+            unsafe { self.write(GPPUD, (reg_value & !0b11) | ((bias as u32) & 0b11)) };
+
+            // The datasheet mentions waiting at least 150 cycles for set-up and hold, but
+            // doesn't state which clock is used. This is likely the VPU clock (see
+            // https://www.raspberrypi.org/forums/viewtopic.php?f=72&t=163352). At either
+            // 250MHz or 400MHz, a 5µs delay + overhead is more than adequate.
+
+            // Set-up time for the control signal. >= 600ns
+            crate::utils::busy_wait(800);
+            // Clock the control signal into the selected pin.
+            unsafe { self.write(offset, mask.value()) };
+
+            // Hold time for the control signal. >= 600ns
+            crate::utils::busy_wait(800);
+            // Remove the control signal and clock.
+            unsafe { self.write(GPPUD, reg_value & !0b11) };
+            unsafe { self.write(offset, 0) };
+        }
     }
 
     pub fn set_bias(&self, pin: u8, bias: Bias) {
@@ -181,15 +196,15 @@ impl GpioMem {
 
             // Pull up vs pull down has a reverse bit pattern on BCM2711 vs others.
             let pud = bias as u32;
-            let reg_value = self.read(offset);
-            self.write(offset, (reg_value & !(0b11 << shift)) | (pud << shift));
+            let reg_value = unsafe { self.read(offset) };
+            unsafe { self.write(offset, (reg_value & !(0b11 << shift)) | (pud << shift)) };
         } else {
             offset = GPPUDCLK0 + pin as usize / 32;
             shift = pin % 32;
 
             // Set the control signal in GPPUD.
-            let reg_value = self.read(GPPUD);
-            self.write(GPPUD, (reg_value & !0b11) | ((bias as u32) & 0b11));
+            let reg_value = unsafe { self.read(GPPUD) };
+            unsafe { self.write(GPPUD, (reg_value & !0b11) | ((bias as u32) & 0b11)) };
 
             // The datasheet mentions waiting at least 150 cycles for set-up and hold, but
             // doesn't state which clock is used. This is likely the VPU clock (see
@@ -199,13 +214,13 @@ impl GpioMem {
             // Set-up time for the control signal. >= 600ns
             crate::utils::busy_wait(800);
             // Clock the control signal into the selected pin.
-            self.write(offset, 1 << shift);
+            unsafe { self.write(offset, 1 << shift) };
 
             // Hold time for the control signal. >= 600ns
             crate::utils::busy_wait(800);
             // Remove the control signal and clock.
-            self.write(GPPUD, reg_value & !0b11);
-            self.write(offset, 0);
+            unsafe { self.write(GPPUD, reg_value & !0b11) };
+            unsafe { self.write(offset, 0) };
         }
     }
 }

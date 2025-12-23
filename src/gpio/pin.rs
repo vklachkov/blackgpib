@@ -1,4 +1,8 @@
-use super::{Bias, Level, Mode, bcm::GpioMem};
+use super::{
+    mem::GpioMem,
+    pinout::KnownPin,
+    types::{Bias, Level, Mode},
+};
 
 /// Unconfigured GPIO pin.
 ///
@@ -17,114 +21,54 @@ use super::{Bias, Level, Mode, bcm::GpioMem};
 /// [`OutputPin`]: struct.OutputPin.html
 /// [`IoPin`]: struct.IoPin.html
 #[derive(Debug)]
-pub struct Pin<'gpio> {
+pub(super) struct Pin<'gpio> {
     gpio_mem: &'gpio GpioMem,
-    pub(crate) pin: u8,
+    pin: KnownPin,
 }
 
 impl<'gpio> Pin<'gpio> {
-    #[inline]
-    pub(crate) unsafe fn new(pin: u8, gpio_mem: &'gpio GpioMem) -> Pin<'gpio> {
-        Pin { pin, gpio_mem }
+    pub(super) fn new(gpio_mem: &'gpio GpioMem, pin: KnownPin) -> Pin<'gpio> {
+        Pin { gpio_mem, pin }
     }
 
     /// Returns the GPIO pin number.
     ///
     /// Pins are addressed by their BCM GPIO numbers, rather than their physical location.
     #[inline]
-    pub fn pin(&self) -> u8 {
+    pub fn pin(&self) -> KnownPin {
         self.pin
     }
 
     /// Returns the pin's mode.
     #[inline]
     pub fn mode(&self) -> Mode {
-        self.gpio_mem.mode(self.pin)
+        self.gpio_mem.mode(self.pin as _)
     }
 
     /// Reads the pin's logic level.
     #[inline]
     pub fn read(&self) -> Level {
-        self.gpio_mem.level(self.pin)
-    }
-
-    /// Consumes the `Pin` and returns an [`InputPin`]. Sets the mode to [`Input`]
-    /// and disables the pin's built-in pull-up/pull-down resistors.
-    ///
-    /// [`InputPin`]: struct.InputPin.html
-    /// [`Input`]: enum.Mode.html#variant.Input
-    #[inline]
-    pub fn into_input(self) -> InputPin<'gpio> {
-        InputPin::new(self, Bias::Off)
-    }
-
-    /// Consumes the `Pin` and returns an [`InputPin`]. Sets the mode to [`Input`]
-    /// and enables the pin's built-in pull-down resistor.
-    ///
-    /// The pull-down resistor is disabled when `InputPin` goes out of scope if [`reset_on_drop`]
-    /// is set to `true` (default).
-    ///
-    /// [`InputPin`]: struct.InputPin.html
-    /// [`Input`]: enum.Mode.html#variant.Input
-    /// [`reset_on_drop`]: struct.InputPin.html#method.set_reset_on_drop
-    #[inline]
-    pub fn into_input_pulldown(self) -> InputPin<'gpio> {
-        InputPin::new(self, Bias::PullDown)
-    }
-
-    /// Consumes the `Pin` and returns an [`InputPin`]. Sets the mode to [`Input`]
-    /// and enables the pin's built-in pull-up resistor.
-    ///
-    /// The pull-up resistor is disabled when `InputPin` goes out of scope if [`reset_on_drop`]
-    /// is set to `true` (default).
-    ///
-    /// [`InputPin`]: struct.InputPin.html
-    /// [`Input`]: enum.Mode.html#variant.Input
-    /// [`reset_on_drop`]: struct.InputPin.html#method.set_reset_on_drop
-    #[inline]
-    pub fn into_input_pullup(self) -> InputPin<'gpio> {
-        InputPin::new(self, Bias::PullUp)
-    }
-
-    /// Consumes the `Pin` and returns an [`OutputPin`]. Sets the mode to [`Mode::Output`]
-    /// and leaves the logic level unchanged.
-    #[inline]
-    pub fn into_output(self, level: Level) -> OutputPin<'gpio> {
-        OutputPin::new(self, level)
-    }
-
-    /// Consumes the `Pin` and returns an [`OutputPin`]. Changes the logic level to
-    /// [`Level::Low`] and then sets the mode to [`Mode::Output`].
-    #[inline]
-    pub fn into_output_low(self) -> OutputPin<'gpio> {
-        OutputPin::new(self, Level::Low)
-    }
-
-    /// Consumes the `Pin` and returns an [`OutputPin`]. Changes the logic level to
-    /// [`Level::High`] and then sets the mode to [`Mode::Output`].
-    #[inline]
-    pub fn into_output_high(self) -> OutputPin<'gpio> {
-        OutputPin::new(self, Level::High)
+        unsafe { self.gpio_mem.level(self.pin as _) }
     }
 
     #[inline]
     pub(crate) fn set_mode(&self, mode: Mode) {
-        self.gpio_mem.set_mode(self.pin, mode);
+        self.gpio_mem.set_mode(self.pin as _, mode);
     }
 
     #[inline]
     pub(crate) fn set_bias(&self, bias: Bias) {
-        self.gpio_mem.set_bias(self.pin, bias);
+        self.gpio_mem.set_bias(self.pin as _, bias);
     }
 
     #[inline]
     pub(crate) fn set_low(&self) {
-        self.gpio_mem.set_low(self.pin);
+        self.gpio_mem.set_low(self.pin as _);
     }
 
     #[inline]
     pub(crate) fn set_high(&self) {
-        self.gpio_mem.set_high(self.pin);
+        self.gpio_mem.set_high(self.pin as _);
     }
 
     #[inline]
@@ -155,22 +99,19 @@ impl<'gpio> Pin<'gpio> {
 /// [`Pin::into_input_pulldown`]: struct.Pin.html#method.into_input_pulldown
 #[derive(Debug)]
 pub struct InputPin<'gpio> {
-    pub(crate) pin: Pin<'gpio>,
+    pub(super) pin: Pin<'gpio>,
 }
 
-impl InputPin<'_> {
-    pub(crate) fn new(pin: Pin, bias: Bias) -> InputPin {
-        pin.set_mode(Mode::Input);
-        pin.set_bias(bias);
-
-        InputPin { pin }
+impl<'gpio> InputPin<'gpio> {
+    pub(in super) unsafe fn new(pin: Pin<'gpio>) -> Self {
+        Self { pin }
     }
 
     /// Returns the GPIO pin number.
     ///
     /// Pins are addressed by their BCM numbers, rather than their physical location.
     #[inline]
-    pub fn pin(&self) -> u8 {
+    pub fn pin(&self) -> KnownPin {
         self.pin.pin
     }
 
@@ -223,11 +164,8 @@ pub struct OutputPin<'gpio> {
     pin: Pin<'gpio>,
 }
 
-impl OutputPin<'_> {
-    pub(crate) fn new(pin: Pin, level: Level) -> OutputPin {
-        pin.set_mode(Mode::Output);
-        pin.write(level);
-
+impl<'gpio> OutputPin<'gpio> {
+    pub(super) unsafe fn new(pin: Pin<'gpio>) -> Self {
         OutputPin { pin }
     }
 
@@ -235,7 +173,7 @@ impl OutputPin<'_> {
     ///
     /// Pins are addressed by their BCM numbers, rather than their physical location.
     #[inline]
-    pub fn pin(&self) -> u8 {
+    pub fn pin(&self) -> KnownPin {
         self.pin.pin
     }
 

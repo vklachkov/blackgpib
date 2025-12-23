@@ -9,7 +9,7 @@ pub struct DiskIdentity {
     ///
     /// In theory Compass supports 256 and 512 bytes per sector.
     /// But in reality, 512 bytes is hardcoded in the ROM and maybe in other places,
-    /// and the GPiB state breaks after reading zero sector.
+    /// and the GPIB state breaks after reading zero sector.
     pub sector_size: u16,
 
     /// Logical sector size.

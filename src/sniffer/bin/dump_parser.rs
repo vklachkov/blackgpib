@@ -20,7 +20,7 @@ struct Args {
     path: PathBuf,
 }
 
-enum GPiBByte {
+enum GPIBByte {
     Command { timestamp: Duration, cmd: GPIBCommand },
     Data { timestamp: Duration, byte: u8, eoi: bool },
 }
@@ -40,7 +40,7 @@ impl DumpIterator {
 }
 
 impl Iterator for DumpIterator {
-    type Item = io::Result<GPiBByte>;
+    type Item = io::Result<GPIBByte>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.end_marker_found {
@@ -67,9 +67,9 @@ impl Iterator for DumpIterator {
 
         let byte = if atn {
             let cmd = GPIBCommand::from(byte);
-            GPiBByte::Command { timestamp, cmd }
+            GPIBByte::Command { timestamp, cmd }
         } else {
-            GPiBByte::Data { timestamp, byte, eoi }
+            GPIBByte::Data { timestamp, byte, eoi }
         };
 
         Some(Ok(byte))
@@ -98,7 +98,7 @@ fn main() {
 
     while let Some(byte) = dump_iter.next() {
         match byte.expect("failed to read byte from dump") {
-            GPiBByte::Command { timestamp, cmd } => {
+            GPIBByte::Command { timestamp, cmd } => {
                 display_command(timestamp, cmd, compact);
 
                 state = match cmd {
@@ -114,7 +114,7 @@ fn main() {
                     _ => State::Idle,
                 };
             }
-            GPiBByte::Data { timestamp, byte, eoi } => {
+            GPIBByte::Data { timestamp, byte, eoi } => {
                 buffer.push(byte);
                 if eoi {
                     display_buffer(state, timestamp, &buffer, compact);
@@ -139,12 +139,12 @@ fn fix_broken_pipe() {
 fn parse_args() -> Args {
     use bpaf::{Parser, construct, long, positional};
 
-    let compact = long("compact").help("Hide all GPiB commands and raw data").switch();
+    let compact = long("compact").help("Hide all GPIB commands and raw data").switch();
     let path = positional("PATH");
 
     construct!(Args { compact, path })
         .to_options()
-        .descr("GPiB Peripheral Emulator for GRiD Compass")
+        .descr("GPIB Peripheral Emulator for GRiD Compass")
         .run()
 }
 

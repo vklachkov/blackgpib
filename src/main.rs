@@ -1,11 +1,10 @@
 #![allow(clippy::needless_return, clippy::upper_case_acronyms)]
 
 mod args;
-mod common;
+// mod common;
 mod controller;
 mod emulator;
 mod gpib_command;
-mod gpib_pinout;
 mod listener;
 mod logger;
 mod gpio;

@@ -5,11 +5,10 @@ mod proxy;
 use std::time::Instant;
 
 use crate::{
-    common::{CommonPins, reset_all_pins},
     debug,
     gpib_command::GPIBCommand,
-    listener::Listener,
     gpio::Gpio,
+    listener::Listener,
     talker::Talker,
     warn,
 };
@@ -92,15 +91,12 @@ impl DeviceEmulator {
     }
 
     pub fn start(mut self) {
-        let gpio = unsafe { Gpio::new() }.unwrap();
-        reset_all_pins(&gpio);
-
-        let common_pins = CommonPins::new(&gpio);
+        let mut gpio = unsafe { Gpio::new() }.unwrap();
 
         loop {
-            let a = Instant::now();
-            let listener = Listener::new(&gpio, &common_pins);
-            crate::info!("Listener setup {:?}", a.elapsed());
+            let listener = crate::utils::measure(|| {
+                Listener::new(&mut gpio)
+            });
 
             let talk_mode = 'l: loop {
                 let cmd = listener.start_command_handshake();
@@ -149,14 +145,15 @@ impl DeviceEmulator {
                     }
                     GPIBCommand::MTA(address) => {
                         if self.is_device_exists(address) {
-                            self.active_talker = Some(address);
+                            unimplemented!();
+                            // self.active_talker = Some(address);
 
-                            if self.serial_poll_state == SerialPollState::Disabled {
-                                break 'l TalkMode::Device(Self::get_device(&mut self.devices, address));
-                            } else {
-                                let f = self.serial_poll_state == SerialPollState::Requested(address);
-                                break 'l TalkMode::SerialPollProbe(f);
-                            }
+                            // if self.serial_poll_state == SerialPollState::Disabled {
+                            //     break 'l TalkMode::Device(Self::get_device(&mut self.devices, address));
+                            // } else {
+                            //     let f = self.serial_poll_state == SerialPollState::Requested(address);
+                            //     break 'l TalkMode::SerialPollProbe(f);
+                            // }
                         } else {
                             cmd.unexpected();
                         }
@@ -177,17 +174,17 @@ impl DeviceEmulator {
 
             drop(listener);
 
-            let talker = Talker::new(&gpio, &common_pins);
+            // let talker = Talker::new(&gpio, &common_pins);
 
-            match talk_mode {
-                TalkMode::SerialPollProbe(valid_address) => {
-                    let response = if valid_address { 0x4F } else { 0x0F };
-                    talker.send_serial_poll_response(response);
-                }
-                TalkMode::Device(device) => {
-                    device.talk(talker);
-                }
-            }
+            // match talk_mode {
+            //     TalkMode::SerialPollProbe(valid_address) => {
+            //         let response = if valid_address { 0x4F } else { 0x0F };
+            //         talker.send_serial_poll_response(response);
+            //     }
+            //     TalkMode::Device(device) => {
+            //         device.talk(talker);
+            //     }
+            // }
         }
     }
 

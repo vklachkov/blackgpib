@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 //! Raspberry Pi system-related tools.
 //!
 //! Use [`DeviceInfo`] to identify the Raspberry Pi's model and SoC.
