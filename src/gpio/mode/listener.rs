@@ -89,20 +89,16 @@ impl<'gpio> GpioMode<'gpio> {
     get_pin!(nrfd, KnownPin::NRFD, OutputPin<'gpio>);
 
     pub fn read_dio(&self) -> u8 {
-        todo!();
+        let levels = self.gpio_mem.levels();
+        let levels_inv = !levels;
 
-        // SAFETY: bank 0 is valid.
-        // let levels = unsafe { self.gpio_mem.read_bank_levels(0) };
-        // println!("levels: {levels:#034b}");
+        let mut data = 0;
+        let data_pins = const { KnownPin::data() };
 
-        // let mut data = 0;
-        // let data_pins = const { KnownPin::data() };
+        for i in 0..data_pins.len() {
+            data |= (levels_inv >> data_pins[i] as u8 & 0b1) << i;
+        }
 
-        // for pin in data_pins {
-        //     data |= ((levels >> pin as u8) & 0b1) as u8;
-        //     data <<= 1;
-        // }
-
-        // data
+        data as u8
     }
 }
