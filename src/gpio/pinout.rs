@@ -73,16 +73,6 @@ impl KnownPin {
     }
 
     pub const fn data() -> [KnownPin; 8] {
-        // [
-        //     KnownPin::DIO8,
-        //     KnownPin::DIO7,
-        //     KnownPin::DIO6,
-        //     KnownPin::DIO5,
-        //     KnownPin::DIO4,
-        //     KnownPin::DIO3,
-        //     KnownPin::DIO2,
-        //     KnownPin::DIO1,
-        // ]
         [
             KnownPin::DIO1,
             KnownPin::DIO2,

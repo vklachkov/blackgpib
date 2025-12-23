@@ -26,12 +26,11 @@ impl<'gpio> GpioMode<'gpio> {
         // Setup modes.
         gpio_mem.write_pins_modes(const { Self::pin_modes() });
 
-        // Configure output.
-        gpio_mem.set_high(KnownPin::NDAC as _);
-        gpio_mem.set_high(KnownPin::NRFD as _);
-
         // Configure input.
         gpio_mem.write_pins_bias(const { Self::input_pins_mask() }, Bias::PullUp);
+
+        // Configure output.
+        gpio_mem.set_pins_high(const { Self::output_pins_mask() });
 
         Self { gpio_mem }
     }
@@ -54,6 +53,15 @@ impl<'gpio> GpioMode<'gpio> {
         }
 
         regs
+    }
+
+    const fn output_pins_mask() -> PinMask {
+        let mut mask = PinMask::new();
+
+        mask.set(KnownPin::NDAC);
+        mask.set(KnownPin::NRFD);
+
+        mask
     }
 
     const fn input_pins_mask() -> PinMask {

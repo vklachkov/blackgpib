@@ -1,8 +1,8 @@
-use std::fs::OpenOptions;
 use std::io;
 use std::os::unix::fs::OpenOptionsExt;
 use std::os::unix::io::AsRawFd;
 use std::ptr;
+use std::{fs::OpenOptions, time::Duration};
 
 use libc::{self, MAP_FAILED, MAP_SHARED, O_SYNC, PROT_READ, PROT_WRITE, c_void, size_t};
 
@@ -93,12 +93,19 @@ impl Drop for GpioMem {
 }
 
 impl GpioMem {
+    const GPPUD_DELAY: Duration = Duration::from_nanos(800);
+
     #[inline(always)]
     pub fn set_high(&self, pin: u8) {
         let offset = GPSET0 + pin as usize / 32;
         let shift = pin % 32;
 
         unsafe { self.write(offset, 1 << shift) };
+    }
+
+    #[inline(always)]
+    pub fn set_pins_high(&self, mask: PinMask) {
+        unsafe { self.write(GPSET0, mask.value()) };
     }
 
     #[inline(always)]
@@ -110,8 +117,8 @@ impl GpioMem {
     }
 
     #[inline(always)]
-    pub unsafe fn read_bank_levels(&self, bank: u8) -> u32 {
-        return unsafe { self.read(GPLEV0 + bank as usize) };
+    pub fn levels(&self) -> u32 {
+        return unsafe { self.read(GPLEV0) };
     }
 
     #[inline(always)]
@@ -135,6 +142,7 @@ impl GpioMem {
         }
     }
 
+    #[inline(always)]
     pub fn write_pins_modes(&self, regs: PinModesRegs) {
         for (i, reg) in regs.regs().into_iter().enumerate() {
             unsafe { self.write(GPFSEL0 + i as usize, reg) };
@@ -150,17 +158,10 @@ impl GpioMem {
     }
 
     pub fn write_pins_bias(&self, mask: PinMask, bias: Bias) {
-        // Offset for register.
-        let offset: usize;
-        // Bit shift for pin position within register value.
-        let shift: u8;
-
         // BCM2711 (RPi4) and BCM2712 (RPi5) need special handling.
         if self.soc == SoC::Bcm2711 || self.soc == SoC::Bcm2712 {
             unimplemented!()
         } else {
-            offset = GPPUDCLK0;
-
             // Set the control signal in GPPUD.
             let reg_value = unsafe { self.read(GPPUD) };
             unsafe { self.write(GPPUD, (reg_value & !0b11) | ((bias as u32) & 0b11)) };
@@ -171,15 +172,15 @@ impl GpioMem {
             // 250MHz or 400MHz, a 5µs delay + overhead is more than adequate.
 
             // Set-up time for the control signal. >= 600ns
-            crate::utils::busy_wait(800);
+            crate::utils::busy_wait(Self::GPPUD_DELAY);
             // Clock the control signal into the selected pin.
-            unsafe { self.write(offset, mask.value()) };
+            unsafe { self.write(GPPUDCLK0, mask.value()) };
 
             // Hold time for the control signal. >= 600ns
-            crate::utils::busy_wait(800);
+            crate::utils::busy_wait(Self::GPPUD_DELAY);
             // Remove the control signal and clock.
             unsafe { self.write(GPPUD, reg_value & !0b11) };
-            unsafe { self.write(offset, 0) };
+            unsafe { self.write(GPPUDCLK0, 0) };
         }
     }
 
@@ -212,12 +213,12 @@ impl GpioMem {
             // 250MHz or 400MHz, a 5µs delay + overhead is more than adequate.
 
             // Set-up time for the control signal. >= 600ns
-            crate::utils::busy_wait(800);
+            crate::utils::busy_wait(Self::GPPUD_DELAY);
             // Clock the control signal into the selected pin.
             unsafe { self.write(offset, 1 << shift) };
 
             // Hold time for the control signal. >= 600ns
-            crate::utils::busy_wait(800);
+            crate::utils::busy_wait(Self::GPPUD_DELAY);
             // Remove the control signal and clock.
             unsafe { self.write(GPPUD, reg_value & !0b11) };
             unsafe { self.write(offset, 0) };

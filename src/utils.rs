@@ -17,7 +17,9 @@ pub fn configure_scheduler() {
 }
 
 /// Waits for the specified time without context switching.
-pub fn busy_wait(ns: u64) {
+pub fn busy_wait(duration: std::time::Duration) {
+    let ns: u64 = duration.as_nanos().try_into().expect("too big busy wait");
+
     unsafe {
         let frq: u64;
         let start: u64;
@@ -78,9 +80,7 @@ pub fn measure<T>(f: impl FnOnce() -> T) -> T {
 
     let ticks = stop.wrapping_sub(start);
 
-    let nanos_u128 = (ticks as u128)
-        .saturating_mul(1_000_000_000u128)
-        / (frq as u128);
+    let nanos_u128 = (ticks as u128).saturating_mul(1_000_000_000u128) / (frq as u128);
 
     let nanos = (nanos_u128.min(u64::MAX as u128)) as u64;
 

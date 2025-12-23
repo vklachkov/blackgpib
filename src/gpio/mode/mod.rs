@@ -27,7 +27,7 @@ pub(super) fn prepare_common_pins(gpio_mem: &GpioMem) {
 
     let input_pins = [KnownPin::ATN, KnownPin::REN, KnownPin::IFC];
 
-    for (pin, level) in output_pins {
+    for pin in input_pins {
         gpio_mem.set_mode(pin as u8, Mode::Input);
         gpio_mem.set_bias(pin as u8, Bias::PullUp);
     }

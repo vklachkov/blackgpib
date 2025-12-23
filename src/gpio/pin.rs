@@ -103,7 +103,7 @@ pub struct InputPin<'gpio> {
 }
 
 impl<'gpio> InputPin<'gpio> {
-    pub(in super) unsafe fn new(pin: Pin<'gpio>) -> Self {
+    pub(super) unsafe fn new(pin: Pin<'gpio>) -> Self {
         Self { pin }
     }
 
