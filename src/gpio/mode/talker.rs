@@ -2,7 +2,7 @@ use crate::gpio::{
     GpioMem, InputPin, OutputPin,
     pin::Pin,
     pinout::KnownPin,
-    types::{Bias, Level, Mode, PinMask, PinModesRegs},
+    types::{Bias, Mode, PinMask, PinModesRegs},
 };
 
 macro_rules! get_pin {
@@ -21,14 +21,10 @@ pub struct GpioMode<'gpio> {
 
 impl<'gpio> GpioMode<'gpio> {
     pub(in crate::gpio) fn new(gpio_mem: &'gpio mut GpioMem) -> Self {
-        // Setup modes.
         gpio_mem.write_pins_modes(const { Self::pin_modes() });
 
-        // Configure input.
-        gpio_mem.write_pins_bias(const { Self::input_pins_mask() }, Bias::PullUp);
-
-        // Configure output.
-        gpio_mem.set_low(KnownPin::TE as _);
+        gpio_mem.set_low(KnownPin::DC as _);
+        gpio_mem.set_high(KnownPin::TE as _);
         gpio_mem.set_pins_high(const { Self::output_pins_mask() });
 
         Self { gpio_mem }
@@ -41,10 +37,10 @@ impl<'gpio> GpioMode<'gpio> {
         regs.set(KnownPin::TE, Mode::Output);
         regs.set(KnownPin::PE, Mode::Output);
 
-        regs.set(KnownPin::ATN, Mode::Input);
-        regs.set(KnownPin::SRQ, Mode::Output);
-        regs.set(KnownPin::REN, Mode::Input);
-        regs.set(KnownPin::IFC, Mode::Input);
+        regs.set(KnownPin::ATN, Mode::Output);
+        regs.set(KnownPin::SRQ, Mode::Input);
+        regs.set(KnownPin::REN, Mode::Output);
+        regs.set(KnownPin::IFC, Mode::Output);
         regs.set(KnownPin::EOI, Mode::Output);
         regs.set(KnownPin::DAV, Mode::Output);
 
@@ -62,26 +58,14 @@ impl<'gpio> GpioMode<'gpio> {
         regs
     }
 
-    const fn input_pins_mask() -> PinMask {
+    const fn output_pins_mask() -> PinMask {
         let mut mask = PinMask::new();
+
+        mask.set(KnownPin::PE);
 
         mask.set(KnownPin::ATN);
         mask.set(KnownPin::REN);
         mask.set(KnownPin::IFC);
-        mask.set(KnownPin::NDAC);
-        mask.set(KnownPin::NRFD);
-
-        mask
-    }
-
-    const fn output_pins_mask() -> PinMask {
-        let mut mask = PinMask::new();
-
-        mask.set(KnownPin::DC);
-        mask.set(KnownPin::TE);
-        mask.set(KnownPin::PE);
-
-        mask.set(KnownPin::SRQ);
         mask.set(KnownPin::EOI);
         mask.set(KnownPin::DAV);
 
@@ -96,7 +80,7 @@ impl<'gpio> GpioMode<'gpio> {
         mask
     }
 
-    get_pin!(atn, KnownPin::ATN, InputPin<'gpio>);
+    get_pin!(atn, KnownPin::ATN, OutputPin<'gpio>);
     get_pin!(eoi, KnownPin::EOI, OutputPin<'gpio>);
     get_pin!(dav, KnownPin::DAV, OutputPin<'gpio>);
     get_pin!(ndac, KnownPin::NDAC, InputPin<'gpio>);

@@ -122,7 +122,7 @@ impl GpioMem {
     }
 
     #[inline(always)]
-    pub unsafe fn level(&self, pin: u8) -> Level {
+    pub fn level(&self, pin: u8) -> Level {
         let offset = GPLEV0 + pin as usize / 32;
         let shift = pin % 32;
         let reg_value = unsafe { self.read(offset) };

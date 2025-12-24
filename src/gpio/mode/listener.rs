@@ -2,7 +2,7 @@ use crate::gpio::{
     GpioMem, InputPin, OutputPin,
     pin::Pin,
     pinout::KnownPin,
-    types::{Bias, Level, Mode, PinMask, PinModesRegs},
+    types::{Bias, Mode, PinMask, PinModesRegs},
 };
 
 macro_rules! get_pin {
@@ -21,13 +21,9 @@ pub struct GpioMode<'gpio> {
 
 impl<'gpio> GpioMode<'gpio> {
     pub(in crate::gpio) fn new(gpio_mem: &'gpio mut GpioMem) -> Self {
-        // Setup modes.
         gpio_mem.write_pins_modes(const { Self::pin_modes() });
 
-        // Configure input.
-        gpio_mem.write_pins_bias(const { Self::input_pins_mask() }, Bias::PullUp);
-
-        // Configure output.
+        gpio_mem.set_high(KnownPin::DC as _);
         gpio_mem.set_low(KnownPin::TE as _);
         gpio_mem.set_pins_high(const { Self::output_pins_mask() });
 
@@ -62,28 +58,12 @@ impl<'gpio> GpioMode<'gpio> {
         regs
     }
 
-    const fn input_pins_mask() -> PinMask {
-        let mut mask = PinMask::new();
-
-        mask.set(KnownPin::ATN);
-        mask.set(KnownPin::REN);
-        mask.set(KnownPin::IFC);
-        mask.set(KnownPin::EOI);
-        mask.set(KnownPin::DAV);
-
-        let data_pins = KnownPin::data();
-
-        let mut i = 0;
-        while i < data_pins.len() {
-            mask.set(data_pins[i]);
-            i += 1;
-        }
-
-        mask
-    }
-
     const fn output_pins_mask() -> PinMask {
         let mut mask = PinMask::new();
+
+        mask.set(KnownPin::PE);
+
+        mask.set(KnownPin::SRQ);
 
         mask.set(KnownPin::NDAC);
         mask.set(KnownPin::NRFD);

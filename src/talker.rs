@@ -20,10 +20,6 @@ impl<'gpio> Talker<'gpio> {
     pub fn send_bytes(&mut self, bytes: &[u8]) {
         let bytes_len = bytes.len();
 
-        crate::info!("Send {bytes_len} bytes to bus... Wait ATN");
-
-        while self.gpio.atn().is_low() {}
-
         crate::info!("ATN high, start transmition");
 
         for i in 0..bytes_len {
@@ -37,8 +33,6 @@ impl<'gpio> Talker<'gpio> {
 
     pub fn send_serial_poll_response(&self, byte: u8) {
         crate::info!("Send serial poll response {:#04x} to bus", byte);
-
-        while self.gpio.atn().is_low() {}
 
         self.send_byte(byte, false);
 
