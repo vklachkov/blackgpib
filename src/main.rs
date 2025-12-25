@@ -1,7 +1,6 @@
 #![allow(clippy::needless_return, clippy::upper_case_acronyms)]
 
 mod args;
-// mod common;
 mod controller;
 mod emulator;
 mod gpib_command;
@@ -9,6 +8,7 @@ mod gpio;
 mod listener;
 mod logger;
 mod sniffer;
+mod system;
 mod talker;
 mod utils;
 
@@ -18,8 +18,10 @@ use crate::{
     args::{Args, ControllerArgs, EmulatorArgs, SnifferArgs},
     controller::DeviceController,
     emulator::DeviceEmulator,
+    gpio::Gpio,
     logger::LogLevel,
     sniffer::BusSniffer,
+    system::{DeviceInfo, GpioInterface},
     utils::configure_scheduler,
 };
 
@@ -28,6 +30,18 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 fn main() {
     let args = Args::parse();
 
+    setup_logger(&args);
+
+    let gpio = open_gpio().expect("Failed to configure gpio");
+
+    match args.command {
+        args::Command::Emulator(args) => run_emulator(args, gpio),
+        args::Command::Sniffer(args) => run_sniffer(args),
+        args::Command::Controller(args) => run_controller(args),
+    }
+}
+
+fn setup_logger(args: &Args) {
     logger::setup(if args.trace {
         LogLevel::Trace
     } else if args.verbose {
@@ -37,22 +51,26 @@ fn main() {
     });
 
     info!("BlackGPiB v{VERSION} started");
-
-    match args.command {
-        args::Command::Emulator(args) => run_emulator(args),
-        args::Command::Sniffer(args) => run_sniffer(args),
-        args::Command::Controller(args) => run_controller(args),
-    }
 }
 
-fn run_emulator(args: EmulatorArgs) {
+fn open_gpio() -> io::Result<Gpio> {
+    let device_info = DeviceInfo::new()?;
+    if device_info.gpio_interface() == GpioInterface::Rp1 {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "RP1 does not supported"));
+    }
+
+    // SAFETY: TODO.
+    unsafe { Gpio::new(&device_info) }
+}
+
+fn run_emulator(args: EmulatorArgs, gpio: Gpio) {
     let mut emulator = DeviceEmulator::new();
     configure_emulator(args, &mut emulator);
 
     configure_scheduler();
 
     debug!("Configuration complete, start device emulator");
-    emulator.start();
+    emulator.start(gpio);
 }
 
 fn configure_emulator(args: EmulatorArgs, emulator: &mut DeviceEmulator) {

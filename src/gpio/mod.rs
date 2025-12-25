@@ -2,10 +2,11 @@ mod mem;
 mod mode;
 mod pin;
 mod pinout;
-mod system;
 mod types;
 
 use std::io;
+
+use crate::system::DeviceInfo;
 
 use mem::GpioMem;
 
@@ -18,8 +19,10 @@ pub struct Gpio {
 }
 
 impl Gpio {
-    pub unsafe fn new() -> io::Result<Gpio> {
-        Ok(Self { mem: GpioMem::open()? })
+    pub unsafe fn new(device_info: &DeviceInfo) -> io::Result<Gpio> {
+        Ok(Self {
+            mem: GpioMem::open(device_info.soc())?,
+        })
     }
 
     pub fn into_listener_mode(&mut self) -> ListenerGpio<'_> {

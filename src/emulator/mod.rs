@@ -81,9 +81,7 @@ impl DeviceEmulator {
         self.devices[id] = Some(Box::new(ctor()))
     }
 
-    pub fn start(mut self) {
-        let mut gpio = unsafe { Gpio::new() }.unwrap();
-
+    pub fn start(mut self, mut gpio: Gpio) {
         loop {
             let listener = Listener::new(&mut gpio);
 

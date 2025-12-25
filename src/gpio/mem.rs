@@ -6,10 +6,9 @@ use std::{fs::OpenOptions, time::Duration};
 
 use libc::{self, MAP_FAILED, MAP_SHARED, O_SYNC, PROT_READ, PROT_WRITE, c_void, size_t};
 
-use super::{
-    system::{DeviceInfo, SoC},
-    types::{Bias, Level, Mode, PinMask, PinModesRegs},
-};
+use crate::system::SoC;
+
+use super::types::{Bias, Level, Mode, PinMask, PinModesRegs};
 
 const PATH_DEV_GPIOMEM: &str = "/dev/gpiomem";
 // The BCM2835 has 41 32-bit registers related to the GPIO (datasheet @ 6.1).
@@ -41,10 +40,8 @@ pub(in crate::gpio) struct GpioMem {
 }
 
 impl GpioMem {
-    pub fn open() -> io::Result<GpioMem> {
+    pub fn open(soc: SoC) -> io::Result<GpioMem> {
         let mem_ptr = Self::map_devgpiomem()?;
-        let soc = DeviceInfo::new()?.soc();
-
         Ok(GpioMem { mem_ptr, soc })
     }
 
@@ -158,8 +155,8 @@ impl GpioMem {
     }
 
     pub fn write_pins_bias(&self, mask: PinMask, bias: Bias) {
-        // BCM2711 (RPi4) and BCM2712 (RPi5) need special handling.
-        if self.soc == SoC::Bcm2711 || self.soc == SoC::Bcm2712 {
+        // BCM2711 (RPi4) need special handling.
+        if self.soc == SoC::Bcm2711 {
             unimplemented!()
         } else {
             // Set the control signal in GPPUD.

@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 //! Raspberry Pi system-related tools.
 //!
 //! Use [`DeviceInfo`] to identify the Raspberry Pi's model and SoC.
@@ -11,23 +9,6 @@ use std::fs;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader};
 use std::result;
-
-// Peripheral base address
-const PERIPHERAL_BASE_RPI: u32 = 0x2000_0000;
-const PERIPHERAL_BASE_RPI2: u32 = 0x3f00_0000;
-const PERIPHERAL_BASE_RPI4: u32 = 0xfe00_0000;
-const PERIPHERAL_BASE_RP1: u32 = 0x4000_0000;
-
-// Offset from the peripheral base address
-const GPIO_OFFSET: u32 = 0x20_0000;
-const GPIO_OFFSET_RP1: u32 = 0x0d_0000;
-
-// Number of GPIO lines
-const GPIO_LINES_BCM283X: u8 = 54;
-const GPIO_LINES_BCM2711: u8 = 58;
-// The RP1 actually has 54 GPIOs across 3 banks, but the last two banks are currently
-// specified as internal-use only, so we'll ignore those.
-const GPIO_LINES_RP1: u8 = 28;
 
 /// Identifiable Raspberry Pi models.
 ///
@@ -306,18 +287,7 @@ fn parse_base_model() -> io::Result<Model> {
 pub struct DeviceInfo {
     model: Model,
     soc: SoC,
-    // Peripheral base memory address
-    peripheral_base: u32,
-    // Offset from the peripheral base memory address for the GPIO section
-    gpio_offset: u32,
-    // Number of GPIO lines available for this SoC
-    gpio_lines: u8,
-    // GPIO interface through the Broadcom SoC or a separate RP1
     gpio_interface: GpioInterface,
-    // PWM chip # used for hardware PWM on selected GPIO pins
-    pwm_chip: u8,
-    // Total number of supported hardware PWM channels
-    pwm_channels: u8,
 }
 
 impl DeviceInfo {
@@ -342,43 +312,23 @@ impl DeviceInfo {
             | Model::RaspberryPiZeroW => Ok(DeviceInfo {
                 model,
                 soc: SoC::Bcm2835,
-                peripheral_base: PERIPHERAL_BASE_RPI,
-                gpio_offset: GPIO_OFFSET,
-                gpio_lines: GPIO_LINES_BCM283X,
                 gpio_interface: GpioInterface::Bcm,
-                pwm_chip: 0,
-                pwm_channels: 2,
             }),
             Model::RaspberryPi2B => Ok(DeviceInfo {
                 model,
                 soc: SoC::Bcm2836,
-                peripheral_base: PERIPHERAL_BASE_RPI2,
-                gpio_offset: GPIO_OFFSET,
-                gpio_lines: GPIO_LINES_BCM283X,
                 gpio_interface: GpioInterface::Bcm,
-                pwm_chip: 0,
-                pwm_channels: 2,
             }),
             Model::RaspberryPi3B | Model::RaspberryPiComputeModule3 | Model::RaspberryPiZero2W => Ok(DeviceInfo {
                 model,
                 soc: SoC::Bcm2837A1,
-                peripheral_base: PERIPHERAL_BASE_RPI2,
-                gpio_offset: GPIO_OFFSET,
-                gpio_lines: GPIO_LINES_BCM283X,
                 gpio_interface: GpioInterface::Bcm,
-                pwm_chip: 0,
-                pwm_channels: 2,
             }),
             Model::RaspberryPi3BPlus | Model::RaspberryPi3APlus | Model::RaspberryPiComputeModule3Plus => {
                 Ok(DeviceInfo {
                     model,
                     soc: SoC::Bcm2837B0,
-                    peripheral_base: PERIPHERAL_BASE_RPI2,
-                    gpio_offset: GPIO_OFFSET,
-                    gpio_lines: GPIO_LINES_BCM283X,
                     gpio_interface: GpioInterface::Bcm,
-                    pwm_chip: 0,
-                    pwm_channels: 2,
                 })
             }
             Model::RaspberryPi4B
@@ -387,12 +337,7 @@ impl DeviceInfo {
             | Model::RaspberryPiComputeModule4S => Ok(DeviceInfo {
                 model,
                 soc: SoC::Bcm2711,
-                peripheral_base: PERIPHERAL_BASE_RPI4,
-                gpio_offset: GPIO_OFFSET,
-                gpio_lines: GPIO_LINES_BCM2711,
                 gpio_interface: GpioInterface::Bcm,
-                pwm_chip: 0,
-                pwm_channels: 2,
             }),
             Model::RaspberryPi5
             | Model::RaspberryPi500
@@ -400,12 +345,7 @@ impl DeviceInfo {
             | Model::RaspberryPiComputeModule5Lite => Ok(DeviceInfo {
                 model,
                 soc: SoC::Bcm2712,
-                peripheral_base: PERIPHERAL_BASE_RP1,
-                gpio_offset: GPIO_OFFSET_RP1,
-                gpio_lines: GPIO_LINES_RP1,
                 gpio_interface: GpioInterface::Rp1,
-                pwm_chip: 2,
-                pwm_channels: 4,
             }),
         }
     }
@@ -420,33 +360,8 @@ impl DeviceInfo {
         self.soc
     }
 
-    /// Returns the number of hardware PWM channels supported by this Raspberry Pi model.
-    pub fn pwm_channels(&self) -> u8 {
-        self.pwm_channels
-    }
-
-    /// Returns the peripheral base memory address.
-    pub(crate) fn peripheral_base(&self) -> u32 {
-        self.peripheral_base
-    }
-
-    /// Returns the offset from the peripheral base memory address for the GPIO section.
-    pub(crate) fn gpio_offset(&self) -> u32 {
-        self.gpio_offset
-    }
-
-    /// Returns the number of GPIO lines available for this SoC.
-    pub(crate) fn gpio_lines(&self) -> u8 {
-        self.gpio_lines
-    }
-
     /// Returns the GPIO interface type for this model.
-    pub(crate) fn gpio_interface(&self) -> GpioInterface {
+    pub fn gpio_interface(&self) -> GpioInterface {
         self.gpio_interface
-    }
-
-    /// Returns the PWM chip # used for hardware PWM.
-    pub(crate) fn pwm_chip(&self) -> u8 {
-        self.pwm_chip
     }
 }
