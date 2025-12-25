@@ -1,3 +1,5 @@
+//! Valid pin list for the BlackGPiB board.
+
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum KnownPin {

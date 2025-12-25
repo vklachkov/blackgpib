@@ -1,3 +1,8 @@
+//! Abstraction over Raspberry Pi pins.
+//!
+//! This file is taken from the `rppal` project (`https://github.com/golemparts/rppal`) under the MIT license,
+//! and has been modified for the needs of the `blackgpib` project.
+
 #![allow(unused)]
 
 use super::{mem::GpioMem, pinout::KnownPin, types::Level};

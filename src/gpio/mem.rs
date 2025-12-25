@@ -1,3 +1,8 @@
+//! Safe wrapper around `/dev/gpiomem` for Raspberry Pi.
+//!
+//! This file is taken from the `rppal` project (`https://github.com/golemparts/rppal`) under the MIT license,
+//! and has been modified for the needs of the `blackgpib` project.
+
 use std::fs::OpenOptions;
 use std::io;
 use std::os::unix::fs::OpenOptionsExt;

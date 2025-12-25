@@ -35,6 +35,7 @@ pub fn busy_wait(duration: std::time::Duration) {
     }
 }
 
+/// Measures function execution time without syscalls.
 pub fn measure<T>(f: impl FnOnce() -> T) -> (T, Duration) {
     let frq: u64;
     let start: u64;

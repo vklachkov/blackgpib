@@ -1,3 +1,8 @@
+//! Basic GPIO types.
+//!
+//! This file is taken from the `rppal` project (`https://github.com/golemparts/rppal`) under the MIT license,
+//! and has been modified for the needs of the `blackgpib` project.
+
 use super::pinout::KnownPin;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -7,7 +12,6 @@ pub enum Mode {
     Output = 0b001,
 }
 
-/// Pin logic levels.
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 #[repr(u8)]
 pub enum Level {

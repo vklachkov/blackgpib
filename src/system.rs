@@ -1,8 +1,7 @@
 //! Raspberry Pi system-related tools.
 //!
-//! Use [`DeviceInfo`] to identify the Raspberry Pi's model and SoC.
-//!
-//! [`DeviceInfo`]: struct.DeviceInfo.html
+//! This file is taken from the `rppal` project (`https://github.com/golemparts/rppal`) under the MIT license,
+//! and has been modified for the needs of the `blackgpib` project.
 
 use std::fmt;
 use std::fs;

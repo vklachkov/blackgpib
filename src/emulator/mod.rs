@@ -3,10 +3,9 @@ mod disk;
 mod proxy;
 
 use crate::{
-    trace,
     gpib::{Command, Listener, Talker},
     gpio::Gpio,
-    warn,
+    trace, warn,
 };
 
 use device::{Device, ServiceRequest};
