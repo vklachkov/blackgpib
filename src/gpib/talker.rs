@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{gpio, utils::busy_wait};
+use crate::{gpio, time_utils::busy_wait};
 
 #[allow(unused)]
 pub struct Talker<'gpio> {

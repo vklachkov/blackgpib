@@ -1,1 +1,1 @@
-../../gpib_command.rs
+../../gpib/command.rs

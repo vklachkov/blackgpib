@@ -13,7 +13,7 @@ use std::{
 use disk_identity::DiskIdentity;
 use disk_request::Request as DiskRequest;
 use disk_response::StatusResponse as DiskStatusResponse;
-use gpib_command::GPIBCommand;
+use gpib_command::Command as GPIBCommand;
 
 struct Args {
     compact: bool,

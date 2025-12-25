@@ -1,6 +1,8 @@
 use std::{fmt::Debug, ops::Deref};
 
-use crate::{gpib_command::GPIBCommand, gpio};
+use crate::gpio;
+
+use super::Command;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Byte {
@@ -44,7 +46,7 @@ impl<'gpio> Listener<'gpio> {
         return byte;
     }
 
-    pub fn start_command_handshake<'l>(&'l self) -> HandshakeGuard<'l, 'gpio, GPIBCommand> {
+    pub fn start_command_handshake<'l>(&'l self) -> HandshakeGuard<'l, 'gpio, Command> {
         loop {
             if self.gpio.atn().is_high() {
                 self.gpio.ndac().set_high();
@@ -60,7 +62,7 @@ impl<'gpio> Listener<'gpio> {
             self.gpio.nrfd().set_low();
 
             let byte = self.read_byte();
-            let cmd = GPIBCommand::from(byte.value);
+            let cmd = Command::from(byte.value);
 
             break self.handshake_guard(cmd);
         }

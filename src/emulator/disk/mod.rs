@@ -2,15 +2,17 @@ mod identity;
 mod request;
 mod response;
 
-use crate::{debug, error, talker::Talker};
+use memmap2::MmapMut;
+
+use crate::{debug, error, gpib};
 
 use super::device::{Device, ServiceRequest};
 
-use identity::DiskIdentity;
-use request::{Request, RequestCode};
-use response::{DiskStatus, Response};
-
-use memmap2::MmapMut;
+use self::{
+    identity::DiskIdentity,
+    request::{Request, RequestCode},
+    response::{DiskStatus, Response},
+};
 
 /// Actual sector size. This size is used by both the hard disk and floppy drive.
 ///
@@ -226,7 +228,7 @@ impl Disk {
         return ServiceRequest::Required;
     }
 
-    fn talk(&mut self, mut talker: Talker) {
+    fn talk(&mut self, mut talker: gpib::Talker) {
         let response = self.response();
         talker.send_bytes(response.as_slice());
 
@@ -291,7 +293,7 @@ impl Device for Disk {
         self.process_bytes(buffer)
     }
 
-    fn talk(&mut self, talker: Talker) {
+    fn talk(&mut self, talker: gpib::Talker) {
         self.talk(talker)
     }
 }

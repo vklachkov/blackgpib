@@ -1,4 +1,4 @@
-use crate::talker::Talker;
+use crate::gpib;
 
 /// This flag shows if a Service Request is needed after the byte is processed.
 ///
@@ -15,5 +15,5 @@ pub trait Device {
 
     fn process_bytes(&mut self, buffer: &[u8]) -> ServiceRequest;
 
-    fn talk(&mut self, talker: Talker);
+    fn talk(&mut self, talker: gpib::Talker);
 }

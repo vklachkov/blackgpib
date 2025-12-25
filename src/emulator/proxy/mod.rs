@@ -1,6 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr, UdpSocket};
 
-use crate::talker::Talker;
+use crate::gpib::Talker;
 
 use super::device::{Device, ServiceRequest};
 

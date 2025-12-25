@@ -3,14 +3,12 @@
 mod args;
 mod controller;
 mod emulator;
-mod gpib_command;
+mod gpib;
 mod gpio;
-mod listener;
 mod logger;
 mod sniffer;
 mod system;
-mod talker;
-mod utils;
+mod time_utils;
 
 use std::{fs, io, path::Path};
 
@@ -22,7 +20,6 @@ use crate::{
     logger::LogLevel,
     sniffer::BusSniffer,
     system::{DeviceInfo, GpioInterface},
-    utils::configure_scheduler,
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -51,6 +48,19 @@ fn setup_logger(args: &Args) {
     });
 
     info!("BlackGPiB v{VERSION} started");
+}
+
+fn configure_scheduler() {
+    debug!("Pin blackgpib to core 3 and set priority");
+
+    unsafe {
+        let mut set = std::mem::zeroed();
+        libc::CPU_ZERO(&mut set);
+        libc::CPU_SET(3, &mut set);
+        libc::sched_setaffinity(0, size_of::<libc::cpu_set_t>(), &set);
+    }
+
+    unsafe { libc::setpriority(libc::PRIO_PROCESS, 0, -19) };
 }
 
 fn open_gpio() -> io::Result<Gpio> {

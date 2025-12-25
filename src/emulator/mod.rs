@@ -2,7 +2,12 @@ mod device;
 mod disk;
 mod proxy;
 
-use crate::{debug, gpib_command::GPIBCommand, gpio::Gpio, listener::Listener, talker::Talker, warn};
+use crate::{
+    debug,
+    gpib::{Command, Listener, Talker},
+    gpio::Gpio,
+    warn,
+};
 
 use device::{Device, ServiceRequest};
 use disk::Disk;
@@ -90,10 +95,10 @@ impl DeviceEmulator {
                 crate::info!("Accept command {cmd:?}");
 
                 match *cmd {
-                    GPIBCommand::DCL => {
+                    Command::DCL => {
                         self.reset_all();
                     }
-                    GPIBCommand::SPE => match self.serial_poll_state {
+                    Command::SPE => match self.serial_poll_state {
                         SerialPollState::Disabled => {
                             self.serial_poll_state = SerialPollState::UnexpectedSPE;
                         }
@@ -104,7 +109,7 @@ impl DeviceEmulator {
                             cmd.unexpected();
                         }
                     },
-                    GPIBCommand::SPD => {
+                    Command::SPD => {
                         match self.serial_poll_state {
                             SerialPollState::Disabled => cmd.unexpected(),
                             SerialPollState::Requested(_) => cmd.expected(),
@@ -113,7 +118,7 @@ impl DeviceEmulator {
 
                         self.serial_poll_state = SerialPollState::Disabled;
                     }
-                    GPIBCommand::MLA(address) => {
+                    Command::MLA(address) => {
                         if self.is_device_exists(address) {
                             cmd.expected();
                             crate::trace!("MLA, listen to buffer");
@@ -122,7 +127,7 @@ impl DeviceEmulator {
                             cmd.unexpected();
                         }
                     }
-                    GPIBCommand::UNL => {
+                    Command::UNL => {
                         if let Some(active_listener) = self.active_listener.take() {
                             cmd.expected();
                             self.process_bytes(&listener, active_listener);
@@ -130,7 +135,7 @@ impl DeviceEmulator {
                             cmd.unexpected();
                         }
                     }
-                    GPIBCommand::MTA(address) => {
+                    Command::MTA(address) => {
                         if self.is_device_exists(address) {
                             self.active_talker = Some(address);
 
@@ -144,14 +149,14 @@ impl DeviceEmulator {
                             cmd.unexpected();
                         }
                     }
-                    GPIBCommand::UNT => {
+                    Command::UNT => {
                         if self.active_talker.take().is_some() {
                             cmd.expected();
                         } else {
                             cmd.unexpected();
                         }
                     }
-                    GPIBCommand::Unsupported(value) => {
+                    Command::Unsupported(value) => {
                         warn!("Unsupported command {value:#04x}");
                         cmd.unexpected();
                     }
