@@ -59,21 +59,20 @@ impl GpioMem {
 
     #[inline(always)]
     fn read(&self, reg: GpioReg) -> u32 {
+        // SAFETY: Register addresses are valid.
         unsafe { ptr::read_volatile(self.0.add(reg.0)) }
     }
 
     #[inline(always)]
     fn write(&self, reg: GpioReg, value: u32) {
-        // SAFETY: TODO.
+        // SAFETY: Register addresses are valid.
         unsafe { ptr::write_volatile(self.0.add(reg.0), value) }
     }
 }
 
 impl Drop for GpioMem {
     fn drop(&mut self) {
-        unsafe {
-            libc::munmap(self.0 as *mut c_void, GPIO_MEM_SIZE as size_t);
-        }
+        unsafe { libc::munmap(self.0 as *mut c_void, GPIO_MEM_SIZE as size_t) };
     }
 }
 

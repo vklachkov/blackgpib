@@ -3,7 +3,7 @@ mod disk;
 mod proxy;
 
 use crate::{
-    debug,
+    trace,
     gpib::{Command, Listener, Talker},
     gpio::Gpio,
     warn,
@@ -92,7 +92,7 @@ impl DeviceEmulator {
 
             let talk_mode = 'l: loop {
                 let cmd = listener.start_command_handshake();
-                crate::info!("Accept command {cmd:?}");
+                trace!("Accept command {cmd:?}");
 
                 match *cmd {
                     Command::DCL => {
@@ -121,7 +121,6 @@ impl DeviceEmulator {
                     Command::MLA(address) => {
                         if self.is_device_exists(address) {
                             cmd.expected();
-                            crate::trace!("MLA, listen to buffer");
                             self.listen_to_buffer(&listener, address);
                         } else {
                             cmd.unexpected();
@@ -225,8 +224,6 @@ impl DeviceEmulator {
                 break;
             }
         }
-
-        debug!("in buffer {} bytes", self.listen_buffer.len());
     }
 
     fn reset_active_listener(&mut self) {

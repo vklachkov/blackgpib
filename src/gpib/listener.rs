@@ -141,10 +141,8 @@ impl<T> Deref for HandshakeGuard<'_, '_, T> {
 impl<T> Drop for HandshakeGuard<'_, '_, T> {
     fn drop(&mut self) {
         if self.unexpected {
-            crate::trace!("unexpected byte, wait next");
             self.listener.unexpected_data_received();
         } else {
-            crate::trace!("expected byte");
             self.listener.end_handshake();
         }
     }
