@@ -60,7 +60,7 @@ fn open_gpio() -> io::Result<Gpio> {
     }
 
     // SAFETY: TODO.
-    unsafe { Gpio::new(&device_info) }
+    unsafe { Gpio::new() }
 }
 
 fn run_emulator(args: EmulatorArgs, gpio: Gpio) {

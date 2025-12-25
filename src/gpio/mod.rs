@@ -6,12 +6,10 @@ mod types;
 
 use std::io;
 
-use crate::system::DeviceInfo;
+use self::mem::GpioMem;
 
-use mem::GpioMem;
-
-pub use mode::{listener::GpioMode as ListenerGpio, talker::GpioMode as TalkerGpio};
-pub use pin::{InputPin, OutputPin};
+pub use self::mode::{listener::GpioMode as ListenerGpio, talker::GpioMode as TalkerGpio};
+pub use self::pin::{InputPin, OutputPin};
 
 #[derive(Debug)]
 pub struct Gpio {
@@ -19,10 +17,8 @@ pub struct Gpio {
 }
 
 impl Gpio {
-    pub unsafe fn new(device_info: &DeviceInfo) -> io::Result<Gpio> {
-        Ok(Self {
-            mem: GpioMem::open(device_info.soc())?,
-        })
+    pub unsafe fn new() -> io::Result<Gpio> {
+        Ok(Self { mem: GpioMem::open()? })
     }
 
     pub fn into_listener_mode(&mut self) -> ListenerGpio<'_> {

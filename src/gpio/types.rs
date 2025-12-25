@@ -7,14 +7,6 @@ pub enum Mode {
     Output = 0b001,
 }
 
-#[derive(Copy, Clone)]
-#[repr(u8)]
-pub enum Bias {
-    Off = 0b00,
-    PullUp = 0b01,
-    PullDown = 0b10,
-}
-
 /// Pin logic levels.
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 #[repr(u8)]

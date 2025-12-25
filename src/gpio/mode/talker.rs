@@ -1,8 +1,7 @@
 use crate::gpio::{
     GpioMem, InputPin, OutputPin,
-    pin::Pin,
     pinout::KnownPin,
-    types::{Bias, Mode, PinMask, PinModesRegs},
+    types::{Mode, PinMask, PinModesRegs},
 };
 
 macro_rules! get_pin {
@@ -10,7 +9,7 @@ macro_rules! get_pin {
         #[inline(always)]
         pub fn $ident(&$lt self) -> $output<$lt> {
             // SAFETY: pin configured properly.
-            unsafe { $output::new(Pin::new(&self.gpio_mem, $pin)) }
+            unsafe { $output::new(&self.gpio_mem, $pin) }
         }
     };
 }
