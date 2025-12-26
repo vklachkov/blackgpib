@@ -22,9 +22,10 @@ impl<'gpio> GpioMode<'gpio> {
     pub(in crate::gpio) fn new(gpio_mem: &'gpio mut GpioMem) -> Self {
         gpio_mem.write_pins_modes(const { Self::pin_modes() });
 
+        gpio_mem.set_pins_high(const { Self::output_pins_mask() });
+
         gpio_mem.set_high(KnownPin::DC as _);
         gpio_mem.set_low(KnownPin::TE as _);
-        gpio_mem.set_pins_high(const { Self::output_pins_mask() });
 
         Self { gpio_mem }
     }
