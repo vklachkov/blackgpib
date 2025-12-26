@@ -3,7 +3,10 @@ mod disk_request;
 
 use std::io;
 
-use crate::{gpib_command::GPIBCommand, listener::Listener, talker::Talker};
+use crate::{
+    gpib::{Command, Listener, Talker},
+    gpio::Gpio,
+};
 
 const SECTOR_SIZE: usize = 512;
 
@@ -13,8 +16,8 @@ pub struct DeviceController {
 }
 
 impl DeviceController {
-    pub fn new_with_reset(address: u8) -> Self {
-        Talker::new().send_command(GPIBCommand::DCL);
+    pub fn new_with_reset(address: u8, gpio: &mut Gpio) -> Self {
+        Talker::new(gpio).send_command(Command::DCL);
 
         Self {
             address,
@@ -22,26 +25,26 @@ impl DeviceController {
         }
     }
 
-    pub fn read_status(&mut self) -> io::Result<disk_identity::DiskIdentity> {
-        self.send_get_status_cmd();
+    pub fn read_status(&mut self, gpio: &mut Gpio) -> io::Result<disk_identity::DiskIdentity> {
+        self.send_get_status_cmd(gpio);
 
-        self.response_handshake();
+        self.response_handshake(gpio);
         let status = disk_identity::DiskIdentity::try_from_bytes(&self.buffer[0..52]).unwrap();
         Ok(status)
     }
 
-    pub fn format_disk(&mut self, validate: bool) -> io::Result<()> {
-        self.low_level_format();
+    pub fn format_disk(&mut self, validate: bool, gpio: &mut Gpio) -> io::Result<()> {
+        self.low_level_format(gpio);
 
         if !validate {
             return Ok(());
         }
 
-        let status = self.read_status()?;
+        let status = self.read_status(gpio)?;
         let sector_count = status.sector_count;
 
         for i in 0..sector_count {
-            let sector = self.read_sector(i as u32);
+            let sector = self.read_sector(i as u32, gpio);
             assert_eq!(&sector[..8], &[0xff; 8], "bad sector after format");
             assert_eq!(&sector[8..], &[0xe5; 504], "bad sector after format");
             println!("Sector {}/{} verified", i + 1, sector_count);
@@ -50,58 +53,58 @@ impl DeviceController {
         Ok(())
     }
 
-    fn low_level_format(&mut self) {
-        self.send_format_cmd();
+    fn low_level_format(&mut self, gpio: &mut Gpio) {
+        self.send_format_cmd(gpio);
 
-        self.serial_poll_handshake();
+        self.serial_poll_handshake(gpio);
 
-        self.response_handshake();
+        self.response_handshake(gpio);
         assert_eq!(self.buffer[0], 0x00, "format failed");
     }
 
-    pub fn read_disk_to_writer(&mut self, mut w: impl io::Write) -> io::Result<()> {
-        let status = self.read_status()?;
+    pub fn read_disk_to_writer(&mut self, mut w: impl io::Write, gpio: &mut Gpio) -> io::Result<()> {
+        let status = self.read_status(gpio)?;
         let sector_count = status.sector_count;
 
         for i in 0..sector_count {
-            let sector = self.read_sector(i as u32);
+            let sector = self.read_sector(i as u32, gpio);
             w.write_all(sector)?;
         }
 
         Ok(())
     }
 
-    pub fn write_image_to_disk(&mut self, mut r: impl io::Read) -> io::Result<()> {
-        let status = self.read_status()?;
+    pub fn write_image_to_disk(&mut self, mut r: impl io::Read, gpio: &mut Gpio) -> io::Result<()> {
+        let status = self.read_status(gpio)?;
         let sector_count = status.sector_count;
 
         for i in 0..sector_count {
             let mut data = [0u8; SECTOR_SIZE];
             r.read_exact(&mut data)?;
-            self.write_sector(i as u32, &data);
+            self.write_sector(i as u32, &data, gpio);
 
-            let sector = self.read_sector(i as u32);
+            let sector = self.read_sector(i as u32, gpio);
             assert_eq!(sector, data, "read write data mismatch");
         }
 
         Ok(())
     }
 
-    fn write_sector(&mut self, sector: u32, data: &[u8]) {
-        self.send_write_cmd(sector, data);
+    fn write_sector(&mut self, sector: u32, data: &[u8], gpio: &mut Gpio) {
+        self.send_write_cmd(sector, data, gpio);
 
-        self.serial_poll_handshake();
+        self.serial_poll_handshake(gpio);
 
-        self.response_handshake();
+        self.response_handshake(gpio);
         assert!(self.buffer[0] == 0x00, "write failed {:#04x}", self.buffer[0]);
     }
 
-    fn read_sector<'a>(&'a mut self, sector: u32) -> &'a [u8] {
-        self.send_read_cmd(sector);
+    fn read_sector<'a>(&'a mut self, sector: u32, gpio: &mut Gpio) -> &'a [u8] {
+        self.send_read_cmd(sector, gpio);
 
-        self.serial_poll_handshake();
+        self.serial_poll_handshake(gpio);
 
-        self.response_handshake();
+        self.response_handshake(gpio);
 
         if self.buffer.len() == 7 {
             assert!(self.buffer[0] == 0x00, "read failed with status {:#04x}", self.buffer[0]);
@@ -111,8 +114,8 @@ impl DeviceController {
         return &self.buffer;
     }
 
-    fn send_get_status_cmd(&self) {
-        let mut talker = Talker::new();
+    fn send_get_status_cmd(&self, gpio: &mut Gpio) {
+        let mut talker = Talker::new(gpio);
 
         self.send_bytes_with_handshake(
             &mut talker,
@@ -127,8 +130,8 @@ impl DeviceController {
         );
     }
 
-    fn send_format_cmd(&self) {
-        let mut talker = Talker::new();
+    fn send_format_cmd(&self, gpio: &mut Gpio) {
+        let mut talker = Talker::new(gpio);
 
         self.send_bytes_with_handshake(
             &mut talker,
@@ -143,10 +146,10 @@ impl DeviceController {
         );
     }
 
-    fn send_write_cmd(&self, sector: u32, data: &[u8]) {
+    fn send_write_cmd(&self, sector: u32, data: &[u8], gpio: &mut Gpio) {
         assert!(data.len() == SECTOR_SIZE);
 
-        let mut talker = Talker::new();
+        let mut talker = Talker::new(gpio);
 
         self.send_bytes_with_handshake(
             &mut talker,
@@ -163,8 +166,8 @@ impl DeviceController {
         self.send_bytes_with_handshake(&mut talker, data);
     }
 
-    fn send_read_cmd(&self, sector: u32) {
-        let mut talker = Talker::new();
+    fn send_read_cmd(&self, sector: u32, gpio: &mut Gpio) {
+        let mut talker = Talker::new(gpio);
 
         self.send_bytes_with_handshake(
             &mut talker,
@@ -179,36 +182,36 @@ impl DeviceController {
         );
     }
 
-    fn serial_poll_handshake(&self) {
-        let mut talker = Talker::new();
+    fn serial_poll_handshake(&self, gpio: &mut Gpio) {
+        let mut talker = Talker::new(gpio);
 
         talker.wait_srq();
 
-        talker.send_command(GPIBCommand::SPE);
+        talker.send_command(Command::SPE);
 
-        talker.send_command(GPIBCommand::MTA(self.address));
+        talker.send_command(Command::MTA(self.address));
         drop(talker);
 
-        let mut listener = Listener::new(false);
-        assert_eq!(listener.handshake_byte().value, 0x4F);
+        let listener = Listener::new(gpio);
+        assert_eq!((*listener.start_data_handshake()).value, 0x4F);
         drop(listener);
 
-        talker = Talker::new();
+        talker = Talker::new(gpio);
 
-        talker.send_command(GPIBCommand::SPD);
-        talker.send_command(GPIBCommand::UNT);
+        talker.send_command(Command::SPD);
+        talker.send_command(Command::UNT);
     }
 
-    fn response_handshake(&mut self) {
-        let mut talker = Talker::new();
-        talker.send_command(GPIBCommand::MTA(self.address));
+    fn response_handshake(&mut self, gpio: &mut Gpio) {
+        let talker = Talker::new(gpio);
+        talker.send_command(Command::MTA(self.address));
         drop(talker);
 
         self.buffer.clear();
 
-        let mut listener = Listener::new(false);
+        let listener = Listener::new(gpio);
         loop {
-            let byte = listener.handshake_byte();
+            let byte = *listener.start_data_handshake();
             self.buffer.push(byte.value);
 
             if byte.eoi {
@@ -218,14 +221,14 @@ impl DeviceController {
 
         drop(listener);
 
-        let mut talker = Talker::new();
-        talker.send_command(GPIBCommand::UNT);
+        let talker = Talker::new(gpio);
+        talker.send_command(Command::UNT);
         drop(talker);
     }
 
     fn send_bytes_with_handshake(&self, talker: &mut Talker, bytes: &[u8]) {
-        talker.send_command(GPIBCommand::MLA(self.address));
-        talker.send_bytes(bytes, true);
-        talker.send_command(GPIBCommand::UNL);
+        talker.send_command(Command::MLA(self.address));
+        talker.send_bytes(bytes);
+        talker.send_command(Command::UNL);
     }
 }
