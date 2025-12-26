@@ -58,7 +58,7 @@ fn blackgpib(args: Args) -> io::Result<()> {
 
     match args.command {
         args::Command::Emulator(args) => run_emulator(args, gpio),
-        args::Command::Sniffer(args) => run_sniffer(args),
+        args::Command::Sniffer(args) => run_sniffer(args, gpio),
         args::Command::Controller(args) => run_controller(args),
     }
 }
@@ -181,13 +181,13 @@ fn mmap_disk_image(path: &Path) -> io::Result<memmap2::MmapMut> {
     return Ok(mmap);
 }
 
-fn run_sniffer(args: SnifferArgs) -> io::Result<()> {
+fn run_sniffer(args: SnifferArgs, gpio: Gpio) -> io::Result<()> {
     let file = create_dump_file(&args.output_path, args.size)?;
     let sniffer = BusSniffer::new(file);
 
     info!("Start BlackGPiB v{VERSION} sniffer");
 
-    sniffer.start();
+    sniffer.start(gpio);
 
     info!("Bus sniffer finished, dump saved to {}", args.output_path.display());
 
