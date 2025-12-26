@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{gpio, time_utils::busy_wait, trace};
+use crate::{gpib::Command, gpio, time_utils::busy_wait, trace};
 
 #[allow(unused)]
 pub struct Talker<'gpio> {
@@ -33,6 +33,12 @@ impl<'gpio> Talker<'gpio> {
         self.send_byte(byte, false);
     }
 
+    pub fn send_command(&self, command: Command) {
+        trace!("Send command {command:?}");
+        self.gpio.atn().set_low();
+        self.send_byte(command.into(), false);
+    }
+
     fn send_byte(&self, byte: u8, eoi: bool) {
         if eoi {
             self.gpio.eoi().set_low();
@@ -55,5 +61,9 @@ impl<'gpio> Talker<'gpio> {
         if eoi {
             self.gpio.eoi().set_high();
         }
+    }
+
+    pub fn wait_srq(&mut self) {
+        while self.gpio.srq().is_high() {}
     }
 }

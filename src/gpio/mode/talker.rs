@@ -81,6 +81,7 @@ impl<'gpio> GpioMode<'gpio> {
     }
 
     get_pin!(atn, KnownPin::ATN, OutputPin<'gpio>);
+    get_pin!(srq, KnownPin::SRQ, InputPin<'gpio>);
     get_pin!(eoi, KnownPin::EOI, OutputPin<'gpio>);
     get_pin!(dav, KnownPin::DAV, OutputPin<'gpio>);
     get_pin!(ndac, KnownPin::NDAC, InputPin<'gpio>);
