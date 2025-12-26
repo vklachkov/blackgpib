@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{gpio, time_utils::busy_wait};
+use crate::{gpio, time_utils::busy_wait, trace};
 
 #[allow(unused)]
 pub struct Talker<'gpio> {
@@ -19,24 +19,18 @@ impl<'gpio> Talker<'gpio> {
 
     pub fn send_bytes(&mut self, bytes: &[u8]) {
         let bytes_len = bytes.len();
-
-        crate::info!("ATN high, start transmition");
+        trace!("Send {bytes_len} bytes");
 
         for i in 0..bytes_len {
             let eoi = i == bytes_len - 1;
             self.send_byte(bytes[i], eoi);
             busy_wait(Self::INTERBYTE_DELAY);
         }
-
-        crate::info!("End transmition");
     }
 
     pub fn send_serial_poll_response(&self, byte: u8) {
-        crate::info!("Send serial poll response {:#04x} to bus", byte);
-
+        trace!("Send {byte:#04x} as SRQ response");
         self.send_byte(byte, false);
-
-        crate::info!("End transmition");
     }
 
     fn send_byte(&self, byte: u8, eoi: bool) {
