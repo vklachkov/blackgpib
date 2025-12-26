@@ -111,10 +111,10 @@ fn configure_scheduler() -> io::Result<()> {
     }
 
     // SAFETY: This call does not cause UB; on error it returns -1.
-    let result = unsafe { libc::setpriority(libc::PRIO_PROCESS, 0, -19) };
-    if result == -1 {
-        return Err(io::Error::last_os_error());
-    }
+    // let result = unsafe { libc::setpriority(libc::PRIO_PROCESS, 0, -19) };
+    // if result == -1 {
+    //     return Err(io::Error::last_os_error());
+    // }
 
     Ok(())
 }
