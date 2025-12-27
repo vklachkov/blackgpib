@@ -1,11 +1,11 @@
 mod disk_identity;
 mod disk_request;
 
-use std::io;
+use std::{io, time::Duration};
 
 use crate::{
     gpib::{Command, Listener, Talker},
-    gpio::Gpio,
+    gpio::Gpio, time_utils::busy_wait,
 };
 
 const SECTOR_SIZE: usize = 512;
@@ -19,6 +19,9 @@ pub struct DeviceController {
 impl DeviceController {
     pub fn new_with_reset(mut gpio: Gpio, address: u8) -> Self {
         Talker::new(&mut gpio).send_command(Command::DCL);
+
+        crate::trace!("Wait 15 seconds...");
+        busy_wait(Duration::from_secs(15));
 
         Self {
             gpio,
