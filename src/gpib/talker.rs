@@ -18,6 +18,8 @@ impl<'gpio> Talker<'gpio> {
     }
 
     pub fn send_bytes(&mut self, bytes: &[u8]) {
+        self.gpio.atn().set_high();
+
         let bytes_len = bytes.len();
         trace!("Send {bytes_len} bytes");
 
@@ -31,12 +33,6 @@ impl<'gpio> Talker<'gpio> {
     pub fn send_serial_poll_response(&self, byte: u8) {
         trace!("Send {byte:#04x} as SRQ response");
         self.send_byte(byte, false);
-    }
-
-    pub fn send_command(&self, command: Command) {
-        trace!("Send command {command:?}");
-        self.gpio.atn().set_low();
-        self.send_byte(command.into(), false);
     }
 
     fn send_byte(&self, byte: u8, eoi: bool) {
@@ -63,7 +59,27 @@ impl<'gpio> Talker<'gpio> {
         }
     }
 
+    pub fn send_command(&self, command: Command) {
+        trace!("Send command {command:?}");
+
+        self.gpio.atn().set_low();
+
+        trace!("Wait NDAC=low");
+        while self.gpio.ndac().is_high() {}
+
+        self.gpio.write_dio(command.into());
+        busy_wait(Self::DIO_SETTLE_DELAY);
+
+        self.gpio.dav().set_low();
+
+        trace!("Wait NDAC=high");
+        while self.gpio.ndac().is_low() {}
+
+        self.gpio.dav().set_high();
+    }
+
     pub fn wait_srq(&mut self) {
+        trace!("Wait SRQ=low");
         while self.gpio.srq().is_high() {}
     }
 }

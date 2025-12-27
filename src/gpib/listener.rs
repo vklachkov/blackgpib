@@ -69,6 +69,8 @@ impl<'gpio> Listener<'gpio> {
     }
 
     pub fn start_data_handshake<'l>(&'l self) -> HandshakeGuard<'l, 'gpio, Byte> {
+        self.gpio.ndac().set_low();
+
         while self.gpio.dav().is_high() {}
 
         let byte = self.read_byte();
