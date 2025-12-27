@@ -221,6 +221,15 @@ fn run_controller(gpio: Gpio, cmd: ControllerCommand) -> io::Result<()> {
     info!("Start BlackGPiB v{VERSION} controller");
 
     match cmd {
+        ControllerCommand::Status { address } => {
+            let mut controller = DeviceController::new_with_reset(gpio, address);
+
+            info!("Reading disk info...");
+
+            let disk_status = controller.read_status()?;
+
+            info!("Disk at {address:#04x} was identified as '{}'", String::from_utf8_lossy(&disk_status.device_name),);
+        }
         ControllerCommand::Format { address, validate } => {
             let mut controller = DeviceController::new_with_reset(gpio, address);
 

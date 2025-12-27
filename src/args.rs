@@ -28,6 +28,7 @@ pub struct SnifferArgs {
 }
 
 pub enum ControllerCommand {
+    Status { address: u8 },
     Format { validate: bool, address: u8 },
     Write { from_path: PathBuf, to_address: u8 },
     Read { from_address: u8, to_path: PathBuf },
@@ -111,6 +112,17 @@ impl Args {
     }
 
     fn parse_controller_command() -> ParseCommand<Command> {
+        // -- Disk status ----------------------------------------------------------------------------------------------
+
+        let address = positional("ADDRESS")
+            .help("GPIB device bus address")
+            .guard(|v| (0..=30).contains(v), "address must be in range 0..30");
+
+        let status_cmd = construct!(ControllerCommand::Status { address })
+            .to_options()
+            .descr("TODO")
+            .command("status");
+
         // -- Format disk ----------------------------------------------------------------------------------------------
 
         let validate = long("validate").help("TODO").switch().fallback(true);
@@ -154,7 +166,7 @@ impl Args {
 
         // -- Collect subcommands to parser ----------------------------------------------------------------------------
 
-        let subcommands = construct!([format_cmd, read_cmd, write_cmd]);
+        let subcommands = construct!([status_cmd, format_cmd, read_cmd, write_cmd]);
 
         construct!(Command::Controller(subcommands))
             .to_options()
