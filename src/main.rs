@@ -10,11 +10,7 @@ mod sniffer;
 mod system;
 mod time_utils;
 
-use std::{
-    fs, io,
-    path::{Path, PathBuf},
-    process::ExitCode,
-};
+use std::{fs, io, path::Path, process::ExitCode, time::Instant};
 
 use crate::{
     args::{Args, ControllerCommand, EmulatorArgs, SnifferArgs},
@@ -61,9 +57,9 @@ fn blackgpib(args: Args) -> io::Result<()> {
     configure_scheduler()?;
 
     match args.command {
-        args::Command::Emulator(args) => run_emulator(args, gpio),
-        args::Command::Sniffer(args) => run_sniffer(args, gpio),
-        args::Command::Controller(cmd) => run_controller(cmd, gpio),
+        args::Command::Emulator(args) => run_emulator(gpio, args),
+        args::Command::Sniffer(args) => run_sniffer(gpio, args),
+        args::Command::Controller(cmd) => run_controller(gpio, cmd),
     }
 }
 
@@ -123,7 +119,7 @@ fn configure_scheduler() -> io::Result<()> {
     Ok(())
 }
 
-fn run_emulator(args: EmulatorArgs, gpio: Gpio) -> io::Result<()> {
+fn run_emulator(gpio: Gpio, args: EmulatorArgs) -> io::Result<()> {
     let mut emulator = DeviceEmulator::new();
 
     debug!("Configure emulator before start");
@@ -160,10 +156,6 @@ fn configure_emulator(args: EmulatorArgs, emulator: &mut DeviceEmulator) -> io::
 }
 
 fn mmap_disk_image(path: &Path) -> io::Result<memmap2::MmapMut> {
-    let map_err = |err: io::Error, action: &str| {
-        io::Error::new(err.kind(), format!("failed to {action} file {}: {}", path.display(), err))
-    };
-
     debug!("Open disk image {}", path.display());
 
     let file = fs::OpenOptions::new()
@@ -172,12 +164,12 @@ fn mmap_disk_image(path: &Path) -> io::Result<memmap2::MmapMut> {
         .create(false)
         .truncate(false)
         .open(path)
-        .map_err(|err| map_err(err, "open"))?;
+        .map_err(|err| map_file_error(err, path, "open"))?;
 
-    file.lock().map_err(|err| map_err(err, "lock"))?;
+    file.lock().map_err(|err| map_file_error(err, path, "lock"))?;
 
     // SAFETY: The file is opened and locked; no other process can access it.
-    let mmap = unsafe { memmap2::MmapMut::map_mut(&file) }.map_err(|err| map_err(err, "mmap"))?;
+    let mmap = unsafe { memmap2::MmapMut::map_mut(&file) }.map_err(|err| map_file_error(err, path, "mmap"))?;
 
     // The file is needed for the entire emulator lifetime; it must not be dropped.
     std::mem::forget(file);
@@ -185,7 +177,7 @@ fn mmap_disk_image(path: &Path) -> io::Result<memmap2::MmapMut> {
     return Ok(mmap);
 }
 
-fn run_sniffer(args: SnifferArgs, gpio: Gpio) -> io::Result<()> {
+fn run_sniffer(gpio: Gpio, args: SnifferArgs) -> io::Result<()> {
     let file = create_dump_file(&args.output_path, args.size)?;
     let sniffer = BusSniffer::new(file);
 
@@ -199,11 +191,7 @@ fn run_sniffer(args: SnifferArgs, gpio: Gpio) -> io::Result<()> {
 }
 
 fn create_dump_file(path: &Path, size: usize) -> io::Result<memmap2::MmapMut> {
-    let map_err = |err: io::Error, action: &str| {
-        io::Error::new(err.kind(), format!("failed to {action} file {}: {}", path.display(), err))
-    };
-
-    let file_exists = fs::exists(path).map_err(|err| map_err(err, "check"))?;
+    let file_exists = fs::exists(path).map_err(|err| map_file_error(err, path, "check"))?;
     if file_exists {
         return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("file {} already exists", path.display())));
     }
@@ -213,14 +201,15 @@ fn create_dump_file(path: &Path, size: usize) -> io::Result<memmap2::MmapMut> {
         .write(true)
         .create_new(true)
         .open(path)
-        .map_err(|err| map_err(err, "open"))?;
+        .map_err(|err| map_file_error(err, path, "open"))?;
 
-    file.set_len(size as u64).map_err(|err| map_err(err, "set length of"))?;
+    file.set_len(size as u64)
+        .map_err(|err| map_file_error(err, path, "set length of"))?;
 
-    file.lock().map_err(|err| map_err(err, "lock"))?;
+    file.lock().map_err(|err| map_file_error(err, path, "lock"))?;
 
     // SAFETY: The file is opened and locked; no other process can access it.
-    let mmap = unsafe { memmap2::MmapMut::map_mut(&file) }.map_err(|err| map_err(err, "mmap"))?;
+    let mmap = unsafe { memmap2::MmapMut::map_mut(&file) }.map_err(|err| map_file_error(err, path, "mmap"))?;
 
     // The file is needed for the entire sniffer lifetime; it must not be dropped.
     std::mem::forget(file);
@@ -228,66 +217,118 @@ fn create_dump_file(path: &Path, size: usize) -> io::Result<memmap2::MmapMut> {
     return Ok(mmap);
 }
 
-fn run_controller(cmd: ControllerCommand, mut gpio: Gpio) -> io::Result<()> {
+fn run_controller(gpio: Gpio, cmd: ControllerCommand) -> io::Result<()> {
+    info!("Start BlackGPiB v{VERSION} controller");
+
     match cmd {
         ControllerCommand::Format { address, validate } => {
-            DeviceController::new_with_reset(address, &mut gpio).format_disk(validate, &mut gpio)
+            let mut controller = DeviceController::new_with_reset(gpio, address);
+
+            info!("Format disk...");
+
+            let start = Instant::now();
+            controller.format_disk(validate)?;
+
+            info!("Disk successfully formatted in {:?}", start.elapsed());
         }
         ControllerCommand::Write {
             from_path: path,
             to_address: address,
         } => {
-            let mut controller = DeviceController::new_with_reset(address, &mut gpio);
+            let mut controller = DeviceController::new_with_reset(gpio, address);
 
-            let disk_status = controller.read_status(&mut gpio)?;
+            info!("Reading disk info...");
+
+            let disk_status = controller.read_status()?;
             let image_size = disk_status.sector_size as usize * disk_status.sector_count as usize;
 
-            let file = open_disk_copy_file(path, image_size)?;
-            controller.write_image_to_disk(file, &mut gpio)
+            info!(
+                "Disk at {address:#04x} was identified as '{}', {} bytes in size",
+                String::from_utf8_lossy(&disk_status.device_name),
+                image_size
+            );
+
+            let file = open_file_for_writing(&path, image_size)?;
+
+            info!("Writing image to disk...");
+
+            let start = Instant::now();
+            controller.write_image_to_disk(file)?;
+
+            info!("Image {} successfully written to disk in {:?}", path.display(), start.elapsed());
         }
         ControllerCommand::Read {
             from_address: address,
             to_path: path,
         } => {
-            let mut controller = DeviceController::new_with_reset(address, &mut gpio);
+            let mut controller = DeviceController::new_with_reset(gpio, address);
 
-            let disk_status = controller.read_status(&mut gpio)?;
+            info!("Reading disk info...");
+
+            let disk_status = controller.read_status()?;
             let image_size = disk_status.sector_size as usize * disk_status.sector_count as usize;
 
-            let file = open_image_file(path, image_size)?;
-            controller.read_disk_to_writer(file, &mut gpio)
+            info!(
+                "Disk at {address:#04x} was identified as '{}', {} bytes in size",
+                String::from_utf8_lossy(&disk_status.device_name),
+                image_size
+            );
+
+            let file = open_file_for_reading(&path, image_size)?;
+
+            info!("Reading disk to image file {}...", path.display());
+
+            let start = Instant::now();
+            controller.read_disk_to_writer(file)?;
+
+            info!("Disk successfully read into file {} in {:?}", path.display(), start.elapsed());
         }
     }
+
+    Ok(())
 }
 
-fn open_disk_copy_file(path: PathBuf, image_size: usize) -> io::Result<fs::File> {
+fn open_file_for_writing(path: &Path, file_size: usize) -> io::Result<fs::File> {
     let file = fs::OpenOptions::new()
         .create(true)
         .truncate(true)
         .read(false)
         .write(true)
-        .open(path)?;
+        .open(path)
+        .map_err(|err| map_file_error(err, path, "open"))?;
 
-    file.lock()?;
+    file.lock().map_err(|err| map_file_error(err, path, "lock"))?;
 
-    file.set_len(image_size as u64)?;
+    file.set_len(file_size as u64)
+        .map_err(|err| map_file_error(err, path, "set length of"))?;
 
     Ok(file)
 }
 
-fn open_image_file(path: PathBuf, image_size: usize) -> io::Result<fs::File> {
+fn open_file_for_reading(path: &Path, file_size: usize) -> io::Result<fs::File> {
     let file = fs::OpenOptions::new()
         .create(false)
         .read(true)
         .write(false)
-        .open(path)?;
+        .open(path)
+        .map_err(|err| map_file_error(err, path, "open"))?;
 
-    file.lock()?;
+    file.lock().map_err(|err| map_file_error(err, path, "lock"))?;
 
-    let file_len = file.metadata()?.len();
-    if file_len != image_size as u64 {
-        return Err(io::Error::new(io::ErrorKind::InvalidInput, "TODO"));
+    let file_metadata = file
+        .metadata()
+        .map_err(|err| map_file_error(err, path, "get metadata of"))?;
+
+    if file_metadata.len() != file_size as u64 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("file must be exactly {file_size} bytes long"),
+        ));
     }
 
     Ok(file)
+}
+
+fn map_file_error(err: io::Error, path: &Path, action: &str) -> io::Error {
+    io::Error::new(err.kind(), format!("failed to {action} file {}: {}", path.display(), err))
 }
