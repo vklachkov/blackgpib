@@ -6,7 +6,7 @@ default-run = "blackgpib"
 
 [[bin]]
 name = "gpib-dump-parser"
-path = "src/sniffer/bin/dump_parser.rs"
+path = "src/dump_parser.rs"
 
 [dependencies]
 bpaf = "0.9.20"

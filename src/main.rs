@@ -2,6 +2,7 @@
 
 mod args;
 mod controller;
+mod disk_protocol;
 mod emulator;
 mod gpib;
 mod gpio;

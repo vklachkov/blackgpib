@@ -1,7 +1,10 @@
-mod disk_identity;
-mod disk_request;
-mod disk_response;
-mod gpib_command;
+#![allow(unused)]
+
+mod disk_protocol;
+mod gpib;
+mod gpio;
+mod logger;
+mod time_utils;
 
 use std::{
     fs::File,
@@ -10,10 +13,8 @@ use std::{
     time::Duration,
 };
 
-use disk_identity::DiskIdentity;
-use disk_request::Request as DiskRequest;
-use disk_response::StatusResponse as DiskStatusResponse;
-use gpib_command::Command as GPIBCommand;
+use disk_protocol::{DiskIdentity, Request as DiskRequest, StatusResponse as DiskStatusResponse};
+use gpib::Command as GPIBCommand;
 
 struct Args {
     compact: bool,

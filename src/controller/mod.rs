@@ -1,11 +1,10 @@
-mod disk_identity;
-mod disk_request;
-
 use std::{io, time::Duration};
 
 use crate::{
+    disk_protocol::{DiskIdentity, Request, RequestCode},
     gpib::{Command, Listener, Talker},
-    gpio::Gpio, time_utils::busy_wait,
+    gpio::Gpio,
+    time_utils::busy_wait,
 };
 
 const SECTOR_SIZE: usize = 512;
@@ -30,11 +29,11 @@ impl DeviceController {
         }
     }
 
-    pub fn read_status(&mut self) -> io::Result<disk_identity::DiskIdentity> {
+    pub fn read_status(&mut self) -> io::Result<DiskIdentity> {
         self.send_get_status_cmd();
 
         self.response_handshake();
-        let status = disk_identity::DiskIdentity::try_from_bytes(&self.buffer[0..52]).unwrap();
+        let status = DiskIdentity::try_from_bytes(&self.buffer[0..52]).unwrap();
         Ok(status)
     }
 
@@ -125,8 +124,8 @@ impl DeviceController {
         Self::send_bytes_with_handshake(
             &mut talker,
             self.address,
-            &disk_request::Request {
-                code: disk_request::RequestCode::GetStatus,
+            &Request {
+                code: RequestCode::GetStatus,
                 connection: 0,
                 sector: 0,
                 data_size: 52,
@@ -142,8 +141,8 @@ impl DeviceController {
         Self::send_bytes_with_handshake(
             &mut talker,
             self.address,
-            &disk_request::Request {
-                code: disk_request::RequestCode::Format,
+            &Request {
+                code: RequestCode::Format,
                 connection: 0,
                 sector: 0,
                 data_size: 1,
@@ -161,8 +160,8 @@ impl DeviceController {
         Self::send_bytes_with_handshake(
             &mut talker,
             self.address,
-            &disk_request::Request {
-                code: disk_request::RequestCode::Write,
+            &Request {
+                code: RequestCode::Write,
                 connection: 0,
                 sector,
                 data_size: SECTOR_SIZE as _,
@@ -180,8 +179,8 @@ impl DeviceController {
         Self::send_bytes_with_handshake(
             &mut talker,
             self.address,
-            &disk_request::Request {
-                code: disk_request::RequestCode::Read,
+            &Request {
+                code: RequestCode::Read,
                 connection: 0,
                 sector,
                 data_size: SECTOR_SIZE as _,
