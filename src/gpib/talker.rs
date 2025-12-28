@@ -63,6 +63,7 @@ impl<'gpio> Talker<'gpio> {
         trace!("Send command {command:?}");
 
         self.gpio.atn().set_low();
+        busy_wait(Duration::from_micros(5));
 
         trace!("Wait NDAC=low");
         while self.gpio.ndac().is_high() {}
@@ -71,11 +72,13 @@ impl<'gpio> Talker<'gpio> {
         busy_wait(Self::DIO_SETTLE_DELAY);
 
         self.gpio.dav().set_low();
+        busy_wait(Duration::from_micros(5));
 
         trace!("Wait NDAC=high");
         while self.gpio.ndac().is_low() {}
 
         self.gpio.dav().set_high();
+        busy_wait(Duration::from_micros(5));
     }
 
     pub fn wait_srq(&mut self) {
