@@ -1,6 +1,7 @@
 use std::{io, time::Duration};
 
 use crate::{
+    debug,
     disk_protocol::{DiskIdentity, DiskStatus, Request, RequestCode},
     gpib::{Command, Listener, Talker},
     gpio::Gpio,
@@ -18,9 +19,10 @@ pub struct DeviceController {
 
 impl DeviceController {
     pub fn new_with_reset(mut gpio: Gpio, address: u8) -> Self {
+        info!("Reset device");
         Talker::new(&mut gpio).send_command(Command::DCL);
 
-        crate::trace!("Wait 15 seconds...");
+        info!("Wait 15 seconds...");
         busy_wait(Duration::from_secs(15));
 
         Self {
@@ -82,6 +84,8 @@ impl DeviceController {
         let sector_count = status.sector_count;
 
         for i in 0..sector_count {
+            info!("Sector {}/{} read", i + 1, sector_count);
+
             let sector = self.read_sector(i as u32)?;
             w.write_all(sector)?;
         }
@@ -96,6 +100,9 @@ impl DeviceController {
         for i in 0..sector_count {
             let mut data = [0u8; SECTOR_SIZE];
             r.read_exact(&mut data)?;
+
+            info!("Write sector {}/{}", i + 1, sector_count);
+
             self.write_sector(i as u32, &data)?;
 
             let sector = self.read_sector(i as u32)?;
@@ -132,6 +139,7 @@ impl DeviceController {
     fn send_get_status_cmd(&mut self) {
         let mut talker = Talker::new(&mut self.gpio);
 
+        debug!("Send GetStatus command");
         Self::send_bytes_with_handshake(
             &mut talker,
             self.address,
@@ -149,6 +157,7 @@ impl DeviceController {
     fn send_format_cmd(&mut self) {
         let mut talker = Talker::new(&mut self.gpio);
 
+        debug!("Send Format command");
         Self::send_bytes_with_handshake(
             &mut talker,
             self.address,
@@ -168,6 +177,7 @@ impl DeviceController {
 
         let mut talker = Talker::new(&mut self.gpio);
 
+        debug!("Send Write({sector}) command");
         Self::send_bytes_with_handshake(
             &mut talker,
             self.address,
@@ -187,6 +197,7 @@ impl DeviceController {
     fn send_read_cmd(&mut self, sector: u32) {
         let mut talker = Talker::new(&mut self.gpio);
 
+        debug!("Send Read({sector}) command");
         Self::send_bytes_with_handshake(
             &mut talker,
             self.address,
@@ -202,6 +213,8 @@ impl DeviceController {
     }
 
     fn serial_poll_handshake(&mut self) -> io::Result<()> {
+        debug!("Waiting for device to become ready...");
+
         let mut talker = Talker::new(&mut self.gpio);
 
         talker.wait_srq();
@@ -219,6 +232,8 @@ impl DeviceController {
 
         talker.send_command(Command::SPD);
         talker.send_command(Command::UNT);
+
+        debug!("Device ready");
 
         Ok(())
     }

@@ -65,7 +65,7 @@ fn blackgpib(args: Args) -> io::Result<()> {
 }
 
 fn check_device_compatibility() -> io::Result<()> {
-    debug!("Check device compatibility");
+    trace!("Check device compatibility");
 
     match DeviceInfo::new() {
         Ok(info) => match info.gpio_interface() {
@@ -88,7 +88,7 @@ fn check_device_compatibility() -> io::Result<()> {
 }
 
 fn open_gpio() -> io::Result<Gpio> {
-    debug!("Open GPIO");
+    trace!("Open GPIO");
 
     // SAFETY: Initialized only once; no other GPIO exist.
     unsafe { Gpio::new() }
@@ -224,15 +224,11 @@ fn run_controller(gpio: Gpio, cmd: ControllerCommand) -> io::Result<()> {
     match cmd {
         ControllerCommand::Status { address } => {
             let mut controller = DeviceController::new_with_reset(gpio, address);
-
-            info!("Reading disk info...");
-
-            let disk_status = controller.read_status()?;
-
-            info!("Disk at {address:#04x} was identified as '{}'", String::from_utf8_lossy(&disk_status.device_name),);
+            get_disk_status(&mut controller)?;
         }
         ControllerCommand::Format { address, validate } => {
             let mut controller = DeviceController::new_with_reset(gpio, address);
+            get_disk_status(&mut controller)?;
 
             info!("Format disk...");
 
@@ -246,19 +242,10 @@ fn run_controller(gpio: Gpio, cmd: ControllerCommand) -> io::Result<()> {
             to_address: address,
         } => {
             let mut controller = DeviceController::new_with_reset(gpio, address);
+            let disk_status = get_disk_status(&mut controller)?;
+            let image_size = disk_status.size();
 
-            info!("Reading disk info...");
-
-            let disk_status = controller.read_status()?;
-            let image_size = disk_status.sector_size as usize * disk_status.sector_count as usize;
-
-            info!(
-                "Disk at {address:#04x} was identified as '{}', {} bytes in size",
-                String::from_utf8_lossy(&disk_status.device_name),
-                image_size
-            );
-
-            let file = open_file_for_writing(&path, image_size)?;
+            let file = open_file_for_reading(&path, image_size)?;
 
             info!("Writing image to disk...");
 
@@ -272,19 +259,10 @@ fn run_controller(gpio: Gpio, cmd: ControllerCommand) -> io::Result<()> {
             to_path: path,
         } => {
             let mut controller = DeviceController::new_with_reset(gpio, address);
+            let disk_status = get_disk_status(&mut controller)?;
+            let image_size = disk_status.size();
 
-            info!("Reading disk info...");
-
-            let disk_status = controller.read_status()?;
-            let image_size = disk_status.sector_size as usize * disk_status.sector_count as usize;
-
-            info!(
-                "Disk at {address:#04x} was identified as '{}', {} bytes in size",
-                String::from_utf8_lossy(&disk_status.device_name),
-                image_size
-            );
-
-            let file = open_file_for_reading(&path, image_size)?;
+            let file = open_file_for_writing(&path, image_size)?;
 
             info!("Reading disk to image file {}...", path.display());
 
@@ -298,21 +276,26 @@ fn run_controller(gpio: Gpio, cmd: ControllerCommand) -> io::Result<()> {
     Ok(())
 }
 
-fn open_file_for_writing(path: &Path, file_size: usize) -> io::Result<fs::File> {
-    let file = fs::OpenOptions::new()
-        .create(true)
-        .truncate(true)
-        .read(false)
-        .write(true)
-        .open(path)
-        .map_err(|err| map_file_error(err, path, "open"))?;
+fn get_disk_status(controller: &mut DeviceController) -> io::Result<DiskIdentity> {
+    info!("Read disk info");
+    let disk_status = controller.read_status()?;
 
-    file.lock().map_err(|err| map_file_error(err, path, "lock"))?;
+    info!("Device identified as:");
+    info!("  Name: '{}'", disk_status.name());
+    info!("  Sector Size: {}", disk_status.sector_size);
+    info!("  Logical Sector Size: {}", disk_status.logical_sector_size);
+    info!("  Disk Status: {}", disk_status.drive_status);
+    info!("  Bitmap Block ID: {:#06x}", disk_status.bitmap_block_id);
+    info!("  Superblock ID: {:#06x}", disk_status.superblock_id);
+    info!("  Min Dir Pages: {}", disk_status.min_dir_pages);
+    info!("  Flush: {}", disk_status.flush);
+    info!("  Sector Count: {}", disk_status.sector_count);
+    info!("  Bytes Per Sector: {}", disk_status.bytes_per_sector);
+    info!("  Sectors Per Track: {}", disk_status.sectors_per_track);
+    info!("  Tracks Per Cylinder: {}", disk_status.tracks_per_cylinder);
+    info!("  Size (bytes): {}", disk_status.size());
 
-    file.set_len(file_size as u64)
-        .map_err(|err| map_file_error(err, path, "set length of"))?;
-
-    Ok(file)
+    Ok(disk_status)
 }
 
 fn open_file_for_reading(path: &Path, file_size: usize) -> io::Result<fs::File> {
@@ -335,6 +318,23 @@ fn open_file_for_reading(path: &Path, file_size: usize) -> io::Result<fs::File> 
             format!("file must be exactly {file_size} bytes long"),
         ));
     }
+
+    Ok(file)
+}
+
+fn open_file_for_writing(path: &Path, file_size: usize) -> io::Result<fs::File> {
+    let file = fs::OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .read(false)
+        .write(true)
+        .open(path)
+        .map_err(|err| map_file_error(err, path, "open"))?;
+
+    file.lock().map_err(|err| map_file_error(err, path, "lock"))?;
+
+    file.set_len(file_size as u64)
+        .map_err(|err| map_file_error(err, path, "set length of"))?;
 
     Ok(file)
 }

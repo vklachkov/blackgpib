@@ -1,7 +1,7 @@
 use core::{arch::asm, time::Duration};
 
 /// Waits for the specified time without context switching.
-pub fn busy_wait(duration: std::time::Duration) {
+pub fn busy_wait(duration: Duration) {
     let ns: u64 = duration.as_nanos().try_into().expect("too big busy wait");
 
     unsafe {

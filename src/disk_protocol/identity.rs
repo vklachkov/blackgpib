@@ -80,6 +80,16 @@ pub struct DiskIdentity {
 }
 
 impl DiskIdentity {
+    /// Returns the device name as a human-readable string, removing any invalid UTF-8 bytes.
+    pub fn name(&self) -> std::borrow::Cow<'_, str> {
+        String::from_utf8_lossy(&self.device_name)
+    }
+
+    /// Returns total size in bytes of the disk.
+    pub fn size(&self) -> usize {
+        self.sector_size as usize * self.sector_count as usize
+    }
+
     /// Parses bytes into a struct. Supports parsing both the full 56-byte
     /// identifier and the shorter 52-byte identifier.
     pub fn from_bytes<const N: usize>(data: &[u8; N]) -> Self {
