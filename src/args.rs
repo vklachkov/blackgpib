@@ -120,12 +120,14 @@ impl Args {
 
         let status_cmd = construct!(ControllerCommand::Status { address })
             .to_options()
-            .descr("TODO")
+            .descr("Show device status")
             .command("status");
 
         // -- Format disk ----------------------------------------------------------------------------------------------
 
-        let validate = long("validate").help("TODO").switch().fallback(true);
+        let validate = long("validate")
+            .help("Verify sectors after format")
+            .switch();
 
         let address = positional("ADDRESS")
             .help("GPIB device bus address")
@@ -133,7 +135,7 @@ impl Args {
 
         let format_cmd = construct!(ControllerCommand::Format { validate, address })
             .to_options()
-            .descr("TODO")
+            .descr("Low level disk format")
             .command("format");
 
         // -- Read disk ------------------------------------------------------------------------------------------------
@@ -143,16 +145,16 @@ impl Args {
             .argument("ADDRESS")
             .guard(|v| (0..=30).contains(v), "address must be in range 0..30");
 
-        let to_path = long("to").help("TODO").argument("IMAGE_PATH");
+        let to_path = long("to").help("Output image path").argument("IMAGE_PATH");
 
         let read_cmd = construct!(ControllerCommand::Read { from_address, to_path })
             .to_options()
-            .descr("TODO")
+            .descr("Read disk image from disk")
             .command("read");
 
         // -- Write disk -----------------------------------------------------------------------------------------------
 
-        let from_path = long("from").help("TODO").argument("IMAGE_PATH");
+        let from_path = long("from").help("Input image path").argument("IMAGE_PATH");
 
         let to_address = long("to")
             .help("GPIB device bus address")
@@ -161,7 +163,7 @@ impl Args {
 
         let write_cmd = construct!(ControllerCommand::Write { from_path, to_address })
             .to_options()
-            .descr("TODO")
+            .descr("Write disk image")
             .command("write");
 
         // -- Collect subcommands to parser ----------------------------------------------------------------------------
