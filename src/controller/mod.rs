@@ -40,8 +40,10 @@ impl DeviceController {
 
     pub fn format_disk(&mut self, validate: bool) -> io::Result<()> {
         self.low_level_format()?;
+        info!("Low-level formatting completed");
 
         if !validate {
+            info!("Disk validation skipped");
             return Ok(());
         }
 
@@ -55,7 +57,7 @@ impl DeviceController {
             let has_uninit_bytes = sector.iter().skip(8).all(|b| *b == 0xe5);
 
             if !has_empty_marker || !has_uninit_bytes {
-                return Err(io::Error::other(format!("не удалось провалидировать сеектор n")));
+                return Err(io::Error::other(format!("sector {}/{} validation failed", i + 1, sector_count)));
             }
 
             info!("Sector {}/{} verified", i + 1, sector_count);
