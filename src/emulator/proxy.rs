@@ -1,4 +1,7 @@
-use std::net::{IpAddr, Ipv4Addr, UdpSocket};
+use std::{
+    io,
+    net::{IpAddr, Ipv4Addr, UdpSocket},
+};
 
 use crate::gpib::Talker;
 
@@ -10,12 +13,17 @@ pub struct DataToSocketDevice {
 }
 
 impl DataToSocketDevice {
-    pub fn new(port: u16) -> Self {
+    pub fn new(port: u16) -> io::Result<Self> {
         let addr = (IpAddr::V4(Ipv4Addr::LOCALHOST), 0);
-        let socket = UdpSocket::bind(addr).expect("failed to bind to socket");
-        socket.set_broadcast(true).expect("failed to set_broadcast for socket");
 
-        Self { socket, port }
+        let socket = UdpSocket::bind(addr)
+            .map_err(|err| io::Error::new(err.kind(), format!("failed to bind to socket: {err}")))?;
+
+        socket
+            .set_broadcast(true)
+            .map_err(|err| io::Error::new(err.kind(), format!("failed to set_broadcast for socket: {err}")))?;
+
+        Ok(Self { socket, port })
     }
 
     fn process_bytes(&mut self, buffer: &[u8]) -> ServiceRequest {

@@ -1,3 +1,5 @@
+use std::io;
+
 use memmap2::MmapMut;
 
 use crate::{
@@ -57,24 +59,27 @@ pub struct Disk {
 }
 
 impl Disk {
-    pub fn new(name: String, image: MmapMut) -> Self {
+    pub fn new(name: String, image: MmapMut) -> io::Result<Self> {
         let sector_remainder = image.len() % SECTOR_SIZE;
         if sector_remainder != 0 {
-            panic!("Disk image must be multiple of {SECTOR_SIZE}");
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Disk image must be multiple of {SECTOR_SIZE}"),
+            ));
         }
 
         let sector_count = (image.len() / SECTOR_SIZE) as u16;
         if sector_count < 6 {
-            panic!("Disk image must be at least 6 sectors in size");
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "Disk image must be at least 6 sectors in size"));
         }
 
         let identity = Self::identity(&name, sector_count).into_bytes();
 
-        Self {
+        Ok(Self {
             identity,
             image,
             state: State::Idle,
-        }
+        })
     }
 
     fn identity(name: &str, sector_count: u16) -> DiskIdentity {
@@ -109,24 +114,14 @@ impl Disk {
 
     fn process_bytes(&mut self, buffer: &[u8]) -> ServiceRequest {
         match self.state {
-            State::Idle => {
-                return self.process_new_request(buffer);
-            }
-            State::Initialize { .. } | State::Identity { .. } | State::Read { .. } => {
-                panic!("unexpected data received");
-            }
-            State::Write { sector, state } => {
-                if state != WriteDataState::NotAccepted {
-                    panic!("unexpected data received")
-                }
-
+            State::Write {
+                sector,
+                state: WriteDataState::NotAccepted,
+            } => {
                 return self.process_write_request(sector, buffer);
             }
-            State::Format => {
-                panic!("unexpected data received");
-            }
-            State::InvalidRequest => {
-                panic!("unexpected data received");
+            _ => {
+                return self.process_new_request(buffer);
             }
         }
     }
@@ -202,13 +197,17 @@ impl Disk {
     fn process_write_request(&mut self, sector: u32, buffer: &[u8]) -> ServiceRequest {
         let offset = sector as usize * SECTOR_SIZE;
 
-        let is_u32_max = sector == u32::MAX;
+        let is_status_write = sector == u16::MAX.into();
         let in_bounds = offset < self.image.len();
 
-        let state = if is_u32_max {
-            // Do nothing.
-            // I do not know exactly why the laptop sends a write request to sector
-            // 0xFFFFFFFF, but I think it is used to check the read data.
+        let state = if is_status_write {
+            // Do nothing. The laptop can send a Write(0xFFFFFFFF) request with mode=1
+            // with the data you sent before. It looks like this is a validation request.
+            //
+            // If there are less than 512 bytes sent, for example the response for GetStatus,
+            // then the rest of the bytes will be filled with some garbage from memory.
+            //
+            // Like a real floppy drive, always response OK.
             WriteDataState::Checked
         } else if in_bounds {
             self.image[offset..offset + SECTOR_SIZE].copy_from_slice(buffer);
@@ -234,12 +233,10 @@ impl Disk {
     fn response<'d>(&'d mut self) -> Response<'d> {
         match self.state {
             State::Idle => {
-                // TODO: What should we return?
-                panic!("Disk can't talk in idle state");
+                Response::Raw(&[]) //
             }
             State::Initialize { .. } => {
-                // TODO: What should we return?
-                Response::ok(None)
+                Response::ok(None) //
             }
             State::Identity { full } => {
                 let size = if full { 56 } else { 52 };
@@ -248,32 +245,33 @@ impl Disk {
             State::Read { sector } => {
                 if &self.image[0..8] == &[0xe5; 8] {
                     debug!("Unformatted disk read detected");
-                    return Response::from_status(DiskStatus::NotFormatted, 0x00);
+                    return Response::from_status(DiskStatus::NotFormatted, sector as _);
                 }
 
                 let offset = sector as usize * SECTOR_SIZE;
                 if offset >= self.image.len() {
-                    // FIXME: What is correct response for this situation?
-                    Response::ok(None)
+                    Response::from_status(DiskStatus::OutOfBounds, sector as _) //
                 } else {
-                    Response::Raw(&self.image[offset..offset + SECTOR_SIZE])
+                    Response::Raw(&self.image[offset..offset + SECTOR_SIZE]) //
                 }
             }
-            State::Write { state, sector } => {
-                if state == WriteDataState::NotAccepted {
-                    // TODO: What should we return?
-                    panic!("Disk can't talk while waiting for data");
+            State::Write { state, sector } => match state {
+                WriteDataState::NotAccepted => {
+                    Response::Raw(&[]) //
                 }
-
-                if state == WriteDataState::OutOfBounds {
-                    // TODO: What is correct response for this situation?
-                    Response::ok(Some(sector))
-                } else {
-                    Response::ok(Some(sector))
+                WriteDataState::Saved | WriteDataState::Checked => {
+                    Response::ok(Some(sector)) //
                 }
+                WriteDataState::OutOfBounds => {
+                    Response::from_status(DiskStatus::OutOfBounds, sector as _) //
+                }
+            },
+            State::Format => {
+                Response::ok(None) //
             }
-            State::Format => Response::ok(None),
-            State::InvalidRequest => Response::from_status(DiskStatus::UnsupportedCommand, 0x00),
+            State::InvalidRequest => {
+                Response::from_status(DiskStatus::UnsupportedCommand, 0x00) //
+            }
         }
     }
 }

@@ -134,24 +134,24 @@ fn run_emulator(gpio: Gpio, args: EmulatorArgs) -> io::Result<()> {
 }
 
 fn configure_emulator(args: EmulatorArgs, emulator: &mut DeviceEmulator) -> io::Result<()> {
-    emulator.create_proxy(21, 49274); // default printer
-    emulator.create_proxy(25, 49275); // printer hp
-    emulator.create_proxy(20, 49276); // plotter
+    emulator.create_proxy(21, 49274)?; // default printer
+    emulator.create_proxy(25, 49275)?; // printer hp
+    emulator.create_proxy(20, 49276)?; // plotter
 
     if let Some(ref path) = args.hdd_1_image {
-        emulator.create_disk(04, mmap_disk_image(path)?);
+        emulator.create_disk(04, mmap_disk_image(path)?)?;
     }
     if let Some(ref path) = args.floppy_drive_1_image {
-        emulator.create_disk(05, mmap_disk_image(path)?);
+        emulator.create_disk(05, mmap_disk_image(path)?)?;
     }
     if let Some(ref path) = args.portable_floppy_image {
-        emulator.create_disk(06, mmap_disk_image(path)?);
+        emulator.create_disk(06, mmap_disk_image(path)?)?;
     }
     if let Some(ref path) = args.hdd_2_image {
-        emulator.create_disk(12, mmap_disk_image(path)?);
+        emulator.create_disk(12, mmap_disk_image(path)?)?;
     }
     if let Some(ref path) = args.floppy_drive_2_image {
-        emulator.create_disk(13, mmap_disk_image(path)?);
+        emulator.create_disk(13, mmap_disk_image(path)?)?;
     }
 
     Ok(())

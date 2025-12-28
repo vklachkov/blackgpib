@@ -2,6 +2,8 @@ mod device;
 mod disk;
 mod proxy;
 
+use std::io;
+
 use crate::{
     gpib::{Command, Listener, Talker},
     gpio::Gpio,
@@ -61,28 +63,28 @@ impl DeviceEmulator {
         }
     }
 
-    pub fn create_disk(&mut self, address: u8, image: MmapMut) {
-        self.new_device(address, || {
-            let name = format!("Disk {address:#04x}");
-            Disk::new(name, image)
-        });
+    pub fn create_disk(&mut self, address: u8, image: MmapMut) -> io::Result<()> {
+        self.new_device(address, || Disk::new(format!("Disk {address:#04x}"), image))
     }
 
-    pub fn create_proxy(&mut self, address: u8, port: u16) {
-        self.new_device(address, || DataToSocketDevice::new(port));
+    pub fn create_proxy(&mut self, address: u8, port: u16) -> io::Result<()> {
+        self.new_device(address, || DataToSocketDevice::new(port))
     }
 
-    fn new_device<T, F>(&mut self, address: u8, ctor: F)
+    fn new_device<T, F>(&mut self, address: u8, ctor: F) -> io::Result<()>
     where
         T: Device + 'static,
-        F: FnOnce() -> T,
+        F: FnOnce() -> io::Result<T>,
     {
         let id = address as usize;
 
         assert!(id < MAX_GPIB_DEVICES, "address must be in range 0..=30");
         assert!(self.devices[id].is_none(), "device with address {id} already exists");
 
-        self.devices[id] = Some(Box::new(ctor()))
+        let device = ctor()?;
+        self.devices[id] = Some(Box::new(device));
+
+        Ok(())
     }
 
     pub fn start(mut self, mut gpio: Gpio) {
