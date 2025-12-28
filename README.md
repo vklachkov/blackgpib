@@ -4,7 +4,7 @@ This is a project to emulate GPiB peripherals for the [GRiD Compass](https://en.
 
 ## Features
 
-BlackGPiB can emulate a hard drive and a floppy drive. It also has a printer and plotter proxy. Current version is based on Raspberry Pi 2 or newer.
+BlackGPiB can emulate a hard drive and a floppy drive. It also has a printer and plotter proxy. Current version is based on Raspberry Pi 3 or newer. Support for Raspberry Pi 2 is not implemented due to the need to adapt the code for armv6.
 
 A new version for Raspberry Pi Pico is already in development.
 
@@ -51,16 +51,13 @@ The disks with the operating system and instructions for making your own disks a
 
 ## Details About Emulation
 
-> [!WARNING]
-> The project is in active development. The emulator is not 100% compatible with real devices yet.
-
 ### Block Devices
 
 The GRiD Compass does not see any difference between a floppy drive and a hard disk. For the computer, both are just "block devices".
 
 BlackGPiB can emulate disks for reading and writing at all standard addresses: 4, 5, 6, 12, and 13. Disks at non-standard addresses are not supported (for now).
 
-Other requests, except reading and writing, are not supported. You cannot format or initialize the virtual disk. Issues: https://github.com/vklachkov/blackgpib/issues/1 and https://github.com/vklachkov/blackgpib/issues/2.
+The emulator doesn't support all known commands, only the most essential ones: Initialize, Status, Read, Write, and Format.
 
 ### Printer and Plotter
 
