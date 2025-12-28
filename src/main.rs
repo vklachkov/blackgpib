@@ -16,11 +16,12 @@ use std::{fs, io, path::Path, process::ExitCode, time::Instant};
 use crate::{
     args::{Args, ControllerCommand, EmulatorArgs, SnifferArgs},
     controller::DeviceController,
+    disk_protocol::DiskIdentity,
     emulator::DeviceEmulator,
     gpio::Gpio,
     logger::LogLevel,
     sniffer::BusSniffer,
-    system::{DeviceInfo, GpioInterface},
+    system::{DeviceInfo, GpioInterface, SoC},
 };
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -69,17 +70,17 @@ fn check_device_compatibility() -> io::Result<()> {
 
     match DeviceInfo::new() {
         Ok(info) => match info.gpio_interface() {
-            GpioInterface::Bcm => {
+            GpioInterface::Bcm if info.soc() != SoC::Bcm2835 => {
                 info!("Detected supported {} ({})", info.model(), info.soc());
                 return Ok(());
             }
-            GpioInterface::Rp1 => {
-                info!("Sorry, your {} ({}) does not supported :(", info.model(), info.soc());
-                return Err(io::Error::new(io::ErrorKind::Unsupported, "RP1 gpio does not supported"));
+            _ => {
+                error!("Sorry, your {} ({}) does not supported :(", info.model(), info.soc());
+                return Err(io::Error::new(io::ErrorKind::Unsupported, "detected unsupported Raspberry Pi"));
             }
         },
         Err(err) if err.kind() == io::ErrorKind::Unsupported => {
-            return Err(io::Error::new(io::ErrorKind::Unsupported, "Unknown or unsupported Raspberry Pi model"));
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "unknown Raspberry Pi model"));
         }
         Err(err) => {
             return Err(err);
