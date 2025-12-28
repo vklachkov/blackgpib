@@ -1,9 +1,10 @@
 use std::{io, time::Duration};
 
 use crate::{
-    disk_protocol::{DiskIdentity, Request, RequestCode},
+    disk_protocol::{DiskIdentity, DiskStatus, Request, RequestCode},
     gpib::{Command, Listener, Talker},
     gpio::Gpio,
+    info,
     time_utils::busy_wait,
 };
 
@@ -25,7 +26,7 @@ impl DeviceController {
         Self {
             gpio,
             address,
-            buffer: Vec::with_capacity(512),
+            buffer: Vec::with_capacity(SECTOR_SIZE),
         }
     }
 
@@ -38,7 +39,7 @@ impl DeviceController {
     }
 
     pub fn format_disk(&mut self, validate: bool) -> io::Result<()> {
-        self.low_level_format();
+        self.low_level_format()?;
 
         if !validate {
             return Ok(());
@@ -48,22 +49,30 @@ impl DeviceController {
         let sector_count = status.sector_count;
 
         for i in 0..sector_count {
-            let sector = self.read_sector(i as u32);
-            assert_eq!(&sector[..8], &[0xff; 8], "bad sector after format");
-            assert_eq!(&sector[8..], &[0xe5; 504], "bad sector after format");
-            println!("Sector {}/{} verified", i + 1, sector_count);
+            let sector = self.read_sector(i as u32)?;
+
+            let has_empty_marker = sector.iter().take(8).all(|b| *b == 0xff);
+            let has_uninit_bytes = sector.iter().skip(8).all(|b| *b == 0xe5);
+
+            if !has_empty_marker || !has_uninit_bytes {
+                return Err(io::Error::other(format!("не удалось провалидировать сеектор n")));
+            }
+
+            info!("Sector {}/{} verified", i + 1, sector_count);
         }
 
         Ok(())
     }
 
-    fn low_level_format(&mut self) {
+    fn low_level_format(&mut self) -> io::Result<()> {
         self.send_format_cmd();
 
-        self.serial_poll_handshake();
+        self.serial_poll_handshake()?;
 
         self.response_handshake();
-        assert_eq!(self.buffer[0], 0x00, "format failed");
+        self.check_status()?;
+
+        Ok(())
     }
 
     pub fn read_disk_to_writer(&mut self, mut w: impl io::Write) -> io::Result<()> {
@@ -71,7 +80,7 @@ impl DeviceController {
         let sector_count = status.sector_count;
 
         for i in 0..sector_count {
-            let sector = self.read_sector(i as u32);
+            let sector = self.read_sector(i as u32)?;
             w.write_all(sector)?;
         }
 
@@ -85,37 +94,37 @@ impl DeviceController {
         for i in 0..sector_count {
             let mut data = [0u8; SECTOR_SIZE];
             r.read_exact(&mut data)?;
-            self.write_sector(i as u32, &data);
+            self.write_sector(i as u32, &data)?;
 
-            let sector = self.read_sector(i as u32);
-            assert_eq!(sector, data, "read write data mismatch");
+            let sector = self.read_sector(i as u32)?;
+            if sector != data {
+                return Err(io::Error::other("read write data mismatch"));
+            }
         }
 
         Ok(())
     }
 
-    fn write_sector(&mut self, sector: u32, data: &[u8]) {
+    fn write_sector(&mut self, sector: u32, data: &[u8]) -> io::Result<()> {
         self.send_write_cmd(sector, data);
 
-        self.serial_poll_handshake();
+        self.serial_poll_handshake()?;
 
         self.response_handshake();
-        assert!(self.buffer[0] == 0x00, "write failed {:#04x}", self.buffer[0]);
+        self.check_status()?;
+
+        Ok(())
     }
 
-    fn read_sector<'a>(&'a mut self, sector: u32) -> &'a [u8] {
+    fn read_sector<'a>(&'a mut self, sector: u32) -> io::Result<&'a [u8]> {
         self.send_read_cmd(sector);
 
-        self.serial_poll_handshake();
+        self.serial_poll_handshake()?;
 
         self.response_handshake();
+        self.check_status()?;
 
-        if self.buffer.len() == 7 {
-            assert!(self.buffer[0] == 0x00, "read failed with status {:#04x}", self.buffer[0]);
-        }
-
-        assert_eq!(self.buffer.len(), SECTOR_SIZE, "weird `read` response length from device");
-        return &self.buffer;
+        return Ok(&self.buffer);
     }
 
     fn send_get_status_cmd(&mut self) {
@@ -190,7 +199,7 @@ impl DeviceController {
         );
     }
 
-    fn serial_poll_handshake(&mut self) {
+    fn serial_poll_handshake(&mut self) -> io::Result<()> {
         let mut talker = Talker::new(&mut self.gpio);
 
         talker.wait_srq();
@@ -198,22 +207,23 @@ impl DeviceController {
         talker.send_command(Command::SPE);
 
         talker.send_command(Command::MTA(self.address));
-        drop(talker);
 
         let listener = Listener::new(&mut self.gpio);
-        assert_eq!((*listener.start_data_handshake()).value, 0x4F);
-        drop(listener);
+        if (*listener.start_data_handshake()).value != 0x4F {
+            return Err(io::Error::other("found another device on the bus"));
+        }
 
         talker = Talker::new(&mut self.gpio);
 
         talker.send_command(Command::SPD);
         talker.send_command(Command::UNT);
+
+        Ok(())
     }
 
     fn response_handshake(&mut self) {
         let talker = Talker::new(&mut self.gpio);
         talker.send_command(Command::MTA(self.address));
-        drop(talker);
 
         self.buffer.clear();
 
@@ -227,11 +237,34 @@ impl DeviceController {
             }
         }
 
-        drop(listener);
-
         let talker = Talker::new(&mut self.gpio);
         talker.send_command(Command::UNT);
-        drop(talker);
+    }
+
+    fn check_status(&mut self) -> io::Result<()> {
+        if self.buffer.is_empty() {
+            return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "empty response from disk"));
+        }
+
+        if self.buffer.len() == SECTOR_SIZE {
+            return Ok(());
+        }
+
+        if self.buffer.len() != 7 {
+            return Err(io::Error::other(format!(
+                "unexpected response length from disk: got {} bytes, expected {SECTOR_SIZE} or 7 byte",
+                self.buffer.len(),
+            )));
+        }
+
+        let raw_status = u16::from_le_bytes([self.buffer[0], self.buffer[1]]);
+        let status = DiskStatus::from(raw_status);
+
+        if status != DiskStatus::Ok {
+            return Err(io::Error::other(format!("disk returns an error {status:?} ({raw_status:#04x})",)));
+        }
+
+        Ok(())
     }
 
     fn send_bytes_with_handshake(talker: &mut Talker, address: u8, bytes: &[u8]) {
