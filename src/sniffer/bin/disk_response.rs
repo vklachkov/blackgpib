@@ -1,1 +1,0 @@
-../../emulator/disk/response.rs

@@ -2,7 +2,7 @@
 
 use std::{fmt::Debug, mem::transmute};
 
-pub const REQUEST_SIZE: usize = 10;
+const REQUEST_SIZE: usize = 10;
 
 /// Request from GRiD Compass to disk.
 #[derive(Debug)]

@@ -1,18 +1,12 @@
-mod identity;
-mod request;
-mod response;
-
 use memmap2::MmapMut;
 
-use crate::{debug, error, gpib};
+use crate::{
+    debug,
+    disk_protocol::{DiskIdentity, DiskStatus, Request, RequestCode, Response},
+    error, gpib,
+};
 
 use super::device::{Device, ServiceRequest};
-
-use self::{
-    identity::DiskIdentity,
-    request::{Request, RequestCode},
-    response::{DiskStatus, Response},
-};
 
 /// Actual sector size. This size is used by both the hard disk and floppy drive.
 ///
