@@ -13,7 +13,7 @@ use std::{
     time::Duration,
 };
 
-use disk_protocol::{DiskIdentity, Request as DiskRequest, StatusResponse as DiskStatusResponse};
+use disk_protocol::{Request as DiskRequest, Status as DiskStatus, StatusResponse as DiskStatusResponse};
 use gpib::Command as GPIBCommand;
 
 struct Args {
@@ -97,7 +97,7 @@ fn main() {
     let mut state = State::Idle;
     let mut buffer = Vec::with_capacity(512);
 
-    while let Some(byte) = dump_iter.next() {
+    for byte in dump_iter {
         match byte.expect("failed to read byte from dump") {
             GPIBByte::Command { timestamp, cmd } => {
                 display_command(timestamp, cmd, compact);
@@ -170,7 +170,7 @@ fn display_buffer(state: State, timestamp: Duration, buffer: &[u8], compact: boo
             println!("📟 Device #{dev} ({timestamp}) > {buffer:02x?}");
         }
         State::DeviceListen(dev) => {
-            if let Ok(a) = DiskRequest::try_from(buffer) {
+            if let Ok(a) = DiskRequest::try_from_bytes(buffer) {
                 println!("💻 Compass to #{dev} ({timestamp}) > {a:?}");
                 if !compact {
                     println!("\tRaw: {buffer:02x?}");
@@ -180,10 +180,13 @@ fn display_buffer(state: State, timestamp: Duration, buffer: &[u8], compact: boo
             }
         }
         State::DeviceTalk(dev) => {
-            if let Ok(status_response) = DiskStatusResponse::try_from_bytes(&buffer) {
+            if let Ok(status_response) = DiskStatusResponse::try_from_bytes(buffer) {
                 println!("📟 Device #{dev} ({timestamp}) > {status_response:?}");
-            } else if let Ok(identity) = DiskIdentity::try_from_bytes(&buffer) {
-                println!("📟 Device #{dev} ({timestamp}) > {identity:?}");
+                if !compact {
+                    println!("\tRaw: {buffer:02x?}");
+                }
+            } else if let Ok(status) = DiskStatus::try_from_bytes(buffer) {
+                println!("📟 Device #{dev} ({timestamp}) > {status:?}");
                 if !compact {
                     println!("\tRaw: {buffer:02x?}");
                 }

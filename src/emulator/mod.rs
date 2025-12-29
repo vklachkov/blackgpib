@@ -163,8 +163,6 @@ impl DeviceEmulator {
                 }
             };
 
-            drop(listener);
-
             let talker = Talker::new(&mut gpio);
 
             match talk_mode {
@@ -184,10 +182,8 @@ impl DeviceEmulator {
         self.serial_poll_state = SerialPollState::Disabled;
         self.listen_buffer.clear();
 
-        for device in self.devices.iter_mut() {
-            if let Some(device) = device {
-                device.reset();
-            }
+        for device in self.devices.iter_mut().flatten() {
+            device.reset();
         }
     }
 

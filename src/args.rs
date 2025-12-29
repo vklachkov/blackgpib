@@ -125,9 +125,7 @@ impl Args {
 
         // -- Format disk ----------------------------------------------------------------------------------------------
 
-        let validate = long("validate")
-            .help("Verify sectors after format")
-            .switch();
+        let validate = long("validate").help("Verify sectors after format").switch();
 
         let address = positional("ADDRESS")
             .help("GPIB device bus address")

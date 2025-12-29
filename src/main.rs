@@ -16,7 +16,7 @@ use std::{fs, io, path::Path, process::ExitCode, time::Instant};
 use crate::{
     args::{Args, ControllerCommand, EmulatorArgs, SnifferArgs},
     controller::DeviceController,
-    disk_protocol::DiskIdentity,
+    disk_protocol::Status,
     emulator::DeviceEmulator,
     gpio::Gpio,
     logger::LogLevel,
@@ -139,13 +139,13 @@ fn configure_emulator(args: EmulatorArgs, emulator: &mut DeviceEmulator) -> io::
     emulator.create_proxy(20, 49276)?; // plotter
 
     if let Some(ref path) = args.hdd_1_image {
-        emulator.create_disk(04, mmap_disk_image(path)?)?;
+        emulator.create_disk(4, mmap_disk_image(path)?)?;
     }
     if let Some(ref path) = args.floppy_drive_1_image {
-        emulator.create_disk(05, mmap_disk_image(path)?)?;
+        emulator.create_disk(5, mmap_disk_image(path)?)?;
     }
     if let Some(ref path) = args.portable_floppy_image {
-        emulator.create_disk(06, mmap_disk_image(path)?)?;
+        emulator.create_disk(6, mmap_disk_image(path)?)?;
     }
     if let Some(ref path) = args.hdd_2_image {
         emulator.create_disk(12, mmap_disk_image(path)?)?;
@@ -277,7 +277,7 @@ fn run_controller(gpio: Gpio, cmd: ControllerCommand) -> io::Result<()> {
     Ok(())
 }
 
-fn get_disk_status(controller: &mut DeviceController) -> io::Result<DiskIdentity> {
+fn get_disk_status(controller: &mut DeviceController) -> io::Result<Status> {
     info!("Read disk info");
     let disk_status = controller.read_status()?;
 

@@ -2,7 +2,7 @@ use std::{io, time::Duration};
 
 use crate::{
     debug,
-    disk_protocol::{DiskIdentity, DiskStatus, Request, RequestCode},
+    disk_protocol::{Request, RequestCode, Status, StatusResponse, StatusResponseErrno},
     gpib::{Command, Listener, Talker},
     gpio::Gpio,
     info,
@@ -32,11 +32,11 @@ impl DeviceController {
         }
     }
 
-    pub fn read_status(&mut self) -> io::Result<DiskIdentity> {
+    pub fn read_status(&mut self) -> io::Result<Status> {
         self.send_get_status_cmd();
 
         self.response_handshake();
-        let status = DiskIdentity::try_from_bytes(&self.buffer[0..52]).unwrap();
+        let status = Status::try_from_bytes(&self.buffer[0..52]).unwrap();
         Ok(status)
     }
 
@@ -125,7 +125,7 @@ impl DeviceController {
         Ok(())
     }
 
-    fn read_sector<'a>(&'a mut self, sector: u32) -> io::Result<&'a [u8]> {
+    fn read_sector(&mut self, sector: u32) -> io::Result<&[u8]> {
         self.send_read_cmd(sector);
 
         self.serial_poll_handshake()?;
@@ -140,17 +140,10 @@ impl DeviceController {
         let mut talker = Talker::new(&mut self.gpio);
 
         debug!("Send GetStatus command");
-        Self::send_bytes_with_handshake(
+        Self::send_request_with_handshake(
             &mut talker,
             self.address,
-            &Request {
-                code: RequestCode::GetStatus,
-                connection: 0,
-                sector: 0,
-                data_size: 52,
-                mode: 0,
-            }
-            .into_bytes(),
+            Request::new(RequestCode::GET_STATUS, None, 54), // 54 like real Compass
         );
     }
 
@@ -158,17 +151,10 @@ impl DeviceController {
         let mut talker = Talker::new(&mut self.gpio);
 
         debug!("Send Format command");
-        Self::send_bytes_with_handshake(
+        Self::send_request_with_handshake(
             &mut talker,
             self.address,
-            &Request {
-                code: RequestCode::Format,
-                connection: 0,
-                sector: 0,
-                data_size: 1,
-                mode: 0,
-            }
-            .into_bytes(),
+            Request::new(RequestCode::FORMAT, None, 1), // 1 like real Compass
         );
     }
 
@@ -178,17 +164,10 @@ impl DeviceController {
         let mut talker = Talker::new(&mut self.gpio);
 
         debug!("Send Write({sector}) command");
-        Self::send_bytes_with_handshake(
+        Self::send_request_with_handshake(
             &mut talker,
             self.address,
-            &Request {
-                code: RequestCode::Write,
-                connection: 0,
-                sector,
-                data_size: SECTOR_SIZE as _,
-                mode: 0,
-            }
-            .into_bytes(),
+            Request::new(RequestCode::WRITE, Some(sector), SECTOR_SIZE as _),
         );
 
         Self::send_bytes_with_handshake(&mut talker, self.address, data);
@@ -198,17 +177,10 @@ impl DeviceController {
         let mut talker = Talker::new(&mut self.gpio);
 
         debug!("Send Read({sector}) command");
-        Self::send_bytes_with_handshake(
+        Self::send_request_with_handshake(
             &mut talker,
             self.address,
-            &Request {
-                code: RequestCode::Read,
-                connection: 0,
-                sector,
-                data_size: SECTOR_SIZE as _,
-                mode: 0,
-            }
-            .into_bytes(),
+            Request::new(RequestCode::READ, Some(sector), SECTOR_SIZE as _),
         );
     }
 
@@ -267,21 +239,22 @@ impl DeviceController {
             return Ok(());
         }
 
-        if self.buffer.len() != 7 {
+        let Ok(status_response) = StatusResponse::try_from_bytes(&self.buffer) else {
             return Err(io::Error::other(format!(
                 "unexpected response length from disk: got {} bytes, expected {SECTOR_SIZE} or 7 byte",
                 self.buffer.len(),
             )));
-        }
+        };
 
-        let raw_status = u16::from_le_bytes([self.buffer[0], self.buffer[1]]);
-        let status = DiskStatus::from(raw_status);
-
-        if status != DiskStatus::Ok {
-            return Err(io::Error::other(format!("disk returns an error {status:?} ({raw_status:#04x})",)));
+        if status_response.status != StatusResponseErrno::OK {
+            return Err(io::Error::other(format!("disk returns an error {:?}", status_response.status)));
         }
 
         Ok(())
+    }
+
+    fn send_request_with_handshake(talker: &mut Talker, address: u8, request: Request) {
+        Self::send_bytes_with_handshake(talker, address, &request.into_bytes());
     }
 
     fn send_bytes_with_handshake(talker: &mut Talker, address: u8, bytes: &[u8]) {

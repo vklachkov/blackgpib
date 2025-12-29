@@ -1,27 +1,14 @@
-#![allow(unused)]
-
 /// Describes a block device connected to a GRiD computer.
 #[derive(Clone, Copy, Default)]
-pub struct DiskIdentity {
+pub struct Status {
     /// Actual sector size.
     ///
-    /// For external disks always 512 bytes.
-    ///
-    /// In theory Compass supports 256 and 512 bytes per sector.
-    /// But in reality, 512 bytes is hardcoded in the ROM and maybe in other places,
-    /// and the GPIB state breaks after reading zero sector.
+    /// Always 512 bytes.
     pub sector_size: u16,
 
     /// Logical sector size.
     ///
-    /// For 512 bytes per sector, it is 504 bytes; for 256, it is 252 bytes.
-    ///
-    /// Does not include 4 bytes for the ccos_block_header_t structure
-    /// at the start of the sector.
-    /// For 512 it also does not include 4 more bytes at the end of the sector,
-    /// which in CCOS-disk-utils are called `block_end`.
-    ///
-    /// In source code it is called `logPageSize`.
+    /// Always 504 bytes.
     pub logical_sector_size: u16,
 
     /// Number of sectors.
@@ -35,26 +22,23 @@ pub struct DiskIdentity {
     /// However, this is not important for MS-DOS 2.0 for Compass 110X.
     /// Because MS-DOS can easily try to read or write to a sector that
     /// is above the specified value.
-    ///
-    /// In source code it is called `numPages`.
     pub sector_count: u16,
 
-    /// Unknown purpose. On real devices always true and
-    /// the laptop does not react to changes for this field.
+    /// Status of the drive. 0 is not ready, 1 is ready, 3 is error.
     pub drive_status: u8,
 
-    /// Bitmap block number. Usually 0x120 (one less than the superblock),
-    /// but sometimes there are exceptions. Used only in CCOS.
+    /// Bitmap block number. Always 0x120 (one less than the superblock).
+    /// Used only in CCOS.
     pub bitmap_block_id: u16,
 
-    /// Superblock number. Usually 0x121, but sometimes there are exceptions.
+    /// Superblock number. Always 0x121.
     /// Used only in CCOS.
     pub superblock_id: u16,
 
-    /// Unknown purpose. On real devices always 1.
+    /// Unknown purpose. On 2101 always 1.
     pub min_dir_pages: u16,
 
-    /// Unknown purpose. On real devices always 0.
+    /// Unknown purpose. On 2101 always 0.
     pub flush: u8,
 
     /// Device name. Not shown in the CCOS interface, can be anything.
@@ -63,23 +47,23 @@ pub struct DiskIdentity {
     /// Same as [`Self::sector_size`].
     pub bytes_per_sector: u16,
 
-    /// Unknown purpose.
+    /// Unknown purpose. Can be 0.
     pub sectors_per_track: u16,
 
-    /// Unknown purpose.
+    /// Unknown purpose. Can be 0.
     pub tracks_per_cylinder: u16,
 
-    /// Unknown purpose.
+    /// Unknown purpose. Can be 0.
     pub interleave_factor: u8,
 
-    /// Unknown purpose.
+    /// Unknown purpose. Can be 0.
     pub second_side_count: u8,
 
-    /// Unknown purpose.
+    /// Unknown purpose. Can be 0.
     pub num_cylinders: u16,
 }
 
-impl DiskIdentity {
+impl Status {
     /// Returns the device name as a human-readable string, removing any invalid UTF-8 bytes.
     pub fn name(&self) -> std::borrow::Cow<'_, str> {
         String::from_utf8_lossy(&self.device_name)
@@ -90,15 +74,13 @@ impl DiskIdentity {
         self.sector_size as usize * self.sector_count as usize
     }
 
-    /// Parses bytes into a struct. Supports parsing both the full 56-byte
-    /// identifier and the shorter 52-byte identifier.
     pub fn from_bytes<const N: usize>(data: &[u8; N]) -> Self {
         const { assert!(N == 52 || N == 56, "invalid size") };
 
         let mut device_name = [0u8; 32];
         device_name.copy_from_slice(&data[14..46]);
 
-        DiskIdentity {
+        Status {
             sector_size: u16::from_le_bytes([data[0], data[1]]),
             logical_sector_size: u16::from_le_bytes([data[2], data[3]]),
             sector_count: u16::from_le_bytes([data[4], data[5]]),
@@ -121,8 +103,6 @@ impl DiskIdentity {
         }
     }
 
-    /// Parses slice of bytes into a struct. If slice has invalid value,
-    /// function returns Err(input).
     pub fn try_from_bytes(input: &[u8]) -> Result<Self, &[u8]> {
         if let Ok(data) = input.try_into() {
             Ok(Self::from_bytes::<52>(data))
@@ -133,7 +113,6 @@ impl DiskIdentity {
         }
     }
 
-    /// Serializes the struct into a byte array.
     pub fn into_bytes(self) -> [u8; 56] {
         let mut output = [0u8; 56];
 
@@ -157,9 +136,9 @@ impl DiskIdentity {
     }
 }
 
-impl std::fmt::Debug for DiskIdentity {
+impl std::fmt::Debug for Status {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiskIdentity")
+        f.debug_struct("Status")
             .field("sector_size", &self.sector_size)
             .field("logical_sector_size", &self.logical_sector_size)
             .field("sector_count", &self.sector_count)
@@ -168,7 +147,7 @@ impl std::fmt::Debug for DiskIdentity {
             .field("superblock_id", &self.superblock_id)
             .field("min_dir_pages", &self.min_dir_pages)
             .field("flush", &self.flush)
-            .field("device_name", &String::from_utf8_lossy(&self.device_name))
+            .field("device_name", &self.name())
             .field("bytes_per_sector", &self.bytes_per_sector)
             .field("sectors_per_track", &self.sectors_per_track)
             .field("tracks_per_cylinder", &self.tracks_per_cylinder)
@@ -184,7 +163,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_round_trip_hdd_identity() {
+    fn test_round_trip_hdd_status() {
         let bytes = [
             0x00, 0x02, 0xF8, 0x01, 0x8C, 0x51, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x4D, 0x41, 0x4D, 0x45,
             0x20, 0x48, 0x41, 0x52, 0x44, 0x44, 0x49, 0x53, 0x4B, 0x20, 0x44, 0x52, 0x49, 0x56, 0x45, 0x20, 0x20, 0x20,
@@ -192,7 +171,7 @@ mod tests {
             0x04, 0x00,
         ];
 
-        let status = DiskIdentity::from_bytes(&bytes);
+        let status = Status::from_bytes(&bytes);
         dbg!(status);
 
         assert_eq!(status.sector_size, 512);
@@ -216,14 +195,14 @@ mod tests {
     }
 
     #[test]
-    fn test_round_trip_floppy_identity() {
+    fn test_round_trip_floppy_status() {
         let bytes = [
             0x00, 0x02, 0xF8, 0x01, 0xD0, 0x02, 0x01, 0x20, 0x01, 0x21, 0x01, 0x01, 0x00, 0x00, 0x34, 0x38, 0x20, 0x54,
             0x50, 0x49, 0x20, 0x44, 0x53, 0x20, 0x44, 0x44, 0x20, 0x46, 0x4C, 0x4F, 0x50, 0x50, 0x59, 0x20, 0x20, 0x20,
             0x20, 0x33, 0x30, 0x30, 0x32, 0x33, 0x37, 0x2D, 0x30, 0x30, 0x00, 0x02, 0x09, 0x00, 0x02, 0x00,
         ];
 
-        let status = DiskIdentity::from_bytes(&bytes);
+        let status = Status::from_bytes(&bytes);
         dbg!(status);
 
         assert_eq!(status.sector_size, 512);

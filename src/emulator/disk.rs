@@ -4,7 +4,7 @@ use memmap2::MmapMut;
 
 use crate::{
     debug,
-    disk_protocol::{DiskIdentity, DiskStatus, Request, RequestCode, Response},
+    disk_protocol::{Request, RequestCode, Response, Status, StatusResponseErrno},
     error, gpib,
 };
 
@@ -27,7 +27,7 @@ const LOGICAL_SECTOR_SIZE: usize = SECTOR_SIZE - 8;
 enum State {
     #[default]
     Idle,
-    Identity {
+    Status {
         full: bool,
     },
     Initialize {
@@ -53,7 +53,7 @@ enum WriteDataState {
 }
 
 pub struct Disk {
-    identity: [u8; 56],
+    status: [u8; 56],
     image: MmapMut,
     state: State,
 }
@@ -73,23 +73,23 @@ impl Disk {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "Disk image must be at least 6 sectors in size"));
         }
 
-        let identity = Self::identity(&name, sector_count).into_bytes();
+        let status = Self::status(&name, sector_count).into_bytes();
 
         Ok(Self {
-            identity,
+            status,
             image,
             state: State::Idle,
         })
     }
 
-    fn identity(name: &str, sector_count: u16) -> DiskIdentity {
+    fn status(name: &str, sector_count: u16) -> Status {
         assert!(name.is_ascii(), "Device name must be ASCII");
 
         let mut device_name = [b' '; 32];
         let name_len = name.len().min(device_name.len());
         device_name[..name_len].copy_from_slice(&name.as_bytes()[..name_len]);
 
-        DiskIdentity {
+        Status {
             sector_size: SECTOR_SIZE as _,
             logical_sector_size: LOGICAL_SECTOR_SIZE as _,
             sector_count,
@@ -127,13 +127,13 @@ impl Disk {
     }
 
     fn process_new_request(&mut self, buffer: &[u8]) -> ServiceRequest {
-        match Request::try_from(buffer) {
+        match Request::try_from_bytes(buffer) {
             Ok(req) => {
                 debug!("Received {req:?}");
                 self.process_request(req)
             }
-            Err(err) => {
-                error!("Failed to parse request {buffer:02x?}: {err}");
+            Err(buffer) => {
+                error!("Invalid request: {buffer:02x?}");
 
                 self.state = State::InvalidRequest;
 
@@ -144,13 +144,13 @@ impl Disk {
 
     fn process_request(&mut self, req: Request) -> ServiceRequest {
         match req.code {
-            RequestCode::Initialize => {
+            RequestCode::INITIALIZE => {
                 self.state = State::Initialize { _sector: req.sector };
 
                 ServiceRequest::NotRequired
             }
-            RequestCode::GetStatus => {
-                self.state = State::Identity {
+            RequestCode::GET_STATUS => {
+                self.state = State::Status {
                     // Sometimes Compass may request 54 bytes of identifier,
                     // and in this case it is necessary to reply with exactly 52 bytes.
                     full: req.data_size == 56,
@@ -158,12 +158,12 @@ impl Disk {
 
                 ServiceRequest::NotRequired
             }
-            RequestCode::Read => {
+            RequestCode::READ => {
                 self.state = State::Read { sector: req.sector };
 
                 ServiceRequest::Required
             }
-            RequestCode::Write => {
+            RequestCode::WRITE => {
                 self.state = State::Write {
                     sector: req.sector,
                     state: WriteDataState::NotAccepted,
@@ -172,7 +172,7 @@ impl Disk {
                 // SRQ required only after receiving a sector bytes for writing.
                 ServiceRequest::NotRequired
             }
-            RequestCode::Format => {
+            RequestCode::FORMAT => {
                 self.format_image();
                 self.state = State::Format;
                 ServiceRequest::Required
@@ -222,8 +222,10 @@ impl Disk {
     }
 
     fn talk(&mut self, mut talker: gpib::Talker) {
-        let response = self.response();
-        talker.send_bytes(response.as_slice());
+        match self.response() {
+            Response::Raw(bytes) => talker.send_bytes(bytes),
+            Response::Status(s) => talker.send_bytes(&s.into_bytes()),
+        }
 
         // Reset to default state after answer because disk is stateless :)
         self.reset();
@@ -238,19 +240,19 @@ impl Disk {
             State::Initialize { .. } => {
                 Response::ok(None) //
             }
-            State::Identity { full } => {
+            State::Status { full } => {
                 let size = if full { 56 } else { 52 };
-                Response::Raw(&self.identity[..size])
+                Response::Raw(&self.status[..size])
             }
             State::Read { sector } => {
-                if &self.image[0..8] == &[0xe5; 8] {
+                if self.image[0..8] == [0xe5; 8] {
                     debug!("Unformatted disk read detected");
-                    return Response::from_status(DiskStatus::NotFormatted, sector as _);
+                    return Response::from_status(StatusResponseErrno::NOT_FORMATTED, sector as _);
                 }
 
                 let offset = sector as usize * SECTOR_SIZE;
                 if offset >= self.image.len() {
-                    Response::from_status(DiskStatus::OutOfBounds, sector as _) //
+                    Response::from_status(StatusResponseErrno::OUT_OF_BOUNDS, sector as _) //
                 } else {
                     Response::Raw(&self.image[offset..offset + SECTOR_SIZE]) //
                 }
@@ -263,14 +265,14 @@ impl Disk {
                     Response::ok(Some(sector)) //
                 }
                 WriteDataState::OutOfBounds => {
-                    Response::from_status(DiskStatus::OutOfBounds, sector as _) //
+                    Response::from_status(StatusResponseErrno::OUT_OF_BOUNDS, sector as _) //
                 }
             },
             State::Format => {
                 Response::ok(None) //
             }
             State::InvalidRequest => {
-                Response::from_status(DiskStatus::UnsupportedCommand, 0x00) //
+                Response::from_status(StatusResponseErrno::UNSUPPORTED, 0x00) //
             }
         }
     }
