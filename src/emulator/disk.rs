@@ -38,6 +38,7 @@ enum State {
     },
     Write {
         sector: u32,
+        mode: u8,
         state: WriteDataState,
     },
     Format,
@@ -116,9 +117,10 @@ impl Disk {
         match self.state {
             State::Write {
                 sector,
+                mode,
                 state: WriteDataState::NotAccepted,
             } => {
-                return self.process_write_request(sector, buffer);
+                return self.process_write_request(sector, mode, buffer);
             }
             _ => {
                 return self.process_new_request(buffer);
@@ -166,6 +168,7 @@ impl Disk {
             RequestCode::WRITE => {
                 self.state = State::Write {
                     sector: req.sector,
+                    mode: req.mode,
                     state: WriteDataState::NotAccepted,
                 };
 
@@ -194,14 +197,14 @@ impl Disk {
         }
     }
 
-    fn process_write_request(&mut self, sector: u32, buffer: &[u8]) -> ServiceRequest {
+    fn process_write_request(&mut self, sector: u32, mode: u8, buffer: &[u8]) -> ServiceRequest {
         let offset = sector as usize * SECTOR_SIZE;
 
-        let is_status_write = sector == u16::MAX.into();
+        let is_prev_data_check = mode == 1;
         let in_bounds = offset < self.image.len();
 
-        let state = if is_status_write {
-            // Do nothing. The laptop can send a Write(0xFFFFFFFF) request with mode=1
+        let state = if is_prev_data_check {
+            // Do nothing. The laptop can send a Write(0xFFFFFFFF) or Write(0xFFFF) request with mode=1
             // with the data you sent before. It looks like this is a validation request.
             //
             // If there are less than 512 bytes sent, for example the response for GetStatus,
@@ -216,7 +219,7 @@ impl Disk {
             WriteDataState::OutOfBounds
         };
 
-        self.state = State::Write { sector, state };
+        self.state = State::Write { sector, mode, state };
 
         return ServiceRequest::Required;
     }
@@ -257,12 +260,15 @@ impl Disk {
                     Response::Raw(&self.image[offset..offset + SECTOR_SIZE]) //
                 }
             }
-            State::Write { state, sector } => match state {
+            State::Write { state, sector, .. } => match state {
                 WriteDataState::NotAccepted => {
                     Response::Raw(&[]) //
                 }
-                WriteDataState::Saved | WriteDataState::Checked => {
+                WriteDataState::Saved => {
                     Response::ok(Some(sector)) //
+                }
+                WriteDataState::Checked => {
+                    Response::ok(Some(0xFFFF)) //
                 }
                 WriteDataState::OutOfBounds => {
                     Response::from_status(StatusResponseErrno::OUT_OF_BOUNDS, sector as _) //
