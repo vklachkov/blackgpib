@@ -27,18 +27,22 @@ pub struct Status {
     /// Status of the drive. 0 is not ready, 1 is ready, 3 is error.
     pub drive_status: u8,
 
-    /// Bitmap block number. Always 0x120 (one less than the superblock).
-    /// Used only in CCOS.
+    /// Bitmap block number.
+    /// On the hard drive it's 0x2400, on the floppy drive it's 0x120.
     pub bitmap_block_id: u16,
 
-    /// Superblock number. Always 0x121.
-    /// Used only in CCOS.
+    /// Superblock number.
+    /// On the hard drive it's 0x2420, on the floppy drive it's 0x121.
     pub superblock_id: u16,
 
-    /// Unknown purpose. On 2101 always 1.
+    /// Minimum number of sectors the system reserves for storing the file list
+    /// in the Programs~Subject~.
+    /// 
+    /// On the hard drive it's 0x2400, on the floppy drive it's 0x120.
     pub min_dir_pages: u16,
 
-    /// Unknown purpose. On 2101 always 0.
+    /// Unknown purpose.
+    /// On the hard drive it's 0x0E, on the floppy drive it's 0.
     pub flush: u8,
 
     /// Device name. Not shown in the CCOS interface, can be anything.
@@ -47,20 +51,11 @@ pub struct Status {
     /// Same as [`Self::sector_size`].
     pub bytes_per_sector: u16,
 
-    /// Unknown purpose. Can be 0.
+    /// Number of sectors per track.
     pub sectors_per_track: u16,
 
-    /// Unknown purpose. Can be 0.
+    /// Number of tracks per cylinder.
     pub tracks_per_cylinder: u16,
-
-    /// Unknown purpose. Can be 0.
-    pub interleave_factor: u8,
-
-    /// Unknown purpose. Can be 0.
-    pub second_side_count: u8,
-
-    /// Unknown purpose. Can be 0.
-    pub num_cylinders: u16,
 }
 
 impl Status {
@@ -74,9 +69,7 @@ impl Status {
         self.sector_size as usize * self.sector_count as usize
     }
 
-    pub fn from_bytes<const N: usize>(data: &[u8; N]) -> Self {
-        const { assert!(N == 52 || N == 56, "invalid size") };
-
+    pub fn from_bytes(data: &[u8; 52]) -> Self {
         let mut device_name = [0u8; 32];
         device_name.copy_from_slice(&data[14..46]);
 
@@ -93,28 +86,19 @@ impl Status {
             bytes_per_sector: u16::from_le_bytes([data[46], data[47]]),
             sectors_per_track: u16::from_le_bytes([data[48], data[49]]),
             tracks_per_cylinder: u16::from_le_bytes([data[50], data[51]]),
-            interleave_factor: if N == 56 { data[52] } else { 0 },
-            second_side_count: if N == 56 { data[53] } else { 0 },
-            num_cylinders: if N == 56 {
-                u16::from_le_bytes([data[54], data[55]])
-            } else {
-                0
-            },
         }
     }
 
     pub fn try_from_bytes(input: &[u8]) -> Result<Self, &[u8]> {
         if let Ok(data) = input.try_into() {
-            Ok(Self::from_bytes::<52>(data))
-        } else if let Ok(data) = input.try_into() {
-            Ok(Self::from_bytes::<56>(data))
+            Ok(Self::from_bytes(data))
         } else {
             Err(input)
         }
     }
 
-    pub fn into_bytes(self) -> [u8; 56] {
-        let mut output = [0u8; 56];
+    pub fn into_bytes(self) -> [u8; 52] {
+        let mut output = [0u8; 52];
 
         output[0..2].copy_from_slice(&self.sector_size.to_le_bytes());
         output[2..4].copy_from_slice(&self.logical_sector_size.to_le_bytes());
@@ -128,9 +112,6 @@ impl Status {
         output[46..48].copy_from_slice(&self.bytes_per_sector.to_le_bytes());
         output[48..50].copy_from_slice(&self.sectors_per_track.to_le_bytes());
         output[50..52].copy_from_slice(&self.tracks_per_cylinder.to_le_bytes());
-        output[52] = self.interleave_factor;
-        output[53] = self.second_side_count;
-        output[54..56].copy_from_slice(&self.num_cylinders.to_le_bytes());
 
         output
     }
@@ -151,9 +132,6 @@ impl std::fmt::Debug for Status {
             .field("bytes_per_sector", &self.bytes_per_sector)
             .field("sectors_per_track", &self.sectors_per_track)
             .field("tracks_per_cylinder", &self.tracks_per_cylinder)
-            .field("interleave_factor", &self.interleave_factor)
-            .field("second_side_count", &self.second_side_count)
-            .field("num_cylinders", &self.num_cylinders)
             .finish()
     }
 }
@@ -167,8 +145,7 @@ mod tests {
         let bytes = [
             0x00, 0x02, 0xF8, 0x01, 0x8C, 0x51, 0x01, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x4D, 0x41, 0x4D, 0x45,
             0x20, 0x48, 0x41, 0x52, 0x44, 0x44, 0x49, 0x53, 0x4B, 0x20, 0x44, 0x52, 0x49, 0x56, 0x45, 0x20, 0x20, 0x20,
-            0x20, 0x20, 0x47, 0x52, 0x49, 0x44, 0x32, 0x31, 0x30, 0x31, 0x00, 0x02, 0x11, 0x00, 0x33, 0x01, 0x00, 0x00,
-            0x04, 0x00,
+            0x20, 0x20, 0x47, 0x52, 0x49, 0x44, 0x32, 0x31, 0x30, 0x31, 0x00, 0x02, 0x11, 0x00, 0x33, 0x01,
         ];
 
         let status = Status::from_bytes(&bytes);
@@ -186,9 +163,6 @@ mod tests {
         assert_eq!(status.bytes_per_sector, 512);
         assert_eq!(status.sectors_per_track, 17);
         assert_eq!(status.tracks_per_cylinder, 307);
-        assert_eq!(status.interleave_factor, 0);
-        assert_eq!(status.second_side_count, 0);
-        assert_eq!(status.num_cylinders, 4);
 
         let serialized = status.into_bytes();
         assert_eq!(serialized, bytes);
@@ -217,9 +191,6 @@ mod tests {
         assert_eq!(status.bytes_per_sector, 512);
         assert_eq!(status.sectors_per_track, 9);
         assert_eq!(status.tracks_per_cylinder, 2);
-        assert_eq!(status.interleave_factor, 0);
-        assert_eq!(status.second_side_count, 0);
-        assert_eq!(status.num_cylinders, 0);
 
         let serialized = status.into_bytes();
         assert_eq!(serialized[..52], bytes);

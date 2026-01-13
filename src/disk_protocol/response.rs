@@ -21,32 +21,37 @@ pub struct StatusResponse {
     /// Status code of the request.
     pub status: StatusResponseErrno,
 
-    /// Exact purpose is unknown, maybe connection or drive init flag, on real drive always 0.
-    pub unknown: u8,
+    /// Unknown. Maybe some flag.
+    pub unknown2: u8,
 
     /// Sector number from the request, if needed.
     pub sector: u16,
 
-    /// Unused, always 0.
-    pub unused: u16,
+    /// Unknown. At 2101 always 0, at 2102 value is unknown.
+    pub unknown5: u8,
+
+    /// Unknown. At 2101 always 0, at 2102 can be 1.
+    pub unknown6: u8,
 }
 
 impl StatusResponse {
     pub const fn new(status: StatusResponseErrno, sector: u16) -> Self {
         Self {
             status,
-            unknown: 0,
+            unknown2: 0,
             sector,
-            unused: 0,
+            unknown5: 0,
+            unknown6: 0,
         }
     }
 
     pub fn from_bytes(input: &[u8; STATUS_RESPONSE_LEN]) -> Self {
         Self {
             status: StatusResponseErrno(u16::from_le_bytes([input[0], input[1]])),
-            unknown: input[1],
+            unknown2: input[1],
             sector: u16::from_le_bytes([input[3], input[4]]),
-            unused: u16::from_le_bytes([input[5], input[6]]),
+            unknown5: input[5],
+            unknown6: input[6],
         }
     }
 
@@ -61,9 +66,10 @@ impl StatusResponse {
     pub fn into_bytes(self) -> [u8; STATUS_RESPONSE_LEN] {
         let mut bytes = [0; STATUS_RESPONSE_LEN];
         bytes[0..=1].copy_from_slice(&self.status.0.to_le_bytes());
-        bytes[2] = self.unknown;
+        bytes[2] = self.unknown2;
         bytes[3..=4].copy_from_slice(&self.sector.to_le_bytes());
-        bytes[5..=6].copy_from_slice(&self.unused.to_le_bytes());
+        bytes[5] = self.unknown5;
+        bytes[6] = self.unknown6;
         bytes
     }
 }
@@ -121,9 +127,10 @@ mod tests {
         let response = StatusResponse::from_bytes(&bytes);
 
         assert_eq!(response.status, StatusResponseErrno::NOT_FORMATTED);
-        assert_eq!(response.unknown, 0);
+        assert_eq!(response.unknown2, 0);
         assert_eq!(response.sector, 0xBBAA);
-        assert_eq!(response.unused, 0xDDCC);
+        assert_eq!(response.unknown5, 0xCC);
+        assert_eq!(response.unknown6, 0xDD);
     }
 
     #[test]
@@ -145,7 +152,9 @@ mod tests {
 
         assert_eq!(original.status, reparsed.status);
         assert_eq!(original.sector, reparsed.sector);
-        assert_eq!(original.unknown, reparsed.unknown);
-        assert_eq!(original.unused, reparsed.unused);
+
+        assert_eq!(original.unknown2, reparsed.unknown2);
+        assert_eq!(original.unknown5, reparsed.unknown5);
+        assert_eq!(original.unknown6, reparsed.unknown6);
     }
 }

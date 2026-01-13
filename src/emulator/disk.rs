@@ -27,12 +27,8 @@ const LOGICAL_SECTOR_SIZE: usize = SECTOR_SIZE - 8;
 enum State {
     #[default]
     Idle,
-    Status {
-        full: bool,
-    },
-    Initialize {
-        _sector: u32,
-    },
+    Status,
+    Initialize,
     Read {
         sector: u32,
     },
@@ -54,7 +50,7 @@ enum WriteDataState {
 }
 
 pub struct Disk {
-    status: [u8; 56],
+    status: [u8; 52],
     image: MmapMut,
     state: State,
 }
@@ -103,9 +99,6 @@ impl Disk {
             bytes_per_sector: SECTOR_SIZE as _,
             sectors_per_track: 0,
             tracks_per_cylinder: 0,
-            interleave_factor: 0,
-            second_side_count: 0,
-            num_cylinders: 0,
         }
     }
 
@@ -147,16 +140,12 @@ impl Disk {
     fn process_request(&mut self, req: Request) -> ServiceRequest {
         match req.code {
             RequestCode::INITIALIZE => {
-                self.state = State::Initialize { _sector: req.sector };
+                self.state = State::Initialize;
 
                 ServiceRequest::NotRequired
             }
             RequestCode::GET_STATUS => {
-                self.state = State::Status {
-                    // Sometimes Compass may request 54 bytes of identifier,
-                    // and in this case it is necessary to reply with exactly 52 bytes.
-                    full: req.data_size == 56,
-                };
+                self.state = State::Status;
 
                 ServiceRequest::NotRequired
             }
@@ -240,12 +229,13 @@ impl Disk {
             State::Idle => {
                 Response::Raw(&[]) //
             }
-            State::Initialize { .. } => {
+            State::Initialize => {
                 Response::ok(None) //
             }
-            State::Status { full } => {
-                let size = if full { 56 } else { 52 };
-                Response::Raw(&self.status[..size])
+            State::Status => {
+                // Sometimes Compass may request 54 bytes of identifier,
+                // but emulator must reply with exactly 52 bytes.
+                Response::Raw(&self.status)
             }
             State::Read { sector } => {
                 if self.image[0..8] == [0xe5; 8] {

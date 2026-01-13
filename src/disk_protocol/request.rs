@@ -5,18 +5,18 @@ pub struct Request {
     /// Operation code. Determines what magic the emulator will do next.
     pub code: RequestCode,
 
-    /// Unused.
-    pub unused: u8,
+    /// Unknown.
+    pub unknown1: u8,
 
-    /// The exact purpose is unknown.
-    pub connection: u8,
+    /// Unknown.
+    pub unknown2: u8,
 
-    /// Sector number. Only used for Read, Write, and TrackFormat operations.
+    /// Sector number.
     pub sector: u32,
 
     /// Request data size.
     /// For Format, it must be 1.
-    /// For GetStatus, it can be 52, 54, or 56.
+    /// For GetStatus, it can be 52 or 54.
     /// For Read and Write, it should always be 512.
     pub data_size: u16,
 
@@ -30,8 +30,8 @@ impl Request {
     pub fn new(code: RequestCode, sector: Option<u32>, data_size: u16) -> Self {
         Self {
             code,
-            unused: 0,
-            connection: 0,
+            unknown1: 0,
+            unknown2: 0,
             sector: sector.unwrap_or_default(),
             data_size,
             mode: 0,
@@ -41,8 +41,8 @@ impl Request {
     pub fn from_bytes(input: &[u8; REQUEST_SIZE]) -> Self {
         Self {
             code: RequestCode(input[0]),
-            unused: input[1],
-            connection: input[2],
+            unknown1: input[1],
+            unknown2: input[2],
             sector: u32::from_le_bytes([input[3], input[4], input[5], input[6]]),
             data_size: u16::from_le_bytes([input[7], input[8]]),
             mode: input[9],
@@ -60,8 +60,8 @@ impl Request {
     pub fn into_bytes(self) -> [u8; REQUEST_SIZE] {
         let mut bytes = [0; REQUEST_SIZE];
         bytes[0] = self.code.0;
-        bytes[1] = self.unused;
-        bytes[2] = self.connection;
+        bytes[1] = self.unknown1;
+        bytes[2] = self.unknown2;
         bytes[3..=6].copy_from_slice(&self.sector.to_le_bytes());
         bytes[7..=8].copy_from_slice(&self.data_size.to_le_bytes());
         bytes[9] = self.mode;
@@ -112,8 +112,8 @@ mod tests {
         let request = Request::try_from_bytes(bytes).expect("Failed to decode request");
 
         assert_eq!(request.code, RequestCode::GET_STATUS);
-        assert_eq!(request.unused, 0);
-        assert_eq!(request.connection, 0);
+        assert_eq!(request.unknown1, 0);
+        assert_eq!(request.unknown2, 0);
         assert_eq!(request.sector, 0);
         assert_eq!(request.data_size, 52);
         assert_eq!(request.mode, 0);
@@ -125,8 +125,8 @@ mod tests {
         let request = Request::try_from_bytes(bytes).expect("Failed to decode request");
 
         assert_eq!(request.code, RequestCode::READ);
-        assert_eq!(request.unused, 0);
-        assert_eq!(request.connection, 0);
+        assert_eq!(request.unknown1, 0);
+        assert_eq!(request.unknown2, 0);
         assert_eq!(request.sector, 0);
         assert_eq!(request.data_size, 512);
         assert_eq!(request.mode, 0);
@@ -138,8 +138,8 @@ mod tests {
         let request = Request::try_from_bytes(bytes).expect("Failed to decode request");
 
         assert_eq!(request.code, RequestCode::WRITE);
-        assert_eq!(request.unused, 0);
-        assert_eq!(request.connection, 0);
+        assert_eq!(request.unknown1, 0);
+        assert_eq!(request.unknown2, 0);
         assert_eq!(request.sector, 0xffffffff);
         assert_eq!(request.data_size, 512);
         assert_eq!(request.mode, 1);
