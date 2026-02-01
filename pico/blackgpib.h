@@ -21,5 +21,5 @@
 #define PIN_GPIB_ATN      10
 #define PIN_GPIB_EOI      9
 #define PIN_GPIB_SRQ      8
-#define PIN_GPIB_TE       26
-#define PIN_GPIB_DC       27
+#define PIN_GPIB_TE       27
+#define PIN_GPIB_DC       26
