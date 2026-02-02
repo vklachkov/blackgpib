@@ -79,15 +79,19 @@ int main() {
 
     first_chunk_test();
 
-    gpio_init(PIN_GPIB_DC);
-    gpio_set_dir(PIN_GPIB_DC, GPIO_OUT);
-    gpio_put(PIN_GPIB_DC, 1);
+    uint pin = PIN_GPIB_DIO7;
+
+    gpio_init(pin);
+    gpio_set_dir(pin, GPIO_OUT);
+    gpio_put(pin, 1);
 
     while (true) {
-        gpio_put(PIN_GPIB_DC, 1);
+        gpio_put(pin, 1);
 
-        sleep_ms(1000);
+        sleep_ms(3000);
 
-        gpio_put(PIN_GPIB_DC, 0);
+        gpio_put(pin, 0);
+
+        sleep_ms(3000);
     }
 }
