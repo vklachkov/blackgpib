@@ -1,10 +1,10 @@
-# BlackGPiB
+# BlackGPIB
 
-This is a project to emulate GPiB peripherals for the [GRiD Compass](https://en.wikipedia.org/wiki/Grid_Compass) computer.
+This is a project to emulate GPIB peripherals for the [GRiD Compass](https://en.wikipedia.org/wiki/Grid_Compass) computer.
 
 ## Features
 
-BlackGPiB can emulate a hard drive and a floppy drive. It also has a printer and plotter proxy. Current version is based on Raspberry Pi 3 or newer. Support for Raspberry Pi 2 is not implemented due to the need to adapt the code for armv6.
+BlackGPIB can emulate a hard drive and a floppy drive. It also has a printer and plotter proxy. Current version is based on Raspberry Pi 3 or newer. Support for Raspberry Pi 2 is not implemented due to the need to adapt the code for armv6.
 
 A new version for Raspberry Pi Pico is already in development.
 
@@ -23,13 +23,25 @@ There is no illustrated guide, and there won't be one until a new version of the
 
 For stable work please setup a real-time (RT) kernel on your Raspberry Pi. Otherwise, sometimes the emulator may sometimes hang and the Compass will show timeout errors.
 
-To build kernel please read official instruction from Raspberry Pi: https://www.raspberrypi.com/documentation/computers/linux_kernel.html.
+To build and install kernel please read official instruction from Raspberry Pi: https://www.raspberrypi.com/documentation/computers/linux_kernel.html.
 
 Before building, check the "Configure the kernel" section and enable Real Time mode. You'll need to select "Fully Preemptible Kernel (Real-Time)" in menu "General Setup" -> "Preemption Model".
 
 ## How to Build Software
 
 To build the project, you need to install the latest [Rust](https://rust-lang.org/) compiler.
+
+Clone this repository:
+
+```
+git clone --depth 1 https://github.com/vklachkov/blackgpib.git
+```
+
+Go to `Pi` directory:
+
+```
+cd pi
+```
 
 Then, just run:
 
@@ -43,7 +55,7 @@ Copy this file to your Raspberry Pi and try it.
 
 ## How to Configure the emulator
 
-For a detailed description of how to use BlackGPiB, run the program with the `-h` option.
+For a detailed description of how to use BlackGPIB, run the program with the `-h` option.
 
 ## Disk Images for Emulator
 
@@ -55,13 +67,13 @@ The disks with the operating system and instructions for making your own disks a
 
 The GRiD Compass does not see any difference between a floppy drive and a hard disk. For the computer, both are just "block devices".
 
-BlackGPiB can emulate disks for reading and writing at all standard addresses: 4, 5, 6, 12, and 13. Disks at non-standard addresses are not supported (for now).
+BlackGPIB can emulate disks for reading and writing at all standard addresses: 4, 5, 6, 12, and 13. Disks at non-standard addresses are not supported (for now).
 
 The emulator doesn't support all known commands, only the most essential ones: Initialize, Status, Read, Write, and Format.
 
 ### Printer and Plotter
 
-BlackGPiB can emulate a printer and a plotter. It connects to the right addresses and sends everything from the laptop as UDP broadcast to `49275` for printer and `49276` for plotter.
+BlackGPIB can emulate a printer and a plotter. It connects to the right addresses and sends everything from the laptop as UDP broadcast to `49275` for printer and `49276` for plotter.
 
 A proxy for CUPS or any other system is not part of this project and will not be added to this repository.
 

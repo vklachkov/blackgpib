@@ -1,4 +1,4 @@
-//! Valid pin list for the BlackGPiB board.
+//! Valid pin list for the BlackGPIB board.
 
 #[derive(Clone, Copy, Debug)]
 #[repr(u8)]

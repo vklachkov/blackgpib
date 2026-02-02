@@ -36,7 +36,7 @@ fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         Err(err) => {
-            error!("BlackGPiB fatal error: {err}");
+            error!("BlackGPIB fatal error: {err}");
             return ExitCode::FAILURE;
         }
     }
@@ -127,7 +127,7 @@ fn run_emulator(gpio: Gpio, args: EmulatorArgs) -> io::Result<()> {
     debug!("Configure emulator before start");
     configure_emulator(args, &mut emulator)?;
 
-    info!("Start BlackGPiB v{VERSION} emulator");
+    info!("Start BlackGPIB v{VERSION} emulator");
     emulator.start(gpio);
 
     Ok(())
@@ -183,7 +183,7 @@ fn run_sniffer(gpio: Gpio, args: SnifferArgs) -> io::Result<()> {
     let file = create_dump_file(&args.output_path, args.size)?;
     let sniffer = BusSniffer::new(file);
 
-    info!("Start BlackGPiB v{VERSION} sniffer");
+    info!("Start BlackGPIB v{VERSION} sniffer");
 
     sniffer.start(gpio);
 
@@ -220,7 +220,7 @@ fn create_dump_file(path: &Path, size: usize) -> io::Result<memmap2::MmapMut> {
 }
 
 fn run_controller(gpio: Gpio, cmd: ControllerCommand) -> io::Result<()> {
-    info!("Start BlackGPiB v{VERSION} controller");
+    info!("Start BlackGPIB v{VERSION} controller");
 
     match cmd {
         ControllerCommand::Status { address } => {
