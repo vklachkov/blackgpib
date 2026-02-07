@@ -33,7 +33,7 @@ __attribute__((always_inline))
 static inline void configure_input(uint gpio) {
   gpio_set_function(gpio, GPIO_FUNC_SIO);
   gpio_set_dir(gpio, GPIO_IN);
-  gpio_pull_down(gpio);
+  gpio_set_pulls(gpio, false, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
