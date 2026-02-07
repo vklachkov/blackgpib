@@ -74,6 +74,42 @@ gpib_cmd_t gpib_parse_cmd(uint8_t value) {
 		return (gpib_cmd_t){ value, GPIB_CMD_UNKNOWN, 0 };
 }
 
+void gpib_cmd_debug(const gpib_cmd_t* cmd) {
+  switch (cmd->type) {
+    case GPIB_CMD_DCL:
+      printf("GPIB: DCL\n");
+      break;
+
+    case GPIB_CMD_SPE:
+      printf("GPIB: SPE\n");
+      break;
+
+    case GPIB_CMD_SPD:
+      printf("GPIB: SPD\n");
+      break;
+
+    case GPIB_CMD_MLA:
+      printf("GPIB: MLA(%d)\n", cmd->addr);
+      break;
+    
+    case GPIB_CMD_UNL:
+      printf("GPIB: UNL\n");
+      break;
+
+    case GPIB_CMD_MTA:
+      printf("GPIB: MTA(%d)\n", cmd->addr);
+      break;
+
+    case GPIB_CMD_UNT:
+      printf("GPIB: UNT\n");
+      break;
+
+    default:
+      printf("GPIB: Unknown command\n");
+      break;
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 void gpib_configure_listener(void) {  
@@ -114,17 +150,10 @@ uint8_t gpib_read_byte(void) {
 }
 
 gpib_cmd_t gpib_start_command_handshake(void) {
-  bool a = false;
-
   while (true) {
     if (gpio_get(PIN_GPIB_ATN)) {
       gpio_put(PIN_GPIB_NDAC, true);
       continue;
-    }
-
-    if (a == false) {
-      printf("ATN now low\n");
-      a = true;
     }
 
     gpio_put(PIN_GPIB_NDAC, false);
@@ -441,7 +470,8 @@ int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
 
   while (true) {
     gpib_cmd_t cmd = gpib_start_command_handshake();
-    printf("Cmd %d\n", cmd);
+    gpib_cmd_debug(&cmd);
+
     switch (cmd.type) {
       case GPIB_CMD_DCL:
         gpib_end_handshake();
@@ -593,20 +623,10 @@ int open_demo_image(FIL* output) {
   return 0;
 }
 
-// int main() {
-// configure_output(PIN_GPIB_ATN);
-// while (true) {
-//   gpio_put(PIN_GPIB_ATN, true);
-//   sleep_ms(2000);
-//   gpio_put(PIN_GPIB_ATN, false);
-//   sleep_ms(2000);
-// }
-// }
-
 int main() {
   stdio_init_all();
 
-  sleep_ms(3000);
+  sleep_ms(5000);
 
   FIL demo_image;
 
