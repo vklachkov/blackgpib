@@ -622,6 +622,8 @@ int main() {
     return 1;
   }
 
+  emulator->gpib_address = 0x06;
+
   printf("Starting emulator...\n");
 
   return emulator_main(emulator, &demo_image);
