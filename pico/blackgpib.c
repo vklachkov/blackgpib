@@ -235,7 +235,7 @@ void gpib_write_byte(uint8_t byte) {
   const uint8_t pins[8] = { PIN_GPIB_DIO1, PIN_GPIB_DIO2, PIN_GPIB_DIO3, PIN_GPIB_DIO4, PIN_GPIB_DIO5, PIN_GPIB_DIO6, PIN_GPIB_DIO7, PIN_GPIB_DIO8 };
 
   for (size_t i = 0; i < 8; i++) {
-    gpio_put(pins[i], byte >> i & 0b1);
+    gpio_put(pins[i], !(byte >> i & 0b1));
   }
 }
 
