@@ -169,7 +169,7 @@ gpib_cmd_t gpib_start_command_handshake(void) {
   }
 }
 
-void gpib_unexpected_command(void) {
+void gpib_unexpected_byte(void) {
   gpio_put(PIN_GPIB_NDAC, true);
 
   while (!gpio_get(PIN_GPIB_DAV)) {}
@@ -450,6 +450,7 @@ static void emulator_listen_to_buffer(blackgpib_emulator_t* emu) {
 		gpib_byte_t byte = gpib_start_data_handshake();
 
 		if (!byte.atn) {
+      gpib_unexpected_byte();
 			emulator_reset(emu);
 			break;
 		}
@@ -457,6 +458,8 @@ static void emulator_listen_to_buffer(blackgpib_emulator_t* emu) {
     if (emu->buffer_len < SECTOR_SIZE) {
       emu->buffer[emu->buffer_len++] = byte.value;
     }
+
+    gpib_end_handshake();
 
 		if (!byte.eoi) {
 			break;
@@ -483,7 +486,7 @@ int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
         if (emu->srq_raised) {
           gpib_end_handshake();
         } else {
-          gpib_unexpected_command();
+          gpib_unexpected_byte();
         }
         break;
 
@@ -491,7 +494,7 @@ int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
         if (emu->srq_raised) {
           gpib_end_handshake();
         } else {
-          gpib_unexpected_command();
+          gpib_unexpected_byte();
         }
         emu->serial_poll = false;
         emu->srq_raised = false;
@@ -505,7 +508,7 @@ int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
           emulator_listen_to_buffer(emu);
         }
         else {
-          gpib_unexpected_command();
+          gpib_unexpected_byte();
         }
         break;
 
@@ -522,7 +525,7 @@ int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
           emu->buffer_len = 0;
         }
         else {
-          gpib_unexpected_command();
+          gpib_unexpected_byte();
         }
         break;
 
@@ -541,7 +544,7 @@ int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
           gpib_configure_listener();
         }
         else {
-          gpib_unexpected_command();
+          gpib_unexpected_byte();
         }
         break;
 
@@ -550,12 +553,12 @@ int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
           gpib_end_handshake();
           emu->talking = false;
         } else {
-          gpib_unexpected_command();
+          gpib_unexpected_byte();
         }
         break;
 
       case GPIB_CMD_UNKNOWN:
-			  gpib_unexpected_command();
+			  gpib_unexpected_byte();
         break;
 
       default:
