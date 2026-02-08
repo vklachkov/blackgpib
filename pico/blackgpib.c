@@ -302,8 +302,6 @@ void disk_emu_process_write_request(disk_emulator_t* emu, const uint8_t* data, s
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, emu->current_request.sector, 0 };
   emu->buffer_len = disk_resp_serialize(&resp, (uint8_t*)&emu->buffer, SECTOR_SIZE);
 
-  gpio_put(PIN_GPIB_SRQ, false);
-
   return;
 }
 
@@ -342,8 +340,6 @@ void disk_emu_process_read_request(disk_emulator_t* emu, const uint8_t* data, si
 
   emu->buffer_len = SECTOR_SIZE;
 
-  gpio_put(PIN_GPIB_SRQ, false);
-
   return;
 }
 
@@ -363,16 +359,17 @@ void disk_emu_unsupported_request(disk_emulator_t* emu) {
   emu->buffer_len = disk_resp_serialize(&resp, (uint8_t*)&emu->buffer, SECTOR_SIZE);
 }
 
-void disk_emu_process_new_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
+bool disk_emu_process_new_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
   emu->has_request = false;
 
 	disk_req_t req;
+  bool srq_required = false;
   
   int ret = disk_req_parse(data, size, &req);
   if (ret) {
 		printf("disk_emu: received unusual %zu bytes request. Expected %d bytes, got %d\n",
 			     size, REQUEST_LEN, size);
-		return;
+		return srq_required;
   }
 
 	switch (req.code) {
@@ -394,11 +391,13 @@ void disk_emu_process_new_request(disk_emulator_t* emu, const uint8_t* data, siz
     case DISK_REQ_READ:
       printf("disk_emu: received Read(sector=%d) request\n", req.sector);
       disk_emu_process_read_request(emu, data, size);
+      srq_required = true;
       break;
 
     case DISK_REQ_FORMAT:
       printf("%s emu: received Format request\n");
       disk_emu_process_format_request(emu, data, size);
+      srq_required = true;
       break;
 
     default:
@@ -410,18 +409,20 @@ void disk_emu_process_new_request(disk_emulator_t* emu, const uint8_t* data, siz
 
   emu->has_request = true;
 	emu->current_request = req;
+
+  return srq_required;
 }
 
-void disk_emu_process_buffer(disk_emulator_t* emu, const uint8_t* data, size_t size) {
+bool disk_emu_process_buffer(disk_emulator_t* emu, const uint8_t* data, size_t size) {
   if (emu->has_request) {
 		if (emu->current_request.code == DISK_REQ_WRITE)
 		{
       disk_emu_process_write_request(emu, data, size);
-			return;
+			return true;
 		}
 	}
 
-	disk_emu_process_new_request(emu, data, size);
+	return disk_emu_process_new_request(emu, data, size);
 }
 
 void disk_emu_talk(disk_emulator_t* emu) {
@@ -534,10 +535,13 @@ int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
 
           emu->listening = false;
 
-          disk_emu_process_buffer(
-            &emu->disk_emu,
-            (const uint8_t*)&emu->buffer,
-            emu->buffer_len);
+          bool srq_required = disk_emu_process_buffer(&emu->disk_emu,
+                                                      (const uint8_t*)&emu->buffer, emu->buffer_len);
+          if (srq_required) {
+            gpio_put(PIN_GPIB_SRQ, false);
+            emu->srq_raised = true;
+          }
+
           emu->buffer_len = 0;
         }
         else {
