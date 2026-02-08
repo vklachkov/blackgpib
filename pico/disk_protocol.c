@@ -18,7 +18,7 @@ int disk_req_parse(const uint8_t* data, const size_t size, disk_req_t* output) {
   return 0;
 }
 
-int disk_resp_serialize(const disk_resp_t* resp, uint8_t* output, size_t size) {
+size_t disk_resp_serialize(const disk_resp_t* resp, uint8_t* output, size_t size) {
     if (size < RESPONSE_LEN) {
         return 0;
     }
@@ -34,7 +34,7 @@ int disk_resp_serialize(const disk_resp_t* resp, uint8_t* output, size_t size) {
   return RESPONSE_LEN;
 }
 
-int disk_status_serialize(const disk_status_t* status, uint8_t* output, size_t size) {
+size_t disk_status_serialize(const disk_status_t* status, uint8_t* output, size_t size) {
   if (size < STATUS_LEN) {
     return 0;
   }

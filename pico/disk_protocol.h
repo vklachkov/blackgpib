@@ -65,7 +65,7 @@ typedef struct {
 	uint16_t unused;
 } disk_resp_t;
 
-int disk_resp_serialize(const disk_resp_t* resp, uint8_t* output, size_t size);
+size_t disk_resp_serialize(const disk_resp_t* resp, uint8_t* output, size_t size);
 
 typedef struct {
 	// Actual sector size. Always 512 bytes.
@@ -109,4 +109,4 @@ typedef struct {
 	uint16_t tracks_per_cylinder;
 } disk_status_t;
 
-int disk_status_serialize(const disk_status_t* status, uint8_t* output, size_t size);
+size_t disk_status_serialize(const disk_status_t* status, uint8_t* output, size_t size);

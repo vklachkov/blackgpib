@@ -275,6 +275,8 @@ void gpib_send_bytes(const uint8_t *data, size_t size) {
 ////////////////////////////////////////////////////////////////////////////////
 
 typedef struct {
+  FIL* file;
+
   bool has_request;
   disk_req_t current_request;
 
@@ -297,22 +299,34 @@ void disk_emu_process_write_request(disk_emulator_t* emu, const uint8_t* data, s
     return;
   }
 
-  // TODO: Write data to the disk.
+  if (emu->current_request.mode == 1) {
+    disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, 0xFFFF, 0 };
+    emu->buffer_len = disk_resp_serialize(&resp, (uint8_t*)&emu->buffer, SECTOR_SIZE);
+    return;
+  }
 
-  disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, emu->current_request.sector, 0 };
+  uint32_t sector = emu->current_request.sector;
+
+  UINT bw = 0;
+
+  // TODO: Handle errors.
+  f_lseek(emu->file, sector * SECTOR_SIZE);
+  f_write(emu->file, data, size, &bw);
+
+  disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, (uint16_t)sector, 0 };
   emu->buffer_len = disk_resp_serialize(&resp, (uint8_t*)&emu->buffer, SECTOR_SIZE);
 
   return;
 }
 
-void disk_emu_process_init_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
+void disk_emu_process_init_request(disk_emulator_t* emu, const disk_req_t* req) {
   // do nothing, everything is already initialized.
 
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK };
   emu->buffer_len = disk_resp_serialize(&resp, (uint8_t*)&emu->buffer, SECTOR_SIZE);
 }
 
-void disk_emu_process_get_status_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
+void disk_emu_process_get_status_request(disk_emulator_t* emu, const disk_req_t* req) {
   disk_status_t status = {0};
 
 	status.sector_size = 512;
@@ -335,15 +349,17 @@ void disk_emu_process_get_status_request(disk_emulator_t* emu, const uint8_t* da
   emu->buffer_len = disk_status_serialize(&status, emu->buffer, SECTOR_SIZE);
 }
 
-void disk_emu_process_read_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
-  // TODO: Read data from the disk.
+void disk_emu_process_read_request(disk_emulator_t* emu, const disk_req_t* req) {
+  uint32_t sector = req->sector;
 
-  emu->buffer_len = SECTOR_SIZE;
+  // TODO: Handle errors.
+  f_lseek(emu->file, sector * SECTOR_SIZE);
+  f_read(emu->file, emu->buffer, SECTOR_SIZE, &emu->buffer_len);
 
   return;
 }
 
-void disk_emu_process_format_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
+void disk_emu_process_format_request(disk_emulator_t* emu, const disk_req_t* req) {
   // TODO: Format image.
 
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK };
@@ -375,33 +391,33 @@ bool disk_emu_process_new_request(disk_emulator_t* emu, const uint8_t* data, siz
 	switch (req.code) {
     case DISK_REQ_INITIALIZE:
       printf("disk_emu: received Initialize request\n");
-      disk_emu_process_init_request(emu, data, size);
+      disk_emu_process_init_request(emu, &req);
       break;
 
     case DISK_REQ_GET_STATUS:
       printf("disk_emu: received GetStatus(size=%d) request\n", req.data_size);
-      disk_emu_process_get_status_request(emu, data, size);
+      disk_emu_process_get_status_request(emu, &req);
       break;
 
     case DISK_REQ_WRITE:
       // after this command, 512 more bytes are expected.
-      printf("disk_emu: received Write(sector=%d, mode=%d) request\n", req.sector, req.mode);
+      printf("disk_emu: received Write(sector=%ld, mode=%d) request\n", req.sector, req.mode);
       break;
 
     case DISK_REQ_READ:
-      printf("disk_emu: received Read(sector=%d) request\n", req.sector);
-      disk_emu_process_read_request(emu, data, size);
+      printf("disk_emu: received Read(sector=%ld) request\n", req.sector);
+      disk_emu_process_read_request(emu, &req);
       srq_required = true;
       break;
 
     case DISK_REQ_FORMAT:
-      printf("%s emu: received Format request\n");
-      disk_emu_process_format_request(emu, data, size);
+      printf("disk_emu: received Format request\n");
+      disk_emu_process_format_request(emu, &req);
       srq_required = true;
       break;
 
     default:
-      printf("%s emu: received unsupported request %d with sector=%d, data_size=%d, mode=%d\n",
+      printf("disk_emu: received unsupported request %d with sector=%ld, data_size=%d, mode=%d\n",
              req.code, req.sector, req.data_size, req.mode);
       disk_emu_unsupported_request(emu);
       break;
@@ -484,7 +500,7 @@ static void emulator_listen_to_buffer(blackgpib_emulator_t* emu) {
 	}
 }
 
-int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
+int emulator_main(blackgpib_emulator_t* emu) {
   init_gpio_pins();
   gpib_configure_listener();
 
@@ -536,7 +552,7 @@ int emulator_main(blackgpib_emulator_t* emu, FIL* image) {
           emu->listening = false;
 
           bool srq_required = disk_emu_process_buffer(&emu->disk_emu,
-                                                      (const uint8_t*)&emu->buffer, emu->buffer_len);
+                                                      emu->buffer, emu->buffer_len);
           if (srq_required) {
             gpio_put(PIN_GPIB_SRQ, false);
             emu->srq_raised = true;
@@ -609,7 +625,7 @@ int open_demo_image(FIL* output) {
     return 1;
   }
 
-  FATFS fs;
+  static FATFS fs;
 
   FRESULT ret = f_mount(&fs, "", 1);  // with force check
   if (ret != FR_OK) {
@@ -666,8 +682,9 @@ int main() {
   }
 
   emulator->gpib_address = 0x06;
+  emulator->disk_emu.file = &demo_image;
 
   printf("Starting emulator...\n");
 
-  return emulator_main(emulator, &demo_image);
+  return emulator_main(emulator);
 }
