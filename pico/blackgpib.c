@@ -77,35 +77,35 @@ gpib_cmd_t gpib_parse_cmd(uint8_t value) {
 void gpib_cmd_debug(const gpib_cmd_t* cmd) {
   switch (cmd->type) {
     case GPIB_CMD_DCL:
-      printf("GPIB: DCL\n");
+      printf("gpib: DCL\n");
       break;
 
     case GPIB_CMD_SPE:
-      printf("GPIB: SPE\n");
+      printf("gpib: SPE\n");
       break;
 
     case GPIB_CMD_SPD:
-      printf("GPIB: SPD\n");
+      printf("gpib: SPD\n");
       break;
 
     case GPIB_CMD_MLA:
-      printf("GPIB: MLA(%d)\n", cmd->addr);
+      printf("gpib: MLA(%d)\n", cmd->addr);
       break;
     
     case GPIB_CMD_UNL:
-      printf("GPIB: UNL\n");
+      printf("gpib: UNL\n");
       break;
 
     case GPIB_CMD_MTA:
-      printf("GPIB: MTA(%d)\n", cmd->addr);
+      printf("gpib: MTA(%d)\n", cmd->addr);
       break;
 
     case GPIB_CMD_UNT:
-      printf("GPIB: UNT\n");
+      printf("gpib: UNT\n");
       break;
 
     default:
-      printf("GPIB: Unknown command\n");
+      printf("gpib: unknown command 0x%02x\n", cmd->raw);
       break;
   }
 }
@@ -410,6 +410,8 @@ void disk_emu_talk(disk_emulator_t* emu) {
 	if (emu->buffer_len == 0) {
 		assert(!"Buffer is not filled with data for laptop");
   }
+
+  printf("gpib: send %d bytes\n", emu->buffer_len);
 
 	gpib_send_bytes((const uint8_t*)&emu->buffer, emu->buffer_len);
 
