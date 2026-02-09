@@ -1,0 +1,1 @@
+#define SECTOR_SIZE 512
