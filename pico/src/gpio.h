@@ -25,17 +25,3 @@
 #define PIN_SD_CARD_MOSI  19
 #define PIN_SD_CARD_SCK   18
 #define PIN_SD_CARD_CS    17
-
-__attribute__((always_inline))
-static inline void configure_output(unsigned int gpio) {
-  gpio_set_function(gpio, GPIO_FUNC_SIO);
-  gpio_set_dir(gpio, GPIO_OUT);
-  gpio_put(gpio, true);
-}
-
-__attribute__((always_inline))
-static inline void configure_input(unsigned int gpio) {
-  gpio_set_function(gpio, GPIO_FUNC_SIO);
-  gpio_set_dir(gpio, GPIO_IN);
-  gpio_set_pulls(gpio, false, false);
-}

@@ -31,7 +31,7 @@ gpib_cmd_t gpib_parse_cmd(uint8_t value);
 
 void gpib_cmd_debug(const gpib_cmd_t* cmd);
 
-void gpib_configure_control_pins(void);
+void gpib_preconfigure_pins(void);
 
 void gpib_configure_listener(void);
 

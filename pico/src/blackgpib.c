@@ -63,7 +63,7 @@ static void emulator_listen_to_buffer(blackgpib_emulator_t* emu) {
 }
 
 int emulator_main(blackgpib_emulator_t* emu) {
-  gpib_configure_control_pins();
+  gpib_preconfigure_pins();
   gpib_configure_listener();
 
   while (true) {

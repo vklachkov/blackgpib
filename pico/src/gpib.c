@@ -5,6 +5,9 @@
 
 #include <stdio.h>
 
+#define PIN_MASK(...) (0 __VA_ARGS__)
+#define PIN_MASK_SET_BIT(bit) | (1ul << bit)
+
 gpib_cmd_t gpib_parse_cmd(uint8_t value) {
   if (value == 0b00010100)
     return (gpib_cmd_t){ value, GPIB_CMD_DCL, 0 };
@@ -60,30 +63,72 @@ void gpib_cmd_debug(const gpib_cmd_t* cmd) {
   }
 }
 
-void gpib_configure_control_pins(void) {
-  configure_output(PIN_GPIB_DC);
-  configure_output(PIN_GPIB_TE);
+void gpib_preconfigure_pins(void) {
+  #define GPIB_PINS  \
+    X(PIN_GPIB_DIO1) \
+    X(PIN_GPIB_DIO2) \
+    X(PIN_GPIB_DIO3) \
+    X(PIN_GPIB_DIO4) \
+    X(PIN_GPIB_DIO5) \
+    X(PIN_GPIB_DIO6) \
+    X(PIN_GPIB_DIO7) \
+    X(PIN_GPIB_DIO8) \
+    X(PIN_GPIB_REN)  \
+    X(PIN_GPIB_IFC)  \
+    X(PIN_GPIB_NDAC) \
+    X(PIN_GPIB_NRFD) \
+    X(PIN_GPIB_DAV)  \
+    X(PIN_GPIB_ATN)  \
+    X(PIN_GPIB_EOI)  \
+    X(PIN_GPIB_SRQ)  \
+    X(PIN_GPIB_DC)   \
+    X(PIN_GPIB_TE)
+
+  #define X(pin) \
+    gpio_set_function(pin, GPIO_FUNC_SIO); \
+    gpio_disable_pulls(pin);
+
+    GPIB_PINS
+  #undef X
+
+  gpio_set_dir(PIN_GPIB_TE, GPIO_OUT);
+  gpio_disable_pulls(PIN_GPIB_TE);
+  gpio_put(PIN_GPIB_TE, true);
+
+  gpio_set_dir(PIN_GPIB_DC, GPIO_OUT);
+  gpio_disable_pulls(PIN_GPIB_DC);
+  gpio_put(PIN_GPIB_DC, true);
 }
 
-void gpib_configure_listener(void) {  
-  configure_input(PIN_GPIB_ATN);
-  configure_output(PIN_GPIB_SRQ);
-  configure_input(PIN_GPIB_REN);
-  configure_input(PIN_GPIB_IFC);
-  configure_input(PIN_GPIB_EOI);
-  configure_input(PIN_GPIB_DAV);
+void gpib_configure_listener(void) {
+  #define OUT_PINS   \
+    X(PIN_GPIB_SRQ)  \
+    X(PIN_GPIB_NDAC) \
+    X(PIN_GPIB_NRFD)
 
-  configure_output(PIN_GPIB_NDAC);
-  configure_output(PIN_GPIB_NRFD);
+  #define INPUT_PINS  \
+    X(PIN_GPIB_DIO1)  \
+    X(PIN_GPIB_DIO2)  \
+    X(PIN_GPIB_DIO3)  \
+    X(PIN_GPIB_DIO4)  \
+    X(PIN_GPIB_DIO5)  \
+    X(PIN_GPIB_DIO6)  \
+    X(PIN_GPIB_DIO7)  \
+    X(PIN_GPIB_DIO8)  \
+    X(PIN_GPIB_ATN)   \
+    X(PIN_GPIB_REN)   \
+    X(PIN_GPIB_IFC)   \
+    X(PIN_GPIB_EOI)   \
+    X(PIN_GPIB_DAV)
 
-  configure_input(PIN_GPIB_DIO1);
-  configure_input(PIN_GPIB_DIO2);
-  configure_input(PIN_GPIB_DIO3);
-  configure_input(PIN_GPIB_DIO4);
-  configure_input(PIN_GPIB_DIO5);
-  configure_input(PIN_GPIB_DIO6);
-  configure_input(PIN_GPIB_DIO7);
-  configure_input(PIN_GPIB_DIO8);
+  #define X(pin) PIN_MASK_SET_BIT(pin)
+    gpio_set_dir_out_masked(PIN_MASK(OUT_PINS));
+    gpio_set_mask(PIN_MASK(OUT_PINS));
+    gpio_set_dir_in_masked(PIN_MASK(INPUT_PINS));
+  #undef X
+
+  #undef INPUT_PINS
+  #undef OUT_PINS
 
   gpio_put(PIN_GPIB_DC, true);
   gpio_put(PIN_GPIB_TE, false);
@@ -153,24 +198,34 @@ gpib_byte_t gpib_start_data_handshake(void) {
 }
 
 void gpib_configure_talker(void) {
-  configure_output(PIN_GPIB_ATN);
-  configure_input(PIN_GPIB_SRQ);
-  configure_output(PIN_GPIB_REN);
-  configure_output(PIN_GPIB_IFC);
-  configure_output(PIN_GPIB_EOI);
-  configure_output(PIN_GPIB_DAV);
+  #define OUT_PINS    \
+    X(PIN_GPIB_DIO1)  \
+    X(PIN_GPIB_DIO2)  \
+    X(PIN_GPIB_DIO3)  \
+    X(PIN_GPIB_DIO4)  \
+    X(PIN_GPIB_DIO5)  \
+    X(PIN_GPIB_DIO6)  \
+    X(PIN_GPIB_DIO7)  \
+    X(PIN_GPIB_DIO8)  \
+    X(PIN_GPIB_ATN)   \
+    X(PIN_GPIB_REN)   \
+    X(PIN_GPIB_IFC)   \
+    X(PIN_GPIB_EOI)   \
+    X(PIN_GPIB_DAV)
 
-  configure_input(PIN_GPIB_NDAC);
-  configure_input(PIN_GPIB_NRFD);
+  #define INPUT_PINS  \
+    X(PIN_GPIB_NDAC)  \
+    X(PIN_GPIB_NRFD)  \
+    X(PIN_GPIB_SRQ)
 
-  configure_output(PIN_GPIB_DIO1);
-  configure_output(PIN_GPIB_DIO2);
-  configure_output(PIN_GPIB_DIO3);
-  configure_output(PIN_GPIB_DIO4);
-  configure_output(PIN_GPIB_DIO5);
-  configure_output(PIN_GPIB_DIO6);
-  configure_output(PIN_GPIB_DIO7);
-  configure_output(PIN_GPIB_DIO8);
+  #define X(pin) PIN_MASK_SET_BIT(pin)
+    gpio_set_dir_out_masked(PIN_MASK(OUT_PINS));
+    gpio_set_mask(PIN_MASK(OUT_PINS));
+    gpio_set_dir_in_masked(PIN_MASK(INPUT_PINS));
+  #undef X
+
+  #undef INPUT_PINS
+  #undef OUT_PINS
 
   gpio_put(PIN_GPIB_DC, false);
   gpio_put(PIN_GPIB_TE, true);
