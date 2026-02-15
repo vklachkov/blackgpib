@@ -170,7 +170,7 @@ gpib_cmd_t gpib_start_command_handshake(void) {
 void gpib_unexpected_byte(void) {
   gpio_put(PIN_GPIB_NDAC, true);
 
-  while (!gpio_get(PIN_GPIB_DAV)) {}
+  while (!gpio_get(PIN_GPIB_DAV));
 
   gpio_put(PIN_GPIB_NRFD, true);
 }
@@ -179,7 +179,7 @@ void gpib_end_handshake(void) {
   gpio_put(PIN_GPIB_NRFD, false);
   gpio_put(PIN_GPIB_NDAC, true);
 
-  while (!gpio_get(PIN_GPIB_DAV)) {}
+  while (!gpio_get(PIN_GPIB_DAV));
 
   gpio_put(PIN_GPIB_NDAC, false);
   gpio_put(PIN_GPIB_NRFD, true);
@@ -188,7 +188,7 @@ void gpib_end_handshake(void) {
 gpib_byte_t gpib_start_data_handshake(void) {
   gpio_put(PIN_GPIB_NDAC, false);
 
-  while (gpio_get(PIN_GPIB_DAV)) {}
+  while (gpio_get(PIN_GPIB_DAV));
 
   uint8_t value = gpib_read_byte();
   bool atn = gpio_get(PIN_GPIB_ATN);
@@ -245,13 +245,13 @@ void gpib_send_byte(uint8_t byte, bool eoi) {
 
   sleep_us(10);
 
-  while (gpio_get(PIN_GPIB_NDAC) || !gpio_get(PIN_GPIB_NRFD)) {}
+  while (gpio_get(PIN_GPIB_NDAC) || !gpio_get(PIN_GPIB_NRFD));
 
   // Now we can signal that data is valid.
   gpio_put(PIN_GPIB_DAV, false);
 
   // Wait until the laptop signals successful data read.
-  while (!gpio_get(PIN_GPIB_NDAC)) {}
+  while (!gpio_get(PIN_GPIB_NDAC));
 
   // Signal that data is no longer valid.
   gpio_put(PIN_GPIB_DAV, true);

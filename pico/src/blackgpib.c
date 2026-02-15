@@ -142,7 +142,7 @@ int emulator_main(blackgpib_emulator_t* emu) {
 
             disk_emu_get_talk_bytes(emu->disk_emu, &buffer, &size);
             
-            printf("send %ld bytes start\n", size);
+            printf("send %zu bytes start\n", size);
             gpib_send_bytes(buffer, size);
             printf("send finished\n");
             disk_emu_reset(emu->disk_emu);
