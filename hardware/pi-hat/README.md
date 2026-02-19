@@ -2,10 +2,9 @@
 
 This is the first revision of the board, designed by @JDat (also known as @YL3AKC):
 
-![Photo of prototype](photo/top.jpg)
+![Photo of prototype](../../photo/prototype.jpg)
 
-> [!WARNING]
-> It is better to wait for the second revision or new Pico base version. This board is still experimental.
+In the photo, it's the old version with SRQ and ATN swapped.
 
 ## Components
 
@@ -14,7 +13,7 @@ This is the first revision of the board, designed by @JDat (also known as @YL3AK
 | GPIB Connector | -                    | 90 Degree  | 1        |
 | SN75160B       | -                    | SMD or DIP | 1        |
 | SN75161B       | -                    | SMD or DIP | 1        |
-| Resistor       | 2kΩ                  | 0805       | 20       |
+| Resistor       | 3kΩ                  | 0805       | 20       |
 | Capacitor      | 0.1uF                | 0805       | 2        |
 | Pin Header     | 20x2 Straight Female | -          | 1        |
 
@@ -25,10 +24,6 @@ https://t.me/bootaks_old_devices/286
 
 ## Errata
 
-### ATN <-> SRQ
+### Not enough space for the through-hole resistors.
 
-ATN and SRQ are mixed up on the board. Both the labels and the pins on the connector are swapped.
-
-For the board to work correctly, you need to cut two tracks on the back side that go to SRQ and ATN, and solder two jumpers, as shown in the photo:
-
-![ATN SRQ wired fixed](photo/bottom.jpg)
+As can be seen in Kirill's photo, the resistors are placed too close together, requiring them to be stacked on top of each other.
