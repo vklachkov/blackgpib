@@ -91,6 +91,10 @@ void gpib_preconfigure_pins(void) {
     GPIB_PINS
   #undef X
 
+  gpio_set_dir(PIN_GPIB_PE, GPIO_OUT);
+  gpio_disable_pulls(PIN_GPIB_PE);
+  gpio_put(PIN_GPIB_PE, true);
+
   gpio_set_dir(PIN_GPIB_TE, GPIO_OUT);
   gpio_disable_pulls(PIN_GPIB_TE);
   gpio_put(PIN_GPIB_TE, true);
