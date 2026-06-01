@@ -10,6 +10,8 @@
 #include <string.h>
 #include <inttypes.h>
 
+#define LOG_EMU(...) // printf(__VA_ARGS__)
+
 typedef struct disk_emulator {
   disk_loader_t loader;
 
@@ -35,7 +37,7 @@ void disk_emu_reset(disk_emulator_t* emu) {
 
 void disk_emu_process_write_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
   if (size != SECTOR_SIZE) {
-    // printf("gpib_emu: received malformed write request. Expected %zu bytes, got %zu", SECTOR_SIZE, size);
+    LOG_EMU("gpib_emu: received malformed write request. Expected %zu bytes, got %zu", SECTOR_SIZE, size);
 
     disk_resp_t resp = (disk_resp_t) { DISK_RESP_UNSUPPORTED, 0, 0, 0 };
     emu->buffer_len = disk_resp_serialize(&resp, emu->buffer, SECTOR_SIZE);
@@ -130,43 +132,43 @@ bool disk_emu_process_new_request(disk_emulator_t* emu, const uint8_t* data, siz
   
   int ret = disk_req_parse(data, size, &req);
   if (ret) {
-    printf("disk_emu: received unusual %zu bytes request. Expected %d bytes, got %zu\n",
-           size, REQUEST_LEN, size);
+    LOG_EMU("disk_emu: received unusual %zu bytes request. Expected %d bytes, got %zu\n",
+            size, REQUEST_LEN, size);
     return srq_required;
   }
 
   switch (req.code) {
     case DISK_REQ_INITIALIZE:
-      printf("disk_emu: received Initialize request\n");
+      LOG_EMU("disk_emu: received Initialize request\n");
       disk_emu_process_init_request(emu, &req);
       break;
 
     case DISK_REQ_GET_STATUS:
-      printf("disk_emu: received GetStatus(size=%" PRIu16 ") request\n", req.data_size);
+      LOG_EMU("disk_emu: received GetStatus(size=%" PRIu16 ") request\n", req.data_size);
       disk_emu_process_get_status_request(emu, &req);
       break;
 
     case DISK_REQ_WRITE:
       // after this command, 512 more bytes are expected.
-      printf("disk_emu: received Write(sector=%" PRIu32 ", mode=%" PRIu8 ") request\n", req.sector, req.mode);
+      LOG_EMU("disk_emu: received Write(sector=%" PRIu32 ", mode=%" PRIu8 ") request\n", req.sector, req.mode);
       break;
 
     case DISK_REQ_READ:
-      printf("disk_emu: received Read(sector=%" PRIu32 ") request\n", req.sector);
+      LOG_EMU("disk_emu: received Read(sector=%" PRIu32 ") request\n", req.sector);
       disk_emu_process_read_request(emu, &req);
-      printf("disk_emu: read processed\n");
+      LOG_EMU("disk_emu: read processed\n");
       srq_required = true;
       break;
 
     case DISK_REQ_FORMAT:
-      printf("disk_emu: received Format request\n");
+      LOG_EMU("disk_emu: received Format request\n");
       disk_emu_process_format_request(emu, &req);
       srq_required = true;
       break;
 
     default:
-      printf("disk_emu: received unsupported request %" PRIu8 " with sector=%" PRIu32 ", data_size=%" PRIu16 ", mode=%" PRIu8 "\n",
-             req.code, req.sector, req.data_size, req.mode);
+      LOG_EMU("disk_emu: received unsupported request %" PRIu8 " with sector=%" PRIu32 ", data_size=%" PRIu16 ", mode=%" PRIu8 "\n",
+              req.code, req.sector, req.data_size, req.mode);
       disk_emu_unsupported_request(emu);
       break;
   }

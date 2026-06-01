@@ -29,5 +29,5 @@ typedef struct {
 
 typedef struct {
     void* self;
-    disk_loader_vtable_t* vtable;
+    const disk_loader_vtable_t* vtable;
 } disk_loader_t;

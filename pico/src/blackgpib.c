@@ -15,6 +15,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define LOG_TRANSPORT(...) // printf(__VA_ARGS__)
+#define LOG_ERROR(...) // printf(__VA_ARGS__)
+#define LOG_SD_CARD(...) // printf(__VA_ARGS__)
+
 typedef struct {
   uint8_t gpib_address;
 
@@ -70,7 +74,7 @@ int emulator_main(blackgpib_emulator_t* emu) {
 
   while (true) {
     gpib_cmd_t cmd = gpib_start_command_handshake();
-    gpib_cmd_debug(&cmd);
+    // gpib_cmd_debug(&cmd);
 
     gpio_put(PIN_LED, 0);
 
@@ -146,9 +150,9 @@ int emulator_main(blackgpib_emulator_t* emu) {
 
             disk_emu_get_talk_bytes(emu->disk_emu, &buffer, &size);
             
-            printf("send %zu bytes start\n", size);
+            LOG_TRANSPORT("send %zu bytes start\n", size);
             gpib_send_bytes(buffer, size);
-            printf("send finished\n");
+            LOG_TRANSPORT("send finished\n");
             disk_emu_reset(emu->disk_emu);
           }
 
@@ -198,7 +202,7 @@ int open_demo_image(disk_loader_t* loader) {
 
   bool spi_configured = pico_fatfs_set_config(&config);
   if (!spi_configured) {
-    printf("Failed to configure SPI\n");
+    LOG_ERROR("Failed to configure SPI\n");
     return 1;
   }
 
@@ -206,29 +210,29 @@ int open_demo_image(disk_loader_t* loader) {
 
   FRESULT ret = f_mount(&fs, "", 1);  // with force check
   if (ret != FR_OK) {
-    printf("Failed to configure SD card\n");
+    LOG_ERROR("Failed to configure SD card\n");
     return 1;
   }
 
   switch (fs.fs_type) {
     case FS_FAT12:
-      printf("FS type is FAT12\n");
+      LOG_SD_CARD("FS type is FAT12\n");
       break;
     case FS_FAT16:
-      printf("FS type is FAT16\n");
+      LOG_SD_CARD("FS type is FAT16\n");
       break;
     case FS_FAT32:
-      printf("FS type is FAT32\n");
+      LOG_SD_CARD("FS type is FAT32\n");
       break;
     case FS_EXFAT:
-      printf("FS type is ExFAT\n");
+      LOG_SD_CARD("FS type is ExFAT\n");
       break;
     default:
-      printf("FS type is unknown\n");
+      LOG_SD_CARD("FS type is unknown\n");
       break;
   }
 
-  printf("Card size: %0.2f GB\n", fs.csize * fs.n_fatent * 512E-9);
+  LOG_SD_CARD("Card size: %0.2f GB\n", fs.csize * fs.n_fatent * 512E-9);
 
   if (DISK_IMG_LOADER.open(&fs, "HD4_DATA.img", &loader->self))
     sd_card_fault();
@@ -252,14 +256,14 @@ int main() {
 
   blackgpib_emulator_t* emulator = calloc(1, sizeof(blackgpib_emulator_t));
   if (emulator == NULL) {
-    // printf("Failed to alloc memory for emulator\n");
+    LOG_ERROR("Failed to alloc memory for emulator\n");
     return 1;
   }
 
   emulator->gpib_address = 0x04;
   emulator->disk_emu = disk_emu_new(loader);
 
-  printf("Starting emulator...\n");
+  LOG_SD_CARD("Starting emulator...\n");
 
   return emulator_main(emulator);
 }
