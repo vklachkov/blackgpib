@@ -72,6 +72,8 @@ int emulator_main(blackgpib_emulator_t* emu) {
     gpib_cmd_t cmd = gpib_start_command_handshake();
     gpib_cmd_debug(&cmd);
 
+    gpio_put(PIN_LED, 0);
+
     switch (cmd.type) {
       case GPIB_CMD_DCL:
         gpib_end_handshake();
@@ -173,6 +175,8 @@ int emulator_main(blackgpib_emulator_t* emu) {
       default:
         assert(!"Unhandled GPIB command");
     }
+    
+    gpio_put(PIN_LED, 1);
   }
 
   return 0;
