@@ -14,37 +14,67 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define LOG_TRANSPORT(...) // printf(__VA_ARGS__)
 #define LOG_ERROR(...) // printf(__VA_ARGS__)
 #define LOG_SD_CARD(...) // printf(__VA_ARGS__)
 
+#define MAX_DEVICES 31
+#define NO_ACTIVE_DEVICE 0xFF
+
+typedef enum {
+  SP_DISABLED,
+  SP_UNEXPECTED,
+  SP_REQUESTED,
+} serial_poll_state_t;
+
 typedef struct {
-  uint8_t gpib_address;
+  uint8_t active_listener;
+  uint8_t active_talker;
 
-  bool listening;
-  bool talking;
-
-  bool serial_poll;
-  bool srq_raised;
+  serial_poll_state_t serial_poll_state;
+  uint8_t serial_poll_requester;
 
   uint8_t buffer[SECTOR_SIZE];
   size_t buffer_len;
 
-  disk_emulator_t* disk_emu;
-} blackgpib_emulator_t;
+  disk_emulator_t* emulators[MAX_DEVICES];
+} blackgpib_t;
 
-static void emulator_reset(blackgpib_emulator_t* emu) {
-  disk_emu_reset(emu->disk_emu);
+blackgpib_t* blackgpib_new(disk_emulator_t* emulators[MAX_DEVICES]) {
+  blackgpib_t* blackgpib = malloc(sizeof(blackgpib_t));
+  if (blackgpib == NULL) {
+    LOG_ERROR("Failed to alloc memory for blackgpib\n");
+    return NULL;
+  }
 
-  emu->listening = false;
-  emu->talking = false;
-  emu->serial_poll = false;
-  emu->srq_raised = false;
+  blackgpib->active_listener = NO_ACTIVE_DEVICE;
+  blackgpib->active_talker = NO_ACTIVE_DEVICE;
+
+  blackgpib->serial_poll_state = SP_DISABLED;
+  blackgpib->serial_poll_requester = NO_ACTIVE_DEVICE;
+
+  blackgpib->buffer_len = 0;
+
+  memcpy(blackgpib->emulators, emulators, sizeof(disk_emulator_t*) * MAX_DEVICES);
+
+  return blackgpib;
+}
+
+static void blackgpib_reset(blackgpib_t* emu) {
+  for (int i = 0; i < MAX_DEVICES; i++) {
+    disk_emu_reset(emu->emulators[i]);
+  }
+
+  emu->active_listener = NO_ACTIVE_DEVICE;
+  emu->active_talker = NO_ACTIVE_DEVICE;
+  emu->serial_poll_state = SP_DISABLED;
+  emu->serial_poll_requester = NO_ACTIVE_DEVICE;
   emu->buffer_len = 0;
 }
 
-static void emulator_listen_to_buffer(blackgpib_emulator_t* emu) {
+static void blackgpib_listen_to_buffer(blackgpib_t* emu) {
   emu->buffer_len = 0;
 
   while (true) {
@@ -52,7 +82,7 @@ static void emulator_listen_to_buffer(blackgpib_emulator_t* emu) {
 
     if (!byte.atn) {
       gpib_unexpected_byte();
-      emulator_reset(emu);
+      blackgpib_reset(emu);
       break;
     }
 
@@ -68,7 +98,29 @@ static void emulator_listen_to_buffer(blackgpib_emulator_t* emu) {
   }
 }
 
-int emulator_main(blackgpib_emulator_t* emu) {
+static void emulator_talk(blackgpib_t* emu) {
+  gpib_configure_talker();
+
+  if (emu->serial_poll_state == SP_REQUESTED) {
+    gpib_send_serial_poll_response(
+      emu->active_talker == emu->serial_poll_requester ? 0x4F : 0x0F);
+  } else {
+    const uint8_t* buffer = NULL;
+    size_t size = 0;
+
+    disk_emu_get_talk_bytes(emu->emulators[emu->active_talker], &buffer, &size);
+    
+    LOG_TRANSPORT("send %zu bytes start\n", size);
+    gpib_send_bytes(buffer, size);
+    LOG_TRANSPORT("send finished\n");
+
+    disk_emu_reset(emu->emulators[emu->active_talker]);
+  }
+
+  gpib_configure_listener();
+}
+
+int blackgpib_run(blackgpib_t* emu) {
   gpib_preconfigure_pins();
   gpib_configure_listener();
 
@@ -79,102 +131,122 @@ int emulator_main(blackgpib_emulator_t* emu) {
     gpio_put(PIN_LED, 0);
 
     switch (cmd.type) {
+      // Device clear.
       case GPIB_CMD_DCL:
+      {
         gpib_end_handshake();
-        emulator_reset(emu);
+        blackgpib_reset(emu);
         break;
+      }
 
+      // Serial poll enable.
       case GPIB_CMD_SPE:
-        emu->serial_poll = true;
-        if (emu->srq_raised) {
+      {
+        if (emu->serial_poll_state == SP_DISABLED) {
+          emu->serial_poll_state = SP_UNEXPECTED;
+        }
+        else if (emu->serial_poll_state == SP_REQUESTED) {
           gpib_end_handshake();
-        } else {
+        }
+        else {
           gpib_unexpected_byte();
         }
         break;
+      }
 
+      // Serial poll disable.
       case GPIB_CMD_SPD:
-        if (emu->srq_raised) {
-          gpib_end_handshake();
-        } else {
+      {
+        if (emu->serial_poll_state == SP_DISABLED) {
           gpib_unexpected_byte();
         }
-        emu->serial_poll = false;
-        emu->srq_raised = false;
-        break;
+        else if (emu->serial_poll_state == SP_REQUESTED) {
+          gpib_end_handshake();
+        }
+        else {
+          gpib_unexpected_byte();
+        }
 
+        emu->serial_poll_state = SP_DISABLED;
+        emu->serial_poll_requester = NO_ACTIVE_DEVICE;
+
+        break;
+      }
+
+      // My listen address.
       case GPIB_CMD_MLA:
-        if (cmd.addr == emu->gpib_address) {
-          gpib_end_handshake();
-
-          emu->listening = true;
-          emulator_listen_to_buffer(emu);
-        }
-        else {
+      {
+        if (emu->emulators[cmd.addr] == NULL) {
           gpib_unexpected_byte();
+          break;
         }
-        break;
 
+        emu->active_listener = cmd.addr;
+        blackgpib_listen_to_buffer(emu);
+
+        break;
+      }
+
+      // Unlisten.
       case GPIB_CMD_UNL:
-        if (emu->listening) {
-          gpib_end_handshake();
-
-          emu->listening = false;
-
-          bool srq_required = disk_emu_process_buffer(emu->disk_emu,
-                                                      emu->buffer, emu->buffer_len);
-          if (srq_required) {
-            gpio_put(PIN_GPIB_SRQ, false);
-            emu->srq_raised = true;
-          }
-
-          emu->buffer_len = 0;
-        }
-        else {
+      {
+        if (emu->active_listener == NO_ACTIVE_DEVICE) {
           gpib_unexpected_byte();
+          break;
         }
-        break;
 
+        gpib_end_handshake();
+
+        bool srq_required = disk_emu_process_buffer(emu->emulators[emu->active_listener],
+                                                    emu->buffer, emu->buffer_len);
+        if (srq_required) {
+          gpio_put(PIN_GPIB_SRQ, false);
+
+          emu->serial_poll_state = SP_REQUESTED;
+          emu->serial_poll_requester = emu->active_listener;
+        }
+
+        emu->active_listener = NO_ACTIVE_DEVICE;
+        emu->buffer_len = 0;
+
+        break;
+      }
+
+      // My Talk Address.
       case GPIB_CMD_MTA:
-        if (cmd.addr == emu->gpib_address) {
-          gpib_end_handshake();
-
-          gpib_configure_talker();
-
-          emu->talking = true;
-          if (emu->serial_poll) {
-            gpib_send_serial_poll_response(emu->srq_raised ? 0x4F : 0x0F);
-          } else {
-            const uint8_t* buffer = NULL;
-            size_t size = 0;
-
-            disk_emu_get_talk_bytes(emu->disk_emu, &buffer, &size);
-            
-            LOG_TRANSPORT("send %zu bytes start\n", size);
-            gpib_send_bytes(buffer, size);
-            LOG_TRANSPORT("send finished\n");
-            disk_emu_reset(emu->disk_emu);
-          }
-
-          gpib_configure_listener();
-        }
-        else {
+      {
+        if (emu->emulators[cmd.addr] == NULL) {
           gpib_unexpected_byte();
+          break;
         }
-        break;
 
+        gpib_end_handshake();
+
+        emu->active_talker = cmd.addr;
+        emulator_talk(emu);
+
+        break;
+      }
+
+      // Untalk.
       case GPIB_CMD_UNT:
-        if (emu->talking) {
-          gpib_end_handshake();
-          emu->talking = false;
-        } else {
+      {
+        if (emu->active_talker == NO_ACTIVE_DEVICE) {
           gpib_unexpected_byte();
+        } else {
+          gpib_end_handshake();
+          emu->active_talker = NO_ACTIVE_DEVICE;
         }
-        break;
 
+        break;
+      }
+
+      // Unrecognized byte.
       case GPIB_CMD_UNKNOWN:
+      {
         gpib_unexpected_byte();
         break;
+      }
 
       default:
         assert(!"Unhandled GPIB command");
@@ -188,7 +260,7 @@ int emulator_main(blackgpib_emulator_t* emu) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-int open_demo_image(disk_loader_t* loader) {
+int open_demo_images(disk_loader_t* loader1, disk_loader_t* loader2) {
   pico_fatfs_spi_config_t config = {
     spi0,
     CLK_SLOW_DEFAULT,
@@ -234,10 +306,15 @@ int open_demo_image(disk_loader_t* loader) {
 
   LOG_SD_CARD("Card size: %0.2f GB\n", fs.csize * fs.n_fatent * 512E-9);
 
-  if (DISK_IMG_LOADER.open(&fs, "HD4_DATA.img", &loader->self))
+  if (DISK_IMG_LOADER.open(&fs, "HD4_DATA.img", &loader1->self))
     sd_card_fault();
-  
-  loader->vtable = &DISK_IMG_LOADER;
+
+  loader1->vtable = &DISK_IMG_LOADER;
+
+  if (DISK_IMG_LOADER.open(&fs, "GRID OS.IMG", &loader2->self))
+    sd_card_fault();
+
+  loader2->vtable = &DISK_IMG_LOADER;
 
   return 0;
 }
@@ -249,21 +326,26 @@ int main() {
   gpio_set_dir(PIN_LED, GPIO_OUT);
   gpio_put(PIN_LED, 1);
 
-  disk_loader_t loader;
+  disk_loader_t loader1;
+  disk_loader_t loader2;
 
-  int ret = open_demo_image(&loader);
+  int ret = open_demo_images(&loader1, &loader2);
   if (ret) sd_card_fault();
 
-  blackgpib_emulator_t* emulator = calloc(1, sizeof(blackgpib_emulator_t));
-  if (emulator == NULL) {
+  disk_emulator_t* emulator1 = disk_emu_new(loader1);
+  disk_emulator_t* emulator2 = disk_emu_new(loader2);
+
+  LOG_SD_CARD("Starting emulator...\n");
+
+  disk_emulator_t* emulators[MAX_DEVICES] = {0};
+  emulators[0x04] = emulator1;
+  emulators[0x06] = emulator2;
+
+  blackgpib_t* blackgpib = blackgpib_new(emulators);
+  if (blackgpib == NULL) {
     LOG_ERROR("Failed to alloc memory for emulator\n");
     return 1;
   }
 
-  emulator->gpib_address = 0x04;
-  emulator->disk_emu = disk_emu_new(loader);
-
-  LOG_SD_CARD("Starting emulator...\n");
-
-  return emulator_main(emulator);
+  return blackgpib_run(blackgpib);
 }

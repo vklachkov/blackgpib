@@ -6,11 +6,11 @@ typedef struct {
     FIL file;
 } img_loader_t;
 
-bool is_supported_ext(const char* ext) {
+static bool is_supported_ext(const char* ext) {
     return false;
 }
 
-disk_loader_err_t open(FATFS* fs, const char* path, void** this) {
+static disk_loader_err_t open(FATFS* fs, const char* path, void** this) {
     FRESULT res;
 
     img_loader_t* loader = malloc(sizeof(img_loader_t));
@@ -26,7 +26,7 @@ disk_loader_err_t open(FATFS* fs, const char* path, void** this) {
     return LOADER_OK;
 }
 
-disk_loader_err_t geometry(void *this, disk_geometry_t *out) {
+static disk_loader_err_t geometry(void *this, disk_geometry_t *out) {
     *out = (disk_geometry_t) {
         .sector_count = 40960,
         .sectors_per_track = 20,
@@ -36,7 +36,7 @@ disk_loader_err_t geometry(void *this, disk_geometry_t *out) {
     return LOADER_OK;
 }
 
-disk_loader_err_t read(void *this, uint16_t sector, uint8_t (*out)[SECTOR_SIZE]) {
+static disk_loader_err_t read(void *this, uint16_t sector, uint8_t (*out)[SECTOR_SIZE]) {
     img_loader_t *thiz = this;
 
     FRESULT res;
@@ -56,7 +56,7 @@ disk_loader_err_t read(void *this, uint16_t sector, uint8_t (*out)[SECTOR_SIZE])
     return LOADER_OK;
 }
 
-disk_loader_err_t write(void *this, uint16_t sector, uint8_t (*data)[SECTOR_SIZE]) {
+static disk_loader_err_t write(void *this, uint16_t sector, uint8_t (*data)[SECTOR_SIZE]) {
     img_loader_t *thiz = this;
 
     FRESULT res;
