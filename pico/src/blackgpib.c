@@ -3,6 +3,8 @@
 #include "gpib.h"
 #include "gpio.h"
 #include "disk_emulator.h"
+#include "loaders/img.h"
+#include "sd_fault.h"
 
 #include "pico/stdlib.h"
 #include "pico_fatfs/tf_card.h"
@@ -178,7 +180,7 @@ int emulator_main(blackgpib_emulator_t* emu) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-int open_demo_image(FIL* output) {
+int open_demo_image(disk_loader_t* loader) {
   pico_fatfs_spi_config_t config = {
     spi0,
     CLK_SLOW_DEFAULT,
@@ -224,11 +226,10 @@ int open_demo_image(FIL* output) {
 
   printf("Card size: %0.2f GB\n", fs.csize * fs.n_fatent * 512E-9);
 
-  ret = f_open(output, "GRID OS.IMG", FA_READ | FA_WRITE | FA_OPEN_EXISTING);
-  if (ret != FR_OK) {
-    printf("Failed to open GRID OS.IMG\n");
-    return 1;
-  }
+  if (DISK_IMG_LOADER.open(&fs, "HD4_DATA.img", &loader->self))
+    sd_card_fault();
+  
+  loader->vtable = &DISK_IMG_LOADER;
 
   return 0;
 }
@@ -236,24 +237,23 @@ int open_demo_image(FIL* output) {
 int main() {
   stdio_init_all();
 
-  sleep_ms(5000);
+  gpio_init(PIN_LED);
+  gpio_set_dir(PIN_LED, GPIO_OUT);
+  gpio_put(PIN_LED, 1);
 
-  FIL demo_image;
+  disk_loader_t loader;
 
-  int ret = open_demo_image(&demo_image);
-  if (ret) {
-    printf("Failed to open demo image\n");
-    return 1;
-  }
+  int ret = open_demo_image(&loader);
+  if (ret) sd_card_fault();
 
   blackgpib_emulator_t* emulator = calloc(1, sizeof(blackgpib_emulator_t));
   if (emulator == NULL) {
-    printf("Failed to alloc memory for emulator\n");
+    // printf("Failed to alloc memory for emulator\n");
     return 1;
   }
 
-  emulator->gpib_address = 0x06;
-  emulator->disk_emu = disk_emu_new(&demo_image);
+  emulator->gpib_address = 0x04;
+  emulator->disk_emu = disk_emu_new(loader);
 
   printf("Starting emulator...\n");
 

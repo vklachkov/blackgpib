@@ -29,7 +29,7 @@ project(blackgpib C CXX ASM)
 
 pico_sdk_init()
 
-add_executable(blackgpib src/blackgpib.c src/disk_emulator.c src/disk_protocol.c src/gpib.c)
+add_executable(blackgpib src/blackgpib.c src/disk_emulator.c src/disk_protocol.c src/gpib.c src/sd_fault.c src/loaders/img.c)
 
 add_subdirectory(pico_fatfs)
 

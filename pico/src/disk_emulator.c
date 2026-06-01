@@ -1,9 +1,9 @@
 #include "disk_emulator.h"
 #include "disk_protocol.h"
+#include "loaders/loader.h"
+#include "sd_fault.h"
 #include "common.h"
 #include "gpio.h"
-
-#include "pico_fatfs/fatfs/ff.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +11,7 @@
 #include <inttypes.h>
 
 typedef struct disk_emulator {
-  FIL* file;
+  disk_loader_t loader;
 
   bool has_request;
   disk_req_t current_request;
@@ -20,11 +20,11 @@ typedef struct disk_emulator {
   size_t buffer_len;
 } disk_emulator_t;
 
-disk_emulator_t* disk_emu_new(FIL* file) {
+disk_emulator_t* disk_emu_new(disk_loader_t loader) {
   disk_emulator_t* emu = calloc(1, sizeof(disk_emulator_t));
   hard_assert(emu != NULL);
 
-  emu->file = file;
+  emu->loader = loader;
   return emu;
 } 
 
@@ -35,7 +35,7 @@ void disk_emu_reset(disk_emulator_t* emu) {
 
 void disk_emu_process_write_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
   if (size != SECTOR_SIZE) {
-    printf("gpib_emu: received malformed write request. Expected %zu bytes, got %zu", SECTOR_SIZE, size);
+    // printf("gpib_emu: received malformed write request. Expected %zu bytes, got %zu", SECTOR_SIZE, size);
 
     disk_resp_t resp = (disk_resp_t) { DISK_RESP_UNSUPPORTED, 0, 0, 0 };
     emu->buffer_len = disk_resp_serialize(&resp, emu->buffer, SECTOR_SIZE);
@@ -51,11 +51,8 @@ void disk_emu_process_write_request(disk_emulator_t* emu, const uint8_t* data, s
 
   uint32_t sector = emu->current_request.sector;
 
-  UINT bw = 0;
-
-  // TODO: Handle errors.
-  f_lseek(emu->file, sector * SECTOR_SIZE);
-  f_write(emu->file, data, size, &bw);
+  if (emu->loader.vtable->write(emu->loader.self, sector, (void*)data))
+    sd_card_fault();
 
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, (uint16_t)sector, 0 };
   emu->buffer_len = disk_resp_serialize(&resp, emu->buffer, SECTOR_SIZE);
@@ -71,24 +68,29 @@ void disk_emu_process_init_request(disk_emulator_t* emu, const disk_req_t* req) 
 }
 
 void disk_emu_process_get_status_request(disk_emulator_t* emu, const disk_req_t* req) {
-  disk_status_t status = {0};
+  disk_geometry_t geometry;
 
-  status.sector_size = 512;
-  status.logical_sector_size = 504;
-  status.sector_count = 720;      // TODO: from disk geometry
-  status.drive_status = 1;        // TODO: handle sd card problems
-  status.bitmap_fid = 0x120;      // TODO: get from image or guess
-  status.superblock_fid = 0x121;  // TODO: get from image or guess
-  status.min_dir_pages = 1;
-  status.flush = 0;
+  if (emu->loader.vtable->geometry(emu->loader.self, &geometry))
+    sd_card_fault();
+
+  disk_status_t status = {
+    .sector_size = SECTOR_SIZE,
+    .logical_sector_size = SECTOR_SIZE - 8,
+    .sector_count = geometry.sector_count,
+    .drive_status = 1,         // always ready
+    .bitmap_fid = 0x2400,      // TODO: get from image or guess
+    .superblock_fid = 0x2420,  // TODO: get from image or guess
+    .min_dir_pages = 1,        // TODO: guess based on size
+    .flush = 0,                // TODO: should we support flush?
+    .device_name = {},
+    .bytes_per_sector = SECTOR_SIZE,
+    .sectors_per_track = geometry.sectors_per_track,
+    .tracks_per_cylinder = geometry.tracks_per_cylinder,
+  };
 
   for (size_t i = 0; i < sizeof(status.device_name); i++) {
     status.device_name[i] = ' ';  // TODO: Set some name
   }
-
-  status.bytes_per_sector = 512;
-  status.sectors_per_track = 9; // TODO: get from disk geometry
-  status.tracks_per_cylinder = 2; // TODO: get from disk geometry
 
   emu->buffer_len = disk_status_serialize(&status, emu->buffer, SECTOR_SIZE);
 }
@@ -96,12 +98,10 @@ void disk_emu_process_get_status_request(disk_emulator_t* emu, const disk_req_t*
 void disk_emu_process_read_request(disk_emulator_t* emu, const disk_req_t* req) {
   uint32_t sector = req->sector;
 
-  // TODO: Handle errors.
-  FRESULT res = f_lseek(emu->file, sector * SECTOR_SIZE);
-  printf("read, f_lseek: %d\n", res);
-  res = f_read(emu->file, emu->buffer, SECTOR_SIZE, &emu->buffer_len);
-  printf("read, f_read: %d\n", res);
-  emu->buffer_len = 512;
+  if (emu->loader.vtable->read(emu->loader.self, sector, &emu->buffer))
+    sd_card_fault();
+
+  emu->buffer_len = SECTOR_SIZE;
 
   return;
 }

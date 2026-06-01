@@ -1,5 +1,7 @@
 #pragma once
 
+#include "loaders/loader.h"
+
 #include "pico_fatfs/fatfs/ff.h"
 
 #include <stdint.h>
@@ -8,7 +10,7 @@
 
 typedef struct disk_emulator disk_emulator_t;
 
-disk_emulator_t* disk_emu_new(FIL* file);
+disk_emulator_t* disk_emu_new(disk_loader_t loader);
 
 void disk_emu_reset(disk_emulator_t* emu);
 

@@ -26,3 +26,5 @@
 #define PIN_SD_CARD_MOSI  19
 #define PIN_SD_CARD_SCK   18
 #define PIN_SD_CARD_CS    17
+
+#define PIN_LED           25
