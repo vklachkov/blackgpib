@@ -60,8 +60,6 @@ cmake --build build -j
 
 ## License
 
-## License
-
 This project is released under the [MIT License](LICENSE).
 
 You are free to use, modify, and share it. I will be happy if BlackGPIB helps you bring your GRiD Compass back to life and use it again.
