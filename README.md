@@ -1,98 +1,67 @@
 # BlackGPIB
 
-This is a project to emulate GPIB peripherals for the [GRiD Compass](https://en.wikipedia.org/wiki/Grid_Compass) computer.
+BlackGPIB is hardware that emulates GPIB disk drives for the GRiD Compass. It is based on the Raspberry Pi RP2040.
 
-## Features
+![Pico Rev 1](photo/pico-rev1.jpg)
 
-BlackGPIB can emulate a hard drive and a floppy drive. It also has a printer and plotter proxy. Current version is based on Raspberry Pi 3 or newer. Support for Raspberry Pi 2 is not implemented due to the need to adapt the code for armv6.
+## Hardware
 
-A new version for Raspberry Pi Pico is already in development.
+Hardware schematics and design files are located in the `hardware` folder. Production files are available in the [latest release](github.com/vklachkov/blackgpib/releases) on GitHub.
 
-For more information about device emulation, see the [Details About Emulation](#details-about-emulation) section.
+We recommend using the latest `pico` version. The list of components and known issues is described in the `README.md` file located in the `hardware/pico` directory.
 
-## Photos
+## Firmware
 
-<img src="./photo/prototype.jpg" alt="Photo of first prototype" width="50%">
-<img src="./photo/5%20disks.jpg" alt="5 disks" width="50%">
+The firmware source code is located in the `pico` folder.
 
-## How to Assemble
+The latest stable prebuilt firmware in UF2 format is available in the [latest release](https://github.com/vklachkov/blackgpib/releases) on GitHub.
 
-There is no illustrated guide, and there won't be one until a new version of the board is developed. If you are interested in assembling a prototype, you can find the board project files and their description in the [`hardware/`](./hardware/) folder.
+### Flashing prebuilt firmware
 
-## Prepare Raspberry Pi
+To flash the firmware, hold the **BOOTSEL** button while connecting the Raspberry Pi Pico to your computer. The Pico will appear as a removable drive.
 
-For stable work please setup a real-time (RT) kernel on your Raspberry Pi. Otherwise, sometimes the emulator may sometimes hang and the Compass will show timeout errors.
+Copy the `blackgpib.uf2` file to this drive. The Pico will reboot automatically after the file is copied.
 
-To build and install kernel please read official instruction from Raspberry Pi: https://www.raspberrypi.com/documentation/computers/linux_kernel.html.
+### Building firmware from source
 
-Before building, check the "Configure the kernel" section and enable Real Time mode. You'll need to select "Fully Preemptible Kernel (Real-Time)" in menu "General Setup" -> "Preemption Model".
+To build the firmware yourself, install the Pico SDK first. Follow the instructions on the official Raspberry Pi website:
 
-## How to Build Software
+https://www.raspberrypi.com/documentation/microcontrollers/c_sdk.html
 
-To build the project, you need to install the latest [Rust](https://rust-lang.org/) compiler.
+Then follow these steps.
 
-Clone this repository:
+1. Clone the repository:
 
-```
-git clone --depth 1 https://github.com/vklachkov/blackgpib.git
-```
-
-Go to `Pi` directory:
-
-```
-cd pi
+```bash
+git clone --depth 1 --recursive https://github.com/vklachkov/blackgpib
 ```
 
-Then, just run:
+2. Go to the sources directory:
 
+```bash
+cd blackgpib/pico
 ```
-make build
+
+3. Configure the project for your board:
+
+```bash
+cmake -S . -B build -DPICO_BOARD=pico
 ```
 
-After this, the binary file will be created at `target/aarch64-unknown-linux-gnu/release/blackgpib`.
+4. Build:
 
-Copy this file to your Raspberry Pi and try it.
+```bash
+cmake --build build -j
+```
 
-## How to Configure the emulator
+5. Flash the firmware:
 
-For a detailed description of how to use BlackGPIB, run the program with the `-h` option.
+    Hold the **BOOTSEL** button while connecting the Raspberry Pi Pico to your computer. Then copy the `blackgpib.uf2` file from the `build` folder to the mounted Pico drive.
 
-## Disk Images for Emulator
+## License
 
-The disks with the operating system and instructions for making your own disks are in the [`disks/`](./disks/) folder.
+## License
 
-## Details About Emulation
+This project is released under the [MIT License](LICENSE).
 
-### Block Devices
-
-The GRiD Compass does not see any difference between a floppy drive and a hard disk. For the computer, both are just "block devices".
-
-BlackGPIB can emulate disks for reading and writing at all standard addresses: 4, 5, 6, 12, and 13. Disks at non-standard addresses are not supported (for now).
-
-The emulator doesn't support all known commands, only the most essential ones: Initialize, Status, Read, Write, and Format.
-
-### Printer and Plotter
-
-BlackGPIB can emulate a printer and a plotter. It connects to the right addresses and sends everything from the laptop as UDP broadcast to `49275` for printer and `49276` for plotter.
-
-A proxy for CUPS or any other system is not part of this project and will not be added to this repository.
-
-You can make your own proxy if you like:
-
-🖨️ For the printer proxy, we recommend using the Epson MX-82 driver and making your own converter for ESC/P commands.
-
-🖊️ For the plotter proxy, you need to make a converter from HP-GL (not HP-GL/2) to something else. The commands from the laptop may be different from the standard, so please use documentation for supported plotters.
-
-## Authors
-
-This project would not have been possible without a whole group of amazing people.
-
-Huge thanks to Kirill [@BOOtak](https://github.com/bootak) for first telling me about this laptop, reverse-engineering the file system, and providing support throughout the entire project.
-
-Many thanks to Anton [@usernameak](https://github.com/usernameak) for the GRiD Compass emulator in MAME and for carrying out the main work on reversing the communication protocol between the laptop and peripherals.
-
-Big thanks to [@JDat](https://github.com/JDat) for reverse-engineering the GRiD Compass, making the first version of the board, and providing a huge amount of advice during the project.
-
-Special thanks to Kirill from the Belgrade hackerspace [Xecut](https://xecut.me/en) for his help, for providing equipment, reviewing the project, and overall participation.
-
-And many thanks to Vladislav [@Bs0Dd](https://github.com/Bs0Dd) for the graphical interface for working with the disks — it made things much easier.
+You are free to use, modify, and share it. I will be happy if BlackGPIB helps you bring your GRiD Compass back to life and use it again.

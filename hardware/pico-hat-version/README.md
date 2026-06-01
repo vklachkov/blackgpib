@@ -1,0 +1,1 @@
+An experimental version of the Pico-based emulator, but with the GPIB interface implemented on the [`hardware/pi-hat`](hardware/pi-hat) board. Unsupported by modern firmwares.
