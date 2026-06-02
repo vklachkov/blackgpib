@@ -146,7 +146,8 @@ static void process_read_request(disk_emulator_t* emu, const disk_req_t* req) {
 }
 
 static void process_format_request(disk_emulator_t* emu, const disk_req_t* req) {
-  // TODO: Format image.
+  if (emu->loader.vtable->format(emu->loader.self))
+    sd_card_fault();
 
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, 0, 0 };
   emu->buffer_len = disk_resp_serialize(&resp, emu->buffer, SECTOR_SIZE);

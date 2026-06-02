@@ -1,6 +1,7 @@
 #include "img.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct {
     FIL file;
@@ -57,7 +58,7 @@ static disk_geometry_t guess_geometry(uint32_t length) {
   return geometry;
 }
 
-static disk_loader_err_t geometry(void *this, disk_geometry_t *out) {
+static disk_loader_err_t geometry(void* this, disk_geometry_t *out) {
     img_loader_t *thiz = this;
 
     if (thiz->geometry.total_sectors == 0) {
@@ -69,7 +70,7 @@ static disk_loader_err_t geometry(void *this, disk_geometry_t *out) {
     return LOADER_OK;
 }
 
-static disk_loader_err_t read(void *this, uint16_t sector, uint8_t (*out)[SECTOR_SIZE]) {
+static disk_loader_err_t read(void* this, uint16_t sector, uint8_t (*out)[SECTOR_SIZE]) {
     img_loader_t *thiz = this;
 
     FRESULT res;
@@ -89,7 +90,7 @@ static disk_loader_err_t read(void *this, uint16_t sector, uint8_t (*out)[SECTOR
     return LOADER_OK;
 }
 
-static disk_loader_err_t write(void *this, uint16_t sector, uint8_t (*data)[SECTOR_SIZE]) {
+static disk_loader_err_t write(void* this, uint16_t sector, uint8_t (*data)[SECTOR_SIZE]) {
     img_loader_t *thiz = this;
 
     FRESULT res;
@@ -109,10 +110,31 @@ static disk_loader_err_t write(void *this, uint16_t sector, uint8_t (*data)[SECT
     return LOADER_OK;
 }
 
+static disk_loader_err_t format(void* this) {
+    img_loader_t *thiz = this;
+
+    disk_geometry_t geom;
+    geometry(this, &geom);
+
+    uint8_t buffer[SECTOR_SIZE];
+    memset(buffer, 0xE5, SECTOR_SIZE);
+    memset(buffer, 0xFF, 8);
+
+    for (uint16_t i = 0; i < geom.total_sectors; i++) {
+        disk_loader_err_t err = write(this, i, buffer);
+        if (err) {
+            return err;
+        }
+    }
+
+    return LOADER_OK;
+}
+
 const disk_loader_vtable_t DISK_IMG_LOADER = {
     .is_supported_ext = is_supported_ext,
     .open = open,
     .geometry = geometry,
     .read = read,
     .write = write,
+    .format = format,
 };
