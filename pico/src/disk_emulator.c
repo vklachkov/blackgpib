@@ -12,6 +12,8 @@
 
 #define LOG_EMU(...) // printf(__VA_ARGS__)
 
+#define DRIVE_STATUS_READY 1
+
 typedef struct disk_emulator {
   disk_loader_t loader;
 
@@ -35,7 +37,7 @@ void disk_emu_reset(disk_emulator_t* emu) {
   emu->buffer_len = 0;
 }
 
-void disk_emu_process_write_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
+static void process_write_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
   if (size != SECTOR_SIZE) {
     LOG_EMU("gpib_emu: received malformed write request. Expected %zu bytes, got %zu", SECTOR_SIZE, size);
 
@@ -62,28 +64,63 @@ void disk_emu_process_write_request(disk_emulator_t* emu, const uint8_t* data, s
   return;
 }
 
-void disk_emu_process_init_request(disk_emulator_t* emu, const disk_req_t* req) {
+static void process_init_request(disk_emulator_t* emu, const disk_req_t* req) {
   // do nothing, everything is already initialized.
 
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, 0, 0 };
   emu->buffer_len = disk_resp_serialize(&resp, emu->buffer, SECTOR_SIZE);
 }
 
-void disk_emu_process_get_status_request(disk_emulator_t* emu, const disk_req_t* req) {
+static uint16_t get_superblock_fid(disk_geometry_t* geometry) {
+  if (geometry->total_sectors >= 10240) {  // 5 MB
+    return 0x2420;
+  } else {
+    return 0x121;
+  }
+}
+
+static uint16_t get_bitmap_fid(disk_geometry_t* geometry) {
+  const uint16_t superblock = get_superblock_fid(geometry);
+
+  // algorithm is taken from CCOS-disk-utils:
+  // https://github.com/BOOtak/CCOS-disk-utils/blob/9d353997dbc0b48993a4ec3af6464a020b43fec2/ccos_format.c#L60
+
+  const uint16_t required_bytes = geometry->total_sectors / 8;
+
+  // value is taken from CCOS-disk-utils:
+  // https://github.com/BOOtak/CCOS-disk-utils/blob/9d353997dbc0b48993a4ec3af6464a020b43fec2/ccos_structure.h#L36
+  const uint16_t bytes_per_sector = 512 - 4 - 2 - 2 - 4;
+
+  // round up required sectors.
+  const uint16_t count = required_bytes / bytes_per_sector + 1;
+
+  return superblock - count;
+}
+
+static uint16_t get_min_dir_pages(disk_geometry_t* geometry) {
+  if (geometry->total_sectors >= 10240) {  // 5 MB
+    return 10;
+  } else {
+    return 1;
+  }
+}
+
+static void process_get_status_request(disk_emulator_t* emu, const disk_req_t* req) {
   disk_geometry_t geometry;
 
   if (emu->loader.vtable->geometry(emu->loader.self, &geometry))
     sd_card_fault();
 
+  // TODO: should we support flush?
   disk_status_t status = {
     .sector_size = SECTOR_SIZE,
-    .logical_sector_size = SECTOR_SIZE - 8,
+    .logical_sector_size = LOGICAL_SECTOR_SIZE,
     .sector_count = geometry.total_sectors,
-    .drive_status = 1,         // always ready
-    .bitmap_fid = 0x2400,      // TODO: get from image or guess
-    .superblock_fid = 0x2420,  // TODO: get from image or guess
-    .min_dir_pages = 1,        // TODO: guess based on size
-    .flush = 0,                // TODO: should we support flush?
+    .drive_status = DRIVE_STATUS_READY,
+    .bitmap_fid = get_superblock_fid(&geometry),
+    .superblock_fid = get_superblock_fid(&geometry),
+    .min_dir_pages = get_min_dir_pages(&geometry),
+    .flush = 0,
     .device_name = {},
     .bytes_per_sector = SECTOR_SIZE,
     .sectors_per_track = geometry.sectors,
@@ -97,7 +134,7 @@ void disk_emu_process_get_status_request(disk_emulator_t* emu, const disk_req_t*
   emu->buffer_len = disk_status_serialize(&status, emu->buffer, SECTOR_SIZE);
 }
 
-void disk_emu_process_read_request(disk_emulator_t* emu, const disk_req_t* req) {
+static void process_read_request(disk_emulator_t* emu, const disk_req_t* req) {
   uint32_t sector = req->sector;
 
   if (emu->loader.vtable->read(emu->loader.self, sector, &emu->buffer))
@@ -108,7 +145,7 @@ void disk_emu_process_read_request(disk_emulator_t* emu, const disk_req_t* req) 
   return;
 }
 
-void disk_emu_process_format_request(disk_emulator_t* emu, const disk_req_t* req) {
+static void process_format_request(disk_emulator_t* emu, const disk_req_t* req) {
   // TODO: Format image.
 
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, 0, 0 };
@@ -119,12 +156,12 @@ void disk_emu_process_format_request(disk_emulator_t* emu, const disk_req_t* req
   return;
 }
 
-void disk_emu_unsupported_request(disk_emulator_t* emu) {
+static void unsupported_request(disk_emulator_t* emu) {
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_UNSUPPORTED, 0, 0, 0 };
   emu->buffer_len = disk_resp_serialize(&resp, emu->buffer, SECTOR_SIZE);
 }
 
-bool disk_emu_process_new_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
+static bool process_new_request(disk_emulator_t* emu, const uint8_t* data, size_t size) {
   emu->has_request = false;
 
   disk_req_t req;
@@ -140,12 +177,12 @@ bool disk_emu_process_new_request(disk_emulator_t* emu, const uint8_t* data, siz
   switch (req.code) {
     case DISK_REQ_INITIALIZE:
       LOG_EMU("disk_emu: received Initialize request\n");
-      disk_emu_process_init_request(emu, &req);
+      process_init_request(emu, &req);
       break;
 
     case DISK_REQ_GET_STATUS:
       LOG_EMU("disk_emu: received GetStatus(size=%" PRIu16 ") request\n", req.data_size);
-      disk_emu_process_get_status_request(emu, &req);
+      process_get_status_request(emu, &req);
       break;
 
     case DISK_REQ_WRITE:
@@ -155,21 +192,21 @@ bool disk_emu_process_new_request(disk_emulator_t* emu, const uint8_t* data, siz
 
     case DISK_REQ_READ:
       LOG_EMU("disk_emu: received Read(sector=%" PRIu32 ") request\n", req.sector);
-      disk_emu_process_read_request(emu, &req);
+      process_read_request(emu, &req);
       LOG_EMU("disk_emu: read processed\n");
       srq_required = true;
       break;
 
     case DISK_REQ_FORMAT:
       LOG_EMU("disk_emu: received Format request\n");
-      disk_emu_process_format_request(emu, &req);
+      process_format_request(emu, &req);
       srq_required = true;
       break;
 
     default:
       LOG_EMU("disk_emu: received unsupported request %" PRIu8 " with sector=%" PRIu32 ", data_size=%" PRIu16 ", mode=%" PRIu8 "\n",
               req.code, req.sector, req.data_size, req.mode);
-      disk_emu_unsupported_request(emu);
+      unsupported_request(emu);
       break;
   }
 
@@ -183,12 +220,12 @@ bool disk_emu_process_buffer(disk_emulator_t* emu, const uint8_t* data, size_t s
   if (emu->has_request) {
     if (emu->current_request.code == DISK_REQ_WRITE)
     {
-      disk_emu_process_write_request(emu, data, size);
+      process_write_request(emu, data, size);
       return true;
     }
   }
 
-  return disk_emu_process_new_request(emu, data, size);
+  return process_new_request(emu, data, size);
 }
 
 void disk_emu_get_talk_bytes(disk_emulator_t* emu, const uint8_t** bufptr, size_t* bufsize) {

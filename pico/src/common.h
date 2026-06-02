@@ -1,1 +1,2 @@
-#define SECTOR_SIZE 512
+#define SECTOR_SIZE          512
+#define LOGICAL_SECTOR_SIZE  (SECTOR_SIZE - 8)

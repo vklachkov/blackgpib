@@ -1,11 +1,11 @@
 #pragma once
 
+#include "../common.h"
+
 #include "pico_fatfs/fatfs/ff.h"
 
 #include <stdbool.h>
 #include <stdint.h>
-
-#define SECTOR_SIZE 512
 
 typedef enum {
     LOADER_OK = 0,
