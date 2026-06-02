@@ -19,9 +19,9 @@ int disk_req_parse(const uint8_t* data, const size_t size, disk_req_t* output) {
 }
 
 size_t disk_resp_serialize(const disk_resp_t* resp, uint8_t* output, size_t size) {
-    if (size < RESPONSE_LEN) {
-        return 0;
-    }
+  if (size < RESPONSE_LEN) {
+      return 0;
+  }
 
   output[0] = resp->status & 0xFF;
   output[1] = (resp->status >> 8) & 0xFF;
@@ -54,8 +54,9 @@ size_t disk_status_serialize(const disk_status_t* status, uint8_t* output, size_
   output[12] = (status->min_dir_pages >> 8) & 0xFF;
   output[13] = status->flush;
 
-  for (size_t i = 0; i < 32; ++i)
+  for (size_t i = 0; i < 32; ++i) {
     output[14 + i] = status->device_name[i];
+  }
 
   output[46] = status->bytes_per_sector & 0xFF;
   output[47] = (status->bytes_per_sector >> 8) & 0xFF;

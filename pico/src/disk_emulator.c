@@ -80,10 +80,10 @@ static uint16_t get_superblock_fid(disk_geometry_t* geometry) {
 }
 
 static uint16_t get_bitmap_fid(disk_geometry_t* geometry) {
-  const uint16_t superblock = get_superblock_fid(geometry);
-
   // algorithm is taken from CCOS-disk-utils:
   // https://github.com/BOOtak/CCOS-disk-utils/blob/9d353997dbc0b48993a4ec3af6464a020b43fec2/ccos_format.c#L60
+
+  const uint16_t superblock = get_superblock_fid(geometry);
 
   const uint16_t required_bytes = geometry->total_sectors / 8;
 
