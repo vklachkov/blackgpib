@@ -74,7 +74,7 @@ static void blackgpib_reset(blackgpib_t* emu) {
   emu->buffer_len = 0;
 }
 
-static void blackgpib_listen_to_buffer(blackgpib_t* emu) {
+static void listen_to_buffer(blackgpib_t* emu) {
   emu->buffer_len = 0;
 
   while (true) {
@@ -181,8 +181,10 @@ int blackgpib_run(blackgpib_t* emu) {
           break;
         }
 
+        gpib_end_handshake();
+
         emu->active_listener = cmd.addr;
-        blackgpib_listen_to_buffer(emu);
+        listen_to_buffer(emu);
 
         break;
       }
