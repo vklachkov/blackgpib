@@ -78,7 +78,7 @@ void disk_emu_process_get_status_request(disk_emulator_t* emu, const disk_req_t*
   disk_status_t status = {
     .sector_size = SECTOR_SIZE,
     .logical_sector_size = SECTOR_SIZE - 8,
-    .sector_count = geometry.sector_count,
+    .sector_count = geometry.total_sectors,
     .drive_status = 1,         // always ready
     .bitmap_fid = 0x2400,      // TODO: get from image or guess
     .superblock_fid = 0x2420,  // TODO: get from image or guess
@@ -86,8 +86,8 @@ void disk_emu_process_get_status_request(disk_emulator_t* emu, const disk_req_t*
     .flush = 0,                // TODO: should we support flush?
     .device_name = {},
     .bytes_per_sector = SECTOR_SIZE,
-    .sectors_per_track = geometry.sectors_per_track,
-    .tracks_per_cylinder = geometry.tracks_per_cylinder,
+    .sectors_per_track = geometry.sectors,
+    .tracks_per_cylinder = geometry.heads,
   };
 
   for (size_t i = 0; i < sizeof(status.device_name); i++) {

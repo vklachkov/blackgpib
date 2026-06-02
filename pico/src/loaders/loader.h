@@ -14,9 +14,10 @@ typedef enum {
 } disk_loader_err_t;
 
 typedef struct {
-    uint16_t sector_count;
-    uint16_t sectors_per_track;
-    uint16_t tracks_per_cylinder;
+    uint16_t total_sectors;
+    uint16_t cylinders;
+    uint16_t heads;
+    uint16_t sectors;
 } disk_geometry_t;
 
 typedef struct {

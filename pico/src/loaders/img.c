@@ -4,6 +4,7 @@
 
 typedef struct {
     FIL file;
+    disk_geometry_t geometry;
 } img_loader_t;
 
 static bool is_supported_ext(const char* ext) {
@@ -21,17 +22,49 @@ static disk_loader_err_t open(FATFS* fs, const char* path, void** this) {
     if (res != FR_OK)
         return LOADER_IO_ERR;
 
+    loader->geometry = (disk_geometry_t) {0};
+
     *this = loader;
 
     return LOADER_OK;
 }
 
+static disk_geometry_t guess_geometry(uint32_t length) {
+  disk_geometry_t geometry = {
+    .total_sectors = length / SECTOR_SIZE,
+    .cylinders = 0,
+    .heads = 0,
+    .sectors = 0,
+  };
+
+  // algorithm is taken from MAME, from src/lib/util/harddisk.cpp.
+  for (uint32_t totalsectors = geometry.total_sectors; ; totalsectors++) {
+    for (uint32_t cursectors = 63; cursectors > 1; cursectors--) {
+      if (totalsectors % cursectors == 0) {
+        uint32_t totalheads = totalsectors / cursectors;
+        for (uint32_t curheads = 16; curheads > 1; curheads--) {
+          if (totalheads % curheads == 0) {
+            geometry.cylinders = totalheads / curheads;
+            geometry.heads = curheads;
+            geometry.sectors = cursectors;
+            return geometry;
+          }
+        }
+      }
+    }
+  }
+
+  return geometry;
+}
+
 static disk_loader_err_t geometry(void *this, disk_geometry_t *out) {
-    *out = (disk_geometry_t) {
-        .sector_count = 40960,
-        .sectors_per_track = 20,
-        .tracks_per_cylinder = 20,
-    };
+    img_loader_t *thiz = this;
+
+    if (thiz->geometry.total_sectors == 0) {
+      thiz->geometry = guess_geometry(f_size(&thiz->file));
+    }
+
+    *out = thiz->geometry;
 
     return LOADER_OK;
 }
