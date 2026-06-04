@@ -166,7 +166,8 @@ int main() {
 
   configure_led();
 
-  if (wd_get_reboot_count() > 3) {
+  if (wd_get_reboot_count() >= 3) {
+    LOG_FATAL("boot loop detected!\n");
     blink_sos();
   }
 

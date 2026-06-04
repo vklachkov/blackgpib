@@ -19,4 +19,4 @@
 #define LOG_SD_CARD(...) sd_card_log(__VA_ARGS__)
 
 // sd card file scan logs.
-#define LOG_SD_CARD_LS(...) printf("sd: " __VA_ARGS__)
+#define LOG_SD_CARD_OP(...) printf("sd: " __VA_ARGS__)

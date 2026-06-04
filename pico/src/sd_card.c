@@ -45,8 +45,10 @@ static void sd_card_fault(void) {
 
   while (true) {
     // try to mount sd card...
-    if (f_mount(&fs, "", 1) == FR_OK)
-        break;
+    if (f_mount(&fs, "", 1) == FR_OK) {
+      LOG_SD_CARD_OP("card detected, blackgpib will be reinitialized within a couple of seconds\n");
+      break;
+    }
 
     // blink on fail.
     gpio_xor_mask(1 << PIN_LED);
@@ -81,7 +83,10 @@ void sd_card_init(void) {
   pico_fatfs_set_config(&config);
 
   FRESULT res = f_mount(&fs, "", 1);
-  if (res) sd_card_fault();
+  if (res) {
+    LOG_FATAL("failed to mount sd card filesystem\n");
+    sd_card_fault();
+  }
 }
 
 uint8_t sd_card_get_type(void) {
@@ -210,20 +215,20 @@ sd_card_image_loaders_list_t sd_card_get_image_loaders(void) {
 
     // skip all subdirectories.
     if (finfo.fattrib & AM_DIR) {
-      LOG_SD_CARD_LS("skip directory '%s'\n", finfo.fname);
+      LOG_SD_CARD_OP("skip directory '%s'\n", finfo.fname);
       continue;
     }
 
     // skip all hidden files.
     if (finfo.fname[0] == '.') {
-      LOG_SD_CARD_LS("skip hidden file '%s'\n", finfo.fname);
+      LOG_SD_CARD_OP("skip hidden file '%s'\n", finfo.fname);
       continue;
     }
 
     // try to extract address and extension from file name.
     parsed_image_fname_t parsed_fname = parse_file_name(finfo.fname);
     if (!parsed_fname.valid) {
-      LOG_SD_CARD_LS("skip file with invalid file name '%s'\n", finfo.fname);
+      LOG_SD_CARD_OP("skip file with invalid file name '%s'\n", finfo.fname);
       continue;
     }
 
@@ -238,7 +243,7 @@ sd_card_image_loaders_list_t sd_card_get_image_loaders(void) {
 
     // unsupported image file.
     if (loader_vtable == NULL) {
-      LOG_SD_CARD_LS("skip unsuported file '%s'\n", finfo.fname);
+      LOG_SD_CARD_OP("skip unsuported file '%s'\n", finfo.fname);
       continue;
     }
 
@@ -246,7 +251,7 @@ sd_card_image_loaders_list_t sd_card_get_image_loaders(void) {
     assert(file != NULL);
 
     if (list.size == MAX_IMAGE_LOADERS) {
-      LOG_SD_CARD_LS("images limit (%d) has been reached, ignore file '%s'\n", MAX_IMAGE_LOADERS, finfo.fname);
+      LOG_SD_CARD_OP("images limit (%d) has been reached, ignore file '%s'\n", MAX_IMAGE_LOADERS, finfo.fname);
       continue;
     }
 
