@@ -56,7 +56,51 @@ cmake --build build -j
 
 5. Flash the firmware:
 
-    Hold the **BOOTSEL** button while connecting the Raspberry Pi Pico to your computer. Then copy the `blackgpib.uf2` file from the `build` folder to the mounted Pico drive.
+   Hold the **BOOTSEL** button while connecting the Raspberry Pi Pico to your computer. Then copy the `blackgpib.uf2` file from the `build` folder to the mounted Pico drive.
+
+## How to use it?
+
+After assembling and flashing the device, find a microSD card and format it as FAT32 or exFAT. Copy the disk images to this card. Insert the microSD card into BlackGPIB. Connect BlackGPIB to power, the LED should turn on after about one and a half seconds. After that, you can turn on the GRiD Compass. Enjoy!
+
+### Which file formats are supported?
+
+Currently, only .IMG files are supported. IMD and .CHD are not supported.
+
+If you want to use IMD files from gridrepository.org, please use the [imd2raw](https://github.com/RetroFloppy/imd2raw) converter until BlackGPIB support is not available.
+
+### How is the address selected?
+
+For images that do not have a GPIB address specified in their filename, the address is selected automatically.
+
+Floppy disk images use addresses 5, 6, and 13. Other images use the remaining default addresses (4, 5, 6, 12, 13).
+
+If addresses conflict, or if there are no addresses left, an entry about this will be written to log.txt.
+
+### How do I bind an image to a specific GPIB address?
+
+Rename the image to FXX or HXX, where XX is the GPIB address. For example, FLOPPY4_TEST.IMG or HD12.IMG.
+
+### How do I change the image geometry?
+
+You can’t, it is selected automatically. Geometry configuration is not supported.
+
+### Troubleshooting
+
+**The LED is always off**
+
+Check that you assembled the emulator correctly, powered it, and flashed the correct firmware.
+
+**The device is steadily blinking the LED on the board**
+
+This means that the device does not see the SD card, or the filesystem on it is not FAT.
+
+Remove the SD card, format it again, and insert it into the device. If you did not disconnect power from BlackGPIB, then, if successful, the device will blink the LED several times, and then the LED should stay steadily on. This means that the device is ready to use.
+
+**The device is blinking SOS**
+
+This means that the device has gone into a boot loop. Normally, this should not happen.
+
+Connect the device to your computer, open a serial port monitor, and check what went wrong before the boot loop. You can email me or open an issue, and I will try to help.
 
 ## License
 
