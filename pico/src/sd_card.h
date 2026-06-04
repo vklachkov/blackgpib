@@ -32,6 +32,10 @@ uint8_t sd_card_get_type(void);
 
 uint64_t sd_card_get_size(void);
 
+void sd_card_log_init(void);
+
+void sd_card_log(const char *format, ...);
+
 sd_card_image_loaders_list_t sd_card_get_image_loaders(void);
 
 sd_card_file_t* sd_card_open_file(FILINFO* finfo);

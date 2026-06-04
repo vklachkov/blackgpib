@@ -1,11 +1,10 @@
 #include "gpib.h"
+#include "logging.h"
 #include "gpio.h"
 
 #include "pico/stdlib.h"
 
 #include <stdio.h>
-
-#define LOG_GPIB(...) // printf(__VA_ARGS__)
 
 #define PIN_MASK(...) (0 __VA_ARGS__)
 #define PIN_MASK_SET_BIT(bit) | (1ul << bit)
@@ -32,35 +31,35 @@ gpib_cmd_t gpib_parse_cmd(uint8_t value) {
 void gpib_cmd_debug(const gpib_cmd_t* cmd) {
   switch (cmd->type) {
     case GPIB_CMD_DCL:
-      LOG_GPIB("gpib: DCL\n");
+      LOG_GPIB("DCL\n");
       break;
 
     case GPIB_CMD_SPE:
-      LOG_GPIB("gpib: SPE\n");
+      LOG_GPIB("SPE\n");
       break;
 
     case GPIB_CMD_SPD:
-      LOG_GPIB("gpib: SPD\n");
+      LOG_GPIB("SPD\n");
       break;
 
     case GPIB_CMD_MLA:
-      LOG_GPIB("gpib: MLA(%d)\n", cmd->addr);
+      LOG_GPIB("MLA(%d)\n", cmd->addr);
       break;
     
     case GPIB_CMD_UNL:
-      LOG_GPIB("gpib: UNL\n");
+      LOG_GPIB("UNL\n");
       break;
 
     case GPIB_CMD_MTA:
-      LOG_GPIB("gpib: MTA(%d)\n", cmd->addr);
+      LOG_GPIB("MTA(%d)\n", cmd->addr);
       break;
 
     case GPIB_CMD_UNT:
-      LOG_GPIB("gpib: UNT\n");
+      LOG_GPIB("UNT\n");
       break;
 
     default:
-      LOG_GPIB("gpib: unknown command 0x%02x\n", cmd->raw);
+      LOG_GPIB("unknown command 0x%02x\n", cmd->raw);
       break;
   }
 }

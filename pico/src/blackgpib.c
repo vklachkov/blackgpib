@@ -1,6 +1,7 @@
 #include "blackgpib.h"
 
 #include "common.h"
+#include "logging.h"
 #include "gpib.h"
 #include "gpio.h"
 #include "disk_emulator.h"
@@ -10,8 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define LOG_TRANSPORT(...) // printf(__VA_ARGS__)
 
 #define NO_ACTIVE_DEVICE 0xFF
 
@@ -93,8 +92,12 @@ static void emulator_talk(blackgpib_t* emu) {
   gpib_configure_talker();
 
   if (emu->serial_poll_state == SP_REQUESTED) {
-    gpib_send_serial_poll_response(
-      emu->active_talker == emu->serial_poll_requester ? 0x4F : 0x0F);
+    uint8_t serial_poll_response =
+      emu->active_talker == emu->serial_poll_requester ? 0x4F : 0x0F;
+
+    LOG_TRANSPORT("send serial poll response 0x%02x\n", serial_poll_response);
+    gpib_send_serial_poll_response(serial_poll_response);
+    LOG_TRANSPORT("send finished\n");
   } else {
     const uint8_t* buffer = NULL;
     size_t size = 0;

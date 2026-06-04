@@ -1,14 +1,14 @@
 #include "blackgpib.h"
+#include "logging.h"
 #include "gpio.h"
 #include "sd_card.h"
 
 #include "pico/stdlib.h"
 #include "hardware/gpio.h"
 
+#include <stdlib.h>
 #include <stdio.h>
-
-#define LOG_ERROR(...) printf(__VA_ARGS__)
-#define LOG_SD_CARD(...) printf(__VA_ARGS__)
+#include <inttypes.h>
 
 static void configure_led(void) {
   gpio_init(PIN_LED);
@@ -16,26 +16,23 @@ static void configure_led(void) {
   gpio_put(PIN_LED, 1);
 }
 
-static void log_sd_card_info(void) {
+
+static void setup_sd_card_log(void) {
+  char* fs = "FAT";
   switch (sd_card_get_type()) {
-    case FS_FAT12:
-      LOG_SD_CARD("FS: FAT12\n");
-      break;
-    case FS_FAT16:
-      LOG_SD_CARD("FS: FAT16\n");
-      break;
-    case FS_FAT32:
-      LOG_SD_CARD("FS: FAT32\n");
-      break;
-    case FS_EXFAT:
-      LOG_SD_CARD("FS: ExFAT\n");
-      break;
-    default:
-      LOG_SD_CARD("FS: unknown\n");
-      break;
+    case FS_FAT12: fs = "FAT12"; break;
+    case FS_FAT16: fs = "FAT16"; break;
+    case FS_FAT32: fs = "FAT32"; break;
+    case FS_EXFAT: fs = "EXFAT"; break;
   }
 
-  LOG_SD_CARD("Card size: %0.2f MB\n", sd_card_get_size() / 1024.0 / 1024.0);
+  sd_card_log_init();
+
+  LOG_SD_CARD("BlackGPIB v" PICO_PROGRAM_VERSION_STRING "\n"
+              "Board '" PICO_BOARD "'\n"
+              "SD Card detected, %s volume size: %" PRIu64 " MB\n"
+              "\n",
+              fs, sd_card_get_size() / 1024 / 1024);
 }
 
 static void build_emulators(disk_emulator_t* emulators[MAX_DEVICES]) {
@@ -44,14 +41,6 @@ static void build_emulators(disk_emulator_t* emulators[MAX_DEVICES]) {
 
   sd_card_image_loaders_list_t list = sd_card_get_image_loaders();
 
-  printf("1\n");
-
-  for (size_t i = 0; i < list.size; i++) {
-    printf("%zu. name = '%s', address = %d", i, list.ptr[i].file_name, (int) list.ptr[i].gpib_address);
-  }
-
-  printf("2\n");
-
   // fill slots according to the file names.
   for (size_t i = 0; i < list.size; i++) {
     sd_card_image_loader_item_t* item = &list.ptr[i];
@@ -59,10 +48,10 @@ static void build_emulators(disk_emulator_t* emulators[MAX_DEVICES]) {
       if (emulators[item->gpib_address] == NULL) {
         emulators[item->gpib_address] = disk_emu_new(item->loader);
 
-        LOG_SD_CARD("successfully bind image '%s' to address %d\n",
+        LOG_SD_CARD("Bind image '%s' to address %d\n",
                     item->file_name, (int)item->gpib_address);
       } else {
-        LOG_SD_CARD("failed to bind image '%s' to address %d: address already busy\n",
+        LOG_SD_CARD("Failed to bind image '%s' to address %d: address already busy\n",
                     item->file_name, (int)item->gpib_address);
       }
     }
@@ -95,10 +84,10 @@ static void build_emulators(disk_emulator_t* emulators[MAX_DEVICES]) {
     if (free_address != NO_GPIB_ADDRESS) {
       emulators[free_address] = disk_emu_new(item->loader);
 
-      LOG_SD_CARD("successfully bind floppy image '%s' to address %d\n",
+      LOG_SD_CARD("Bind floppy image '%s' to address %d\n",
                   item->file_name, (int)free_address);
     } else {
-      LOG_SD_CARD("failed to bind floppy image '%s': no free slots, please specify address in file name\n",
+      LOG_SD_CARD("Failed to bind floppy image '%s': no free slots, please specify address in file name\n",
                   item->file_name);
     }
   }
@@ -130,13 +119,15 @@ static void build_emulators(disk_emulator_t* emulators[MAX_DEVICES]) {
     if (free_address != NO_GPIB_ADDRESS) {
       emulators[free_address] = disk_emu_new(item->loader);
 
-      LOG_SD_CARD("successfully bind image '%s' to address %d\n",
+      LOG_SD_CARD("Bind image '%s' to address %d\n",
                   item->file_name, (int)free_address);
     } else {
-      LOG_SD_CARD("failed to bind image '%s': no free slots, please specify address in file name\n",
+      LOG_SD_CARD("Failed to bind image '%s': no free slots, please specify address in file name\n",
                   item->file_name);
     }
   }
+
+  free(list.ptr);
 }
 
 int main() {
@@ -146,16 +137,16 @@ int main() {
 
   configure_led();
 
-  sd_card_init();
 
-  log_sd_card_info();
+  sd_card_init();
+  setup_sd_card_log();
 
   disk_emulator_t* emulators[MAX_DEVICES] = {0};
   build_emulators(emulators);
 
   blackgpib_t* blackgpib = blackgpib_new(emulators);
 
-  LOG_SD_CARD("Initialization complete!");
+  LOG_SD_CARD("\nInitialization complete!");
 
   blackgpib_run(blackgpib);
 

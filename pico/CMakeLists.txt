@@ -29,7 +29,15 @@ project(blackgpib C CXX ASM)
 
 pico_sdk_init()
 
-add_executable(blackgpib src/main.c src/blackgpib.c src/disk_emulator.c src/disk_protocol.c src/gpib.c src/sd_card.c src/loaders/img.c)
+add_executable(blackgpib
+    src/main.c
+    src/blackgpib.c
+    src/disk_emulator.c
+    src/disk_protocol.c
+    src/gpib.c
+    src/sd_card.c
+    src/loaders/img.c
+    src/watchdog.c)
 
 target_compile_options(blackgpib PRIVATE -Wall -Wextra)
 
