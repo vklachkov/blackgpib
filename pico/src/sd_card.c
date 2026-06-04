@@ -2,6 +2,7 @@
 
 #include "common.h"
 #include "logging.h"
+#include "watchdog.h"
 #include "gpio.h"
 
 #include "loaders/img.h"
@@ -62,7 +63,7 @@ static void sd_card_fault(void) {
   gpio_put(PIN_LED, 0);
 
   // and go to reboot to reinitialize device.
-  while (true) watchdog_reboot(0, 0, 0);
+  wd_reboot();
 }
 
 void sd_card_init(void) {

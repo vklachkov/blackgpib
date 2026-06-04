@@ -1,6 +1,7 @@
 #include "blackgpib.h"
 #include "logging.h"
 #include "gpio.h"
+#include "watchdog.h"
 #include "sd_card.h"
 
 #include "pico/stdlib.h"
@@ -16,6 +17,34 @@ static void configure_led(void) {
   gpio_put(PIN_LED, 1);
 }
 
+static void blink_sos(void) {
+#define DOT 80
+
+  while (true) {
+    gpio_put(PIN_LED, 0);
+
+    for (int i = 0; i < 3 * 2; i++) {
+      gpio_xor_mask(1 << PIN_LED);
+      sleep_ms(DOT);
+    }
+
+    for (int i = 0; i < 3; i++) {
+      gpio_xor_mask(1 << PIN_LED);
+      sleep_ms(DOT * 3);
+      gpio_xor_mask(1 << PIN_LED);
+      sleep_ms(DOT);
+    }
+
+    for (int i = 0; i < 3 * 2; i++) {
+      gpio_xor_mask(1 << PIN_LED);
+      sleep_ms(DOT);
+    }
+
+    sleep_ms(1000);
+  }
+
+#undef DOT
+}
 
 static void setup_sd_card_log(void) {
   char* fs = "FAT";
@@ -137,6 +166,9 @@ int main() {
 
   configure_led();
 
+  if (wd_get_reboot_count() > 3) {
+    blink_sos();
+  }
 
   sd_card_init();
   setup_sd_card_log();
@@ -148,6 +180,7 @@ int main() {
 
   LOG_SD_CARD("\nInitialization complete!");
 
+  wd_reset_reboot_count();
   blackgpib_run(blackgpib);
 
   return 0;
