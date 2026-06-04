@@ -143,6 +143,12 @@ void sd_card_log(const char *format, ...) {
     sd_card_fault();
   }
 
+  res = f_sync(&fs_log);
+  if (res) {
+    LOG_FATAL("failed to sync file '" LOG_FILE "', error code %d\n", res);
+    sd_card_fault();
+  }
+
 end:
   va_end(args_print);
   va_end(args_file);
@@ -316,13 +322,13 @@ void sd_card_read(sd_card_file_t* file, uint32_t offset, size_t size, uint8_t* o
   res = f_read(&file->obj, out, SECTOR_SIZE, &br);
   if (res) {
     LOG_FATAL("failed to read %zu bytes from file '%s' at offset %" PRIu32 "\n",
-                   size, file->file_name, offset);
+              size, file->file_name, offset);
     sd_card_fault();
   }
 
   if (br != size) {
     LOG_FATAL("insufficient bytes read. expected %zu, read %zu bytes from file '%s' at offset %" PRIu32 "\n",
-                   size, (size_t)br, file->file_name, offset);
+              size, (size_t)br, file->file_name, offset);
     sd_card_fault();
   }
 }
@@ -334,20 +340,26 @@ void sd_card_write(sd_card_file_t* file, uint32_t offset, const uint8_t* buffer,
   res = f_lseek(&file->obj, offset);
   if (res) {
     LOG_FATAL("failed to seek file '%s' to offset %" PRIu32 "\n",
-                   file->file_name, offset);
+              file->file_name, offset);
     sd_card_fault();
   }
 
   res = f_write(&file->obj, buffer, SECTOR_SIZE, &bw);
   if (res) {
     LOG_FATAL("failed to write %zu bytes from file '%s' at offset %" PRIu32 "\n",
-                   size, file->file_name, offset);
+              size, file->file_name, offset);
     sd_card_fault();
   }
 
   if (bw != size) {
     LOG_FATAL("insufficient bytes write. expected %zu, wrote %zu bytes from file '%s' at offset %" PRIu32 "\n",
-                   size, (size_t)bw, file->file_name, offset);
+              size, (size_t)bw, file->file_name, offset);
+    sd_card_fault();
+  }
+
+  res = f_sync(&file->obj);
+  if (res) {
+    LOG_FATAL("failed to sync file '%s', error code %d\n", file->file_name, res);
     sd_card_fault();
   }
 }
