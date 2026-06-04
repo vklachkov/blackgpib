@@ -1,33 +1,35 @@
 #include "img.h"
 
+#include "../sd_card.h"
+
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
 typedef struct {
-  FIL file;
+  sd_card_file_t* file;
   disk_geometry_t geometry;
 } img_loader_t;
 
 static bool is_supported_ext(const char* ext) {
-  return false;
+  return strncasecmp(ext, "img", 3) == 0;
 }
 
-static disk_loader_err_t open(FATFS* fs, const char* path, void** this) {
-  FRESULT res;
-
+static void* ctor(sd_card_file_t* file) {
   img_loader_t* loader = malloc(sizeof(img_loader_t));
-  if (loader == NULL)
-    return LOADER_NOMEM_ERR;
+  assert(loader != NULL);
 
-  res = f_open(&loader->file, path, FA_READ | FA_WRITE | FA_OPEN_EXISTING);
-  if (res != FR_OK)
-    return LOADER_IO_ERR;
-
+  loader->file = file;
   loader->geometry = (disk_geometry_t) {0};
 
-  *this = loader;
+  return loader;
+}
 
-  return LOADER_OK;
+static void dtor(void* this) {
+  img_loader_t *thiz = this;
+
+  sd_card_close_file(thiz->file);
+  free(thiz);
 }
 
 static disk_geometry_t guess_geometry(uint32_t length) {
@@ -58,81 +60,46 @@ static disk_geometry_t guess_geometry(uint32_t length) {
   return geometry;
 }
 
-static disk_loader_err_t geometry(void* this, disk_geometry_t *out) {
+static disk_geometry_t geometry(void* this) {
   img_loader_t *thiz = this;
 
   if (thiz->geometry.total_sectors == 0) {
-    thiz->geometry = guess_geometry(f_size(&thiz->file));
+    thiz->geometry = guess_geometry(thiz->file->size);
   }
 
-  *out = thiz->geometry;
-
-  return LOADER_OK;
+  return thiz->geometry;
 }
 
-static disk_loader_err_t read(void* this, uint16_t sector, uint8_t (*out)[SECTOR_SIZE]) {
+static void read(void* this, uint16_t sector, uint8_t (*out)[SECTOR_SIZE]) {
   img_loader_t *thiz = this;
 
-  FRESULT res;
-  UINT br;
-
-  res = f_lseek(&thiz->file, sector * SECTOR_SIZE);
-  if (res)
-    return LOADER_IO_ERR;
-
-  res = f_read(&thiz->file, out, SECTOR_SIZE, &br);
-  if (res)
-    return LOADER_IO_ERR;
-
-  if (br != SECTOR_SIZE)
-    return LOADER_IO_ERR;
-
-  return LOADER_OK;
+  sd_card_read(thiz->file, sector * SECTOR_SIZE, SECTOR_SIZE, (uint8_t*)out);
 }
 
-static disk_loader_err_t write(void* this, uint16_t sector, uint8_t (*data)[SECTOR_SIZE]) {
+static void write(void* this, uint16_t sector, uint8_t (*data)[SECTOR_SIZE]) {
   img_loader_t *thiz = this;
 
-  FRESULT res;
-  UINT bw;
-
-  res = f_lseek(&thiz->file, sector * SECTOR_SIZE);
-  if (res)
-    return LOADER_IO_ERR;
-
-  res = f_write(&thiz->file, data, SECTOR_SIZE, &bw);
-  if (res)
-    return LOADER_IO_ERR;
-
-  if (bw != SECTOR_SIZE)
-    return LOADER_IO_ERR;
-
-  return LOADER_OK;
+  sd_card_write(thiz->file, sector * SECTOR_SIZE, (const uint8_t*)data, SECTOR_SIZE);
 }
 
-static disk_loader_err_t format(void* this) {
+static void format(void* this) {
   img_loader_t *thiz = this;
 
-  disk_geometry_t geom;
-  geometry(this, &geom);
+  disk_geometry_t geom = geometry(this);
 
   uint8_t buffer[SECTOR_SIZE];
   memset(buffer, 0xE5, SECTOR_SIZE);
   memset(buffer, 0xFF, 8);
 
   for (uint16_t i = 0; i < geom.total_sectors; i++) {
-    disk_loader_err_t err = write(this, i, &buffer);
-    if (err) {
-      return err;
-    }
+    sd_card_write(thiz->file, i * SECTOR_SIZE, buffer, SECTOR_SIZE);
   }
-
-  return LOADER_OK;
 }
 
 const disk_loader_vtable_t DISK_IMG_LOADER = {
   .is_supported_ext = is_supported_ext,
-  .open = open,
+  .ctor = ctor,
+  .dtor = dtor,
   .geometry = geometry,
   .read = read,
   .write = write,

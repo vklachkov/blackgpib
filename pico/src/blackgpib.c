@@ -1,14 +1,9 @@
 #include "blackgpib.h"
+
 #include "common.h"
 #include "gpib.h"
 #include "gpio.h"
 #include "disk_emulator.h"
-#include "loaders/img.h"
-#include "sd_fault.h"
-
-#include "pico/stdlib.h"
-#include "pico_fatfs/tf_card.h"
-#include "pico_fatfs/fatfs/ff.h"
 
 #include "hardware/gpio.h"
 
@@ -17,10 +12,7 @@
 #include <string.h>
 
 #define LOG_TRANSPORT(...) // printf(__VA_ARGS__)
-#define LOG_ERROR(...) // printf(__VA_ARGS__)
-#define LOG_SD_CARD(...) // printf(__VA_ARGS__)
 
-#define MAX_DEVICES 31
 #define NO_ACTIVE_DEVICE 0xFF
 
 typedef enum {
@@ -29,7 +21,7 @@ typedef enum {
   SP_REQUESTED,
 } serial_poll_state_t;
 
-typedef struct {
+typedef struct blackgpib_s {
   uint8_t active_listener;
   uint8_t active_talker;
 
@@ -45,7 +37,6 @@ typedef struct {
 blackgpib_t* blackgpib_new(disk_emulator_t* emulators[MAX_DEVICES]) {
   blackgpib_t* blackgpib = malloc(sizeof(blackgpib_t));
   if (blackgpib == NULL) {
-    LOG_ERROR("Failed to alloc memory for blackgpib\n");
     return NULL;
   }
 
@@ -120,7 +111,7 @@ static void emulator_talk(blackgpib_t* emu) {
   gpib_configure_listener();
 }
 
-int blackgpib_run(blackgpib_t* emu) {
+void blackgpib_run(blackgpib_t* emu) {
   gpib_preconfigure_pins();
   gpib_configure_listener();
 
@@ -256,98 +247,4 @@ int blackgpib_run(blackgpib_t* emu) {
     
     gpio_put(PIN_LED, 1);
   }
-
-  return 0;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-int open_demo_images(disk_loader_t* loader1, disk_loader_t* loader2) {
-  pico_fatfs_spi_config_t config = {
-    spi0,
-    CLK_SLOW_DEFAULT,
-    CLK_FAST_DEFAULT,
-    PIN_SD_CARD_MISO,
-    PIN_SD_CARD_CS,
-    PIN_SD_CARD_SCK,
-    PIN_SD_CARD_MOSI,
-    true
-  };
-
-  bool spi_configured = pico_fatfs_set_config(&config);
-  if (!spi_configured) {
-    LOG_ERROR("Failed to configure SPI\n");
-    return 1;
-  }
-
-  static FATFS fs;
-
-  FRESULT ret = f_mount(&fs, "", 1);  // with force check
-  if (ret != FR_OK) {
-    LOG_ERROR("Failed to configure SD card\n");
-    return 1;
-  }
-
-  switch (fs.fs_type) {
-    case FS_FAT12:
-      LOG_SD_CARD("FS type is FAT12\n");
-      break;
-    case FS_FAT16:
-      LOG_SD_CARD("FS type is FAT16\n");
-      break;
-    case FS_FAT32:
-      LOG_SD_CARD("FS type is FAT32\n");
-      break;
-    case FS_EXFAT:
-      LOG_SD_CARD("FS type is ExFAT\n");
-      break;
-    default:
-      LOG_SD_CARD("FS type is unknown\n");
-      break;
-  }
-
-  LOG_SD_CARD("Card size: %0.2f GB\n", fs.csize * fs.n_fatent * 512E-9);
-
-  if (DISK_IMG_LOADER.open(&fs, "HD4_DATA.img", &loader1->self))
-    sd_card_fault();
-
-  loader1->vtable = &DISK_IMG_LOADER;
-
-  if (DISK_IMG_LOADER.open(&fs, "GRID OS.IMG", &loader2->self))
-    sd_card_fault();
-
-  loader2->vtable = &DISK_IMG_LOADER;
-
-  return 0;
-}
-
-int main() {
-  stdio_init_all();
-
-  gpio_init(PIN_LED);
-  gpio_set_dir(PIN_LED, GPIO_OUT);
-  gpio_put(PIN_LED, 1);
-
-  disk_loader_t loader1;
-  disk_loader_t loader2;
-
-  int ret = open_demo_images(&loader1, &loader2);
-  if (ret) sd_card_fault();
-
-  disk_emulator_t* emulator1 = disk_emu_new(loader1);
-  disk_emulator_t* emulator2 = disk_emu_new(loader2);
-
-  LOG_SD_CARD("Starting emulator...\n");
-
-  disk_emulator_t* emulators[MAX_DEVICES] = {0};
-  emulators[0x04] = emulator1;
-  emulators[0x06] = emulator2;
-
-  blackgpib_t* blackgpib = blackgpib_new(emulators);
-  if (blackgpib == NULL) {
-    LOG_ERROR("Failed to alloc memory for emulator\n");
-    return 1;
-  }
-
-  return blackgpib_run(blackgpib);
 }

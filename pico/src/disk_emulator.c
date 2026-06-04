@@ -1,7 +1,6 @@
 #include "disk_emulator.h"
 #include "disk_protocol.h"
 #include "loaders/loader.h"
-#include "sd_fault.h"
 #include "common.h"
 #include "gpio.h"
 
@@ -55,8 +54,7 @@ static void process_write_request(disk_emulator_t* emu, const uint8_t* data, siz
 
   uint32_t sector = emu->current_request.sector;
 
-  if (emu->loader.vtable->write(emu->loader.self, sector, (void*)data))
-    sd_card_fault();
+  emu->loader.vtable->write(emu->loader.self, sector, (void*)data);
 
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, (uint16_t)sector, 0 };
   emu->buffer_len = disk_resp_serialize(&resp, emu->buffer, SECTOR_SIZE);
@@ -64,7 +62,7 @@ static void process_write_request(disk_emulator_t* emu, const uint8_t* data, siz
   return;
 }
 
-static void process_init_request(disk_emulator_t* emu, const disk_req_t* req) {
+static void process_init_request(disk_emulator_t* emu) {
   // do nothing, everything is already initialized.
 
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, 0, 0 };
@@ -105,11 +103,8 @@ static uint16_t get_min_dir_pages(disk_geometry_t* geometry) {
   }
 }
 
-static void process_get_status_request(disk_emulator_t* emu, const disk_req_t* req) {
-  disk_geometry_t geometry;
-
-  if (emu->loader.vtable->geometry(emu->loader.self, &geometry))
-    sd_card_fault();
+static void process_get_status_request(disk_emulator_t* emu) {
+  disk_geometry_t geometry = emu->loader.vtable->geometry(emu->loader.self);
 
   // TODO: should we support flush?
   disk_status_t status = {
@@ -117,7 +112,7 @@ static void process_get_status_request(disk_emulator_t* emu, const disk_req_t* r
     .logical_sector_size = LOGICAL_SECTOR_SIZE,
     .sector_count = geometry.total_sectors,
     .drive_status = DRIVE_STATUS_READY,
-    .bitmap_fid = get_superblock_fid(&geometry),
+    .bitmap_fid = get_bitmap_fid(&geometry),
     .superblock_fid = get_superblock_fid(&geometry),
     .min_dir_pages = get_min_dir_pages(&geometry),
     .flush = 0,
@@ -128,7 +123,7 @@ static void process_get_status_request(disk_emulator_t* emu, const disk_req_t* r
   };
 
   for (size_t i = 0; i < sizeof(status.device_name); i++) {
-    status.device_name[i] = ' ';  // TODO: Set some name
+    status.device_name[i] = ' ';  // TODO: set some name
   }
 
   emu->buffer_len = disk_status_serialize(&status, emu->buffer, SECTOR_SIZE);
@@ -137,17 +132,15 @@ static void process_get_status_request(disk_emulator_t* emu, const disk_req_t* r
 static void process_read_request(disk_emulator_t* emu, const disk_req_t* req) {
   uint32_t sector = req->sector;
 
-  if (emu->loader.vtable->read(emu->loader.self, sector, &emu->buffer))
-    sd_card_fault();
+  emu->loader.vtable->read(emu->loader.self, sector, &emu->buffer);
 
   emu->buffer_len = SECTOR_SIZE;
 
   return;
 }
 
-static void process_format_request(disk_emulator_t* emu, const disk_req_t* req) {
-  if (emu->loader.vtable->format(emu->loader.self))
-    sd_card_fault();
+static void process_format_request(disk_emulator_t* emu) {
+  emu->loader.vtable->format(emu->loader.self);
 
   disk_resp_t resp = (disk_resp_t) { DISK_RESP_OK, 0, 0, 0 };
   emu->buffer_len = disk_resp_serialize(&resp, emu->buffer, SECTOR_SIZE);
@@ -178,12 +171,12 @@ static bool process_new_request(disk_emulator_t* emu, const uint8_t* data, size_
   switch (req.code) {
     case DISK_REQ_INITIALIZE:
       LOG_EMU("disk_emu: received Initialize request\n");
-      process_init_request(emu, &req);
+      process_init_request(emu);
       break;
 
     case DISK_REQ_GET_STATUS:
       LOG_EMU("disk_emu: received GetStatus(size=%" PRIu16 ") request\n", req.data_size);
-      process_get_status_request(emu, &req);
+      process_get_status_request(emu);
       break;
 
     case DISK_REQ_WRITE:
@@ -200,7 +193,7 @@ static bool process_new_request(disk_emulator_t* emu, const uint8_t* data, size_
 
     case DISK_REQ_FORMAT:
       LOG_EMU("disk_emu: received Format request\n");
-      process_format_request(emu, &req);
+      process_format_request(emu);
       srq_required = true;
       break;
 
