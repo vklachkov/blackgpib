@@ -186,10 +186,6 @@ static parsed_image_fname_t parse_file_name(const char* fname) {
 
 sd_card_image_loaders_list_t sd_card_get_image_loaders(void) {
   FRESULT res;
-
-  res = f_mount(&fs, "", 1);
-  if (res) sd_card_fault();
-
   DIR dir;
   FILINFO finfo;
 
