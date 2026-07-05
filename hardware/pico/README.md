@@ -10,7 +10,7 @@
 | SN75160                  | -                         | SMD or DIP               | 1        |                                                                      |
 | SN75161 / SN75162        | -                         | SMD or DIP               | 1        |                                                                      |
 | Resistor Pack (4x0603)   | 3.3kΩ                     | 1206 (4x0603)            | 2        | Front side of the board                                              |
-| Resistor Pack (4x0603)   | 3.3kΩ                     | 1206 (4x0603)            | 2        | Back side of the board                                               |
+| Resistor Pack (4x0603)   | 6.8kΩ                     | 1206 (4x0603)            | 2        | Back side of the board                                               |
 | Ceramic Capacitor        | 0.1µF                     | 1206                     | 3        | Any for 5V, I used random 10V capacitor                              |
 | Tantalum Capacitor       | 100µF                     | Case C (6032)            | 1        | Any for 3.3V, I used random 10V capacitor                            |
 | MicroSD Card Slot        | -                         | SMD                      | 1        | [LSCS](https://www.lcsc.com/product-detail/C114218.html)             |
