@@ -31,6 +31,8 @@ pico_sdk_init()
 
 add_executable(blackgpib
     src/main.c
+    src/adapter.c
+    src/usb_cdc.c
     src/blackgpib.c
     src/disk_emulator.c
     src/disk_protocol.c
@@ -50,7 +52,7 @@ pico_enable_stdio_uart(blackgpib 0)
 pico_enable_stdio_usb(blackgpib 1)
 
 target_link_libraries(blackgpib
-        pico_stdlib pico_fatfs hardware_gpio)
+        pico_stdlib pico_fatfs hardware_gpio pico_multicore)
 
 target_include_directories(blackgpib PRIVATE
         ${CMAKE_CURRENT_LIST_DIR})

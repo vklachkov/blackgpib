@@ -3,8 +3,10 @@
 #include "gpio.h"
 #include "watchdog.h"
 #include "sd_card.h"
+#include "adapter.h"
 
 #include "pico/stdlib.h"
+#include "pico/multicore.h"
 #include "hardware/gpio.h"
 
 #include <stdlib.h>
@@ -14,7 +16,6 @@
 static void configure_led(void) {
   gpio_init(PIN_LED);
   gpio_set_dir(PIN_LED, GPIO_OUT);
-  gpio_put(PIN_LED, 1);
 }
 
 static void blink_sos(void) {
@@ -166,6 +167,13 @@ int main() {
 
   configure_led();
 
+  if (wd_take_adapter_mode()) {
+    wd_reset_reboot_count();
+    adapter_run();
+  } else {
+      multicore_launch_core1(adapter_wait_connect);
+  }
+
   if (wd_get_reboot_count() >= 3) {
     LOG_FATAL("boot loop detected!\n");
     blink_sos();
@@ -180,6 +188,8 @@ int main() {
   blackgpib_t* blackgpib = blackgpib_new(emulators);
 
   LOG_SD_CARD("\nInitialization complete!");
+
+  gpio_put(PIN_LED, 1);
 
   wd_reset_reboot_count();
   blackgpib_run(blackgpib);
