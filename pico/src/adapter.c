@@ -8,6 +8,7 @@
 #include "pico/multicore.h"
 #include "pico/stdlib.h"
 
+#include <stdio.h>
 #include <string.h>
 
 void adapter_wait_connect(void) {
@@ -37,6 +38,39 @@ static void blink_adapter(void) {
   }
 }
 
+static void adapter_version(void) {
+  printf("BLACKGPIB-" PICO_PROGRAM_VERSION_STRING "\r\n");
+}
+
+static void adapter_disk_status(const char* device) {
+  (void)device;
+}
+
+static void adapter_read_sector(const char* device, const char* sector) {
+  (void)device;
+  (void)sector;
+}
+
+static void adapter_gpib_reset(void) {
+}
+
+static void adapter_handle_command(const usb_cdc_command_t* command) {
+  if (command->form == USB_CDC_EXECUTE && strcmp(command->name, "VERSION") == 0) {
+    adapter_version();
+  } else if (command->form == USB_CDC_SET && command->argc == 1 &&
+             strcmp(command->name, "STATUS") == 0) {
+    adapter_disk_status(command->args[0]);
+  } else if (command->form == USB_CDC_SET && command->argc == 2 &&
+             strcmp(command->name, "READ") == 0) {
+    adapter_read_sector(command->args[0], command->args[1]);
+  } else if (command->form == USB_CDC_EXECUTE &&
+             strcmp(command->name, "GPIB_RESET") == 0) {
+    adapter_gpib_reset();
+  } else {
+    printf("ERROR\r\n");
+  }
+}
+
 void adapter_run(void) {
   gpio_init(PIN_LED);
   gpio_set_dir(PIN_LED, GPIO_OUT);
@@ -51,5 +85,7 @@ void adapter_run(void) {
         strcmp(command.name, "DISCONNECT") == 0) {
       wd_reboot_to_emulator();
     }
+
+    adapter_handle_command(&command);
   }
 }
