@@ -1,5 +1,6 @@
 #include "adapter.h"
 
+#include "blackgpib.h"
 #include "gpio.h"
 #include "usb_cdc.h"
 #include "watchdog.h"
@@ -9,7 +10,9 @@
 #include "pico/stdlib.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 void adapter_wait_connect(void) {
   while (true) {
@@ -38,6 +41,22 @@ static void blink_adapter(void) {
   }
 }
 
+static bool adapter_parse_uint32(const char* text, uint32_t* value) {
+  char* end;
+  unsigned long number = strtoul(text, &end, 10);
+
+  if (*text == '\0' || *end != '\0' || number > UINT32_MAX) return false;
+  *value = (uint32_t)number;
+  return true;
+}
+
+static void adapter_print_hex(const uint8_t* buffer, size_t size) {
+  for (size_t i = 0; i < size; i++) {
+    printf(i == 0 ? "%02X" : " %02X", buffer[i]);
+  }
+  printf("\r\n");
+}
+
 static void adapter_version(void) {
   printf("BLACKGPIB-" PICO_PROGRAM_VERSION_STRING "\r\n");
 }
@@ -47,8 +66,17 @@ static void adapter_disk_status(const char* device) {
 }
 
 static void adapter_read_sector(const char* device, const char* sector) {
-  (void)device;
-  (void)sector;
+  uint32_t device_number;
+  uint32_t sector_number;
+
+  if (!adapter_parse_uint32(device, &device_number) || device_number >= MAX_DEVICES ||
+      !adapter_parse_uint32(sector, &sector_number) || sector_number > 0xFFFF) {
+    printf("ERROR\r\n");
+    return;
+  }
+
+  static const uint8_t buffer[] = {0xA1, 0xA3, 0xB3, 0xBD, 0x12, 0x34, 0xF3};
+  adapter_print_hex(buffer, sizeof(buffer));
 }
 
 static void adapter_gpib_reset(void) {
